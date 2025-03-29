@@ -1,66 +1,72 @@
 #!/bin/bash
 
-#========================================
-# Auto KVM Environment Setup + VM Creator
-#========================================
+# Debian in Pterodactyl using PRoot Installer
+# Author: ChatGPT
 
 set -e
 
-# ------------ CONFIG ------------
-VM_NAME="myvm-auto"
-RAM_MB=2048
-VCPUS=2
-DISK_SIZE_GB=20
-ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso"
-ISO_DIR="/var/lib/libvirt/boot"
-ISO_NAME="$(basename $ISO_URL)"
-ISO_PATH="${ISO_DIR}/${ISO_NAME}"
-DISK_PATH="/var/lib/libvirt/images/${VM_NAME}.qcow2"
-OS_VARIANT="ubuntu22.04"
-NETWORK_BRIDGE="default"
-# ------------ END CONFIG ------------
+# === CONFIGURATION ===
+DEBIAN_VERSION="bookworm"  # You can change to bullseye or others
+ARCH="amd64"
+DEBIAN_TARBALL_URL="https://cdimage.debian.org/cdimage/release/current/${ARCH}/iso-cd/debian-${DEBIAN_VERSION}-amd64-netinst.iso"
 
-echo "[*] Updating and installing KVM and dependencies..."
+# === Set working directories ===
+WORK_DIR="$HOME/debian"
+ROOTFS_DIR="${WORK_DIR}/rootfs"
+PROOT_URL="https://github.com/proot-me/proot-static-build/releases/latest/download/proot-x86_64"
 
-sudo apt update
-sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager virtinst osinfo-bin
+# === Create directories if not exist ===
+mkdir -p "$WORK_DIR"
+cd "$WORK_DIR"
 
-echo "[*] Enabling and starting libvirtd service..."
-sudo systemctl enable libvirtd
-sudo systemctl start libvirtd
-
-echo "[*] Adding user '${USER}' to libvirt and kvm groups..."
-sudo usermod -aG libvirt "$USER"
-sudo usermod -aG kvm "$USER"
-
-echo "[*] Creating ISO directory if not exists..."
-sudo mkdir -p "$ISO_DIR"
-
-if [ ! -f "$ISO_PATH" ]; then
-    echo "[*] Downloading ISO from $ISO_URL..."
-    sudo wget -O "$ISO_PATH" "$ISO_URL"
+# === Download PRoot ===
+if [ ! -f "proot" ]; then
+    echo "Downloading PRoot..."
+    wget -O proot "$PROOT_URL"
+    chmod +x proot
 else
-    echo "[*] ISO already exists at $ISO_PATH"
+    echo "PRoot already downloaded."
 fi
 
-echo "[*] Creating VM disk image..."
-sudo qemu-img create -f qcow2 "$DISK_PATH" "${DISK_SIZE_GB}G"
+# === Download Debian RootFS ===
+if [ ! -d "$ROOTFS_DIR" ]; then
+    echo "Downloading Debian root filesystem..."
 
-echo "[*] Starting VM installation..."
+    # Use prebuilt Debian rootfs from trusted source (like udroid or techroid mirror)
+    ROOTFS_URL="https://raw.githubusercontent.com/EXALAB/AnLinux-Resources/master/Rootfs/Debian/${ARCH}/debian-rootfs.tar.gz"
+    
+    wget -O debian-rootfs.tar.gz "$ROOTFS_URL"
+    mkdir -p "$ROOTFS_DIR"
+    echo "Extracting Debian rootfs (this might take a while)..."
+    tar -xzf debian-rootfs.tar.gz -C "$ROOTFS_DIR"
+    rm debian-rootfs.tar.gz
+else
+    echo "Debian rootfs already exists."
+fi
 
-sudo virt-install \
-  --name="${VM_NAME}" \
-  --ram="${RAM_MB}" \
-  --vcpus="${VCPUS}" \
-  --os-variant="${OS_VARIANT}" \
-  --hvm \
-  --cdrom="${ISO_PATH}" \
-  --network network="${NETWORK_BRIDGE}" \
-  --graphics vnc \
-  --disk path="${DISK_PATH}",format=qcow2 \
-  --noautoconsole
+# === Create Launch Script ===
+LAUNCHER="$WORK_DIR/start-debian.sh"
 
-echo ""
-echo "[+] VM '${VM_NAME}' installation started."
-echo "[!] You may need to log out and back in for group permissions to apply."
-echo "[*] Connect using: sudo virt-viewer --connect qemu:///system ${VM_NAME}, or use VNC."
+cat > "$LAUNCHER" << EOF
+#!/bin/bash
+cd "\$(dirname "\$0")"
+
+# Fix symlink problem in some containers
+unset LD_PRELOAD
+
+# Start Debian with PRoot
+./proot \\
+  -0 \\
+  -r rootfs \\
+  -b /dev \\
+  -b /proc \\
+  -b /sys \\
+  -b /etc/resolv.conf \\
+  -w /root \\
+  /bin/bash --login
+EOF
+
+chmod +x "$LAUNCHER"
+
+echo -e "\n✅ Installation complete."
+echo "👉 To start Debian, run: $LAUNCHER"
