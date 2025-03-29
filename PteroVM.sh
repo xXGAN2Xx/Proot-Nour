@@ -32,7 +32,7 @@ case $install_ubuntu in
   [yY][eE][sS])
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.xz \
       "https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/refs/heads/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-${ARCH_ALT}.tar.xz"
-    tar -xf rootfs.tar.gz -C $ROOTFS_DIR
+    tar -xf rootfs.tar.xz -C $ROOTFS_DIR
     ;;
   *)
     echo "Skipping Ubuntu installation."
