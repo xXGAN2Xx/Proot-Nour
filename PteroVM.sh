@@ -1,64 +1,80 @@
 #!/bin/bash
 
-# Variables
-IMAGE_NAME="custom/debian12"
-IMAGE_VERSION="latest"
-FULL_IMAGE_NAME="$IMAGE_NAME:$IMAGE_VERSION"
-DOCKERFILE_DIR="./debian12_container"
+# Filename: install_debian.sh
+# Purpose: Download and install Debian rootfs using proot in unprivileged environments (e.g., Pterodactyl panel)
 
-echo "[*] Creating Dockerfile for Debian 12..."
+set -e
 
-# Create Dockerfile directory
-mkdir -p "$DOCKERFILE_DIR"
+# Config
+ARCH=$(uname -m)
+ROOTFS_URL=""
+ROOTFS_TAR="debian-rootfs.tar.xz"
+INSTALL_DIR="$HOME/debian-fs"
+BIN_DIR="$HOME/bin"
 
-# Create Dockerfile
-cat > "$DOCKERFILE_DIR/Dockerfile" <<EOF
-FROM debian:12
+# Ensure a bin directory is on PATH
+mkdir -p "$BIN_DIR"
+export PATH="$BIN_DIR:$PATH"
 
-LABEL maintainer="Your Name <you@example.com>"
-ENV DEBIAN_FRONTEND=noninteractive
+# Select architecture
+case "$ARCH" in
+    x86_64)
+        ROOTFS_URL="https://cdimage.debian.org/cdimage/archive/11.7.0/amd64/iso-cd/debian-11.7.0-amd64-netinst.iso"
+        ;;
+    aarch64 | arm64)
+        ROOTFS_URL="https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/master/Rootfs/arm64/debian-rootfs-arm64.tar.xz"
+        ;;
+    armv7l)
+        ROOTFS_URL="https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/master/Rootfs/armhf/debian-rootfs-armhf.tar.xz"
+        ;;
+    *)
+        echo "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
 
-RUN apt update && \\
-    apt install -y curl nano iproute2 iputils-ping net-tools && \\
-    apt clean
-
-CMD ["/bin/bash"]
-EOF
-
-echo "[+] Dockerfile created at $DOCKERFILE_DIR/Dockerfile"
-
-# Build Docker image
-echo "[*] Building Docker image: $FULL_IMAGE_NAME"
-docker build -t "$FULL_IMAGE_NAME" "$DOCKERFILE_DIR"
-
-if [ $? -ne 0 ]; then
-  echo "[!] Docker build failed!"
-  exit 1
+# Download proot binary if not present
+if ! command -v proot &>/dev/null; then
+    echo "[+] Downloading proot..."
+    PROOT_BIN="proot"
+    wget https://github.com/proot-me/proot-static-build/releases/latest/download/proot-x86_64 -O "$BIN_DIR/$PROOT_BIN"
+    chmod +x "$BIN_DIR/$PROOT_BIN"
 fi
 
-echo "[+] Docker image $FULL_IMAGE_NAME built successfully."
-
-# Ask user if they want to push to Docker Hub
-read -p "Do you want to push this image to Docker Hub? (y/n): " push_confirm
-
-if [[ "$push_confirm" == "y" ]]; then
-  read -p "Enter your Docker Hub username: " docker_user
-  docker tag "$FULL_IMAGE_NAME" "$docker_user/debian12-ptero:latest"
-  docker push "$docker_user/debian12-ptero:latest"
-  echo "[+] Image pushed as $docker_user/debian12-ptero:latest"
-  IMAGE_FOR_PANEL="$docker_user/debian12-ptero:latest"
-else
-  echo "[!] Skipping push. You will need to load this image directly into the Pterodactyl daemon."
-  IMAGE_FOR_PANEL="$FULL_IMAGE_NAME"
+# Download rootfs
+if [ ! -f "$ROOTFS_TAR" ]; then
+    echo "[+] Downloading Debian rootfs..."
+    wget "$ROOTFS_URL" -O "$ROOTFS_TAR"
 fi
+
+# Extract rootfs
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo "[+] Extracting Debian filesystem..."
+    mkdir -p "$INSTALL_DIR"
+    tar -xJf "$ROOTFS_TAR" -C "$INSTALL_DIR"
+fi
+
+# Create launcher script
+echo "[+] Creating launch script..."
+
+cat > "$HOME/start-debian.sh" <<- EOM
+#!/bin/bash
+unset LD_PRELOAD
+COMMAND="proot \\
+    --link2symlink \\
+    -0 \\
+    -r $INSTALL_DIR \\
+    -b /dev \\
+    -b /proc \\
+    -b /sys \\
+    -b \$HOME \\
+    -w /root \\
+    /bin/bash --login"
+exec \$COMMAND
+EOM
+
+chmod +x "$HOME/start-debian.sh"
 
 echo ""
-echo "======================================================"
-echo "✅ Done! Next Steps for Pterodactyl Setup:"
-echo "1. Go to your Pterodactyl Admin Panel."
-echo "2. Create a new Egg or modify an existing one."
-echo "3. In Docker Image field, use: $IMAGE_FOR_PANEL"
-echo "4. Set startup command: /bin/bash or any server you want."
-echo "5. Allocate ports if needed and assign to a node."
-echo "6. Done!"
-echo "======================================================"
+echo "✅ Debian rootfs installed successfully!"
+echo "➡️  Run it using: ./start-debian.sh"
