@@ -31,7 +31,7 @@ fi
 case $install_ubuntu in
   [yY][eE][sS])
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.xz \
-      "https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-${ARCH}-pd-v4.17.3.tar.xz"
+      "https://cloud.debian.org/images/cloud/bookworm/20250316-2053/debian-12-azure-${ARCH_ALT}-20250316-2053.tar.xz"
     tar -xf rootfs.tar.xz -C $ROOTFS_DIR
     ;;
   *)
