@@ -1,47 +1,101 @@
 import java.io.File
-import java.net.URL
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+import java.io.IOException
 
 fun main() {
-    val url = URL("https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh")
-    val destination = File("PteroVM.sh")
+    val scriptName = "install-debian.sh"
+
+    // Bash script content
+    val bashScript = """
+        #!/bin/bash
+        
+        DEBIAN_ROOT=debian-fs
+        DEBIAN_TARBALL=debian-rootfs.tar.gz
+        ARCHITECTURE=$(uname -m)
+
+        case "$ARCHITECTURE" in
+            x86_64)
+                ARCH="amd64"
+                ;;
+            aarch64)
+                ARCH="arm64"
+                ;;
+            *)
+                echo "Unsupported architecture: $ARCHITECTURE"
+                exit 1
+                ;;
+        esac
+
+        if ! command -v proot &> /dev/null; then
+            echo "[INFO] Installing proot..."
+            apt update && apt install -y proot
+            if [ $? -ne 0 ]; then
+                echo "[ERROR] Failed to install proot. Make sure you have network access and permissions."
+                exit 1
+            fi
+        fi
+
+        if [ ! -d "$DEBIAN_ROOT" ]; then
+            echo "[INFO] Downloading Debian root filesystem for $ARCH..."
+            wget https://raw.githubusercontent.com/proot-me/proot-distro/master/assets/debian/rootfs/${ARCH}/debian-rootfs.tar.gz -O $DEBIAN_TARBALL
+
+            if [ $? -ne 0 ]; then
+                echo "[ERROR] Failed to download Debian rootfs"
+                exit 1
+            fi
+
+            echo "[INFO] Extracting root filesystem..."
+            mkdir -p "$DEBIAN_ROOT"
+            tar -xf "$DEBIAN_TARBALL" -C "$DEBIAN_ROOT"
+
+            echo "[INFO] Cleaning up tarball..."
+            rm -f "$DEBIAN_TARBALL"
+        fi
+
+        cat > start-debian.sh <<- EOM
+        #!/bin/bash
+        echo "[INFO] Entering Debian via proot..."
+        proot \\
+          --link2symlink \\
+          -0 \\
+          -r $DEBIAN_ROOT \\
+          -b /dev \\
+          -b /proc \\
+          -b /sys \\
+          -b /etc/resolv.conf \\
+          -w /root \\
+          /bin/bash --login
+        EOM
+
+        chmod +x start-debian.sh
+
+        echo "[INFO] Setup complete."
+        echo "Run ./start-debian.sh to enter the Debian environment."
+    """.trimIndent()
 
     try {
-        println("Downloading script from $url...")
-        downloadFile(url, destination)
-        println("Download complete: ${destination.absolutePath}")
+        // Write script to file
+        File(scriptName).writeText(bashScript)
+        println("[Kotlin] Bash script '$scriptName' written successfully.")
 
-        // Set executable permission on downloaded file
-        val chmod = ProcessBuilder("chmod", "+x", destination.absolutePath)
-        chmod.inheritIO()
-        val chmodExit = chmod.start().waitFor()
-        if (chmodExit != 0) {
-            println("Failed to set executable permissions.")
-            return
-        }
+        // Make it executable
+        ProcessBuilder("chmod", "+x", scriptName)
+            .inheritIO()
+            .start()
+            .waitFor()
 
-        // Execute the script
-        println("Executing script...")
-        val process = ProcessBuilder("/bin/sh", destination.absolutePath)
-        process.inheritIO()
-        val exitCode = process.start().waitFor()
-        println("Script exited with code $exitCode")
+        println("[Kotlin] Script made executable.")
 
-    } catch (e: Exception) {
-        println("Error downloading or running script: ${e.message}")
+        // Run the bash script
+        val process = ProcessBuilder("./$scriptName")
+            .inheritIO()  // Redirect output to console
+            .start()
+
+        val exitCode = process.waitFor()
+        println("[Kotlin] Script finished with exit code $exitCode.")
+
+    } catch (e: IOException) {
         e.printStackTrace()
-    } finally {
-        // Ensure the script file is deleted even if an error happens
-        if (destination.exists()) {
-            println("Cleaning up script file...")
-            destination.delete()
-        }
-    }
-}
-
-fun downloadFile(url: URL, destination: File) {
-    url.openStream().use { inputStream ->
-        Files.copy(inputStream, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    } catch (e: InterruptedException) {
+        e.printStackTrace()
     }
 }
