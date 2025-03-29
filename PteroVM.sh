@@ -30,9 +30,9 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
+    wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.xz \
       "https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/refs/heads/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-${ARCH_ALT}.tar.xz"
-    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
+    tar -xf rootfs.tar.gz -C $ROOTFS_DIR
     ;;
   *)
     echo "Skipping Ubuntu installation."
@@ -48,20 +48,20 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-${ARCH}-static"
 
     if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
-      chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+      chmod +x $ROOTFS_DIR/usr/local/bin/proot
       break
     fi
 
-    chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+    chmod +x $ROOTFS_DIR/usr/local/bin/proot
     sleep 1
   done
 
-  chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+  chmod +x $ROOTFS_DIR/usr/local/bin/proot
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
-  rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+  rm -rf /tmp/sbin
   touch $ROOTFS_DIR/.installed
 fi
 
