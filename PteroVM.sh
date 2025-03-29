@@ -1,80 +1,39 @@
 #!/bin/bash
 
-# Filename: install_debian.sh
-# Purpose: Download and install Debian rootfs using proot in unprivileged environments (e.g., Pterodactyl panel)
+# Set variables
+DEBIAN_VERSION="bullseye"
+ARCH="amd64"
+MIRROR="https://mirrors.tuna.tsinghua.edu.cn/debian"
+ROOTFS_URL="https://mirrors.tuna.tsinghua.edu.cn/debian/dists/${DEBIAN_VERSION}/main/installer-${ARCH}/current/images/netboot/debian-installer/${ARCH}/initrd.gz"
+DEBIAN_TARBALL="debian-rootfs.tar.gz"
+DEBIAN_DIR="debian-fs"
+PROOT_BIN="proot"
 
-set -e
-
-# Config
-ARCH=$(uname -m)
-ROOTFS_URL=""
-ROOTFS_TAR="debian-rootfs.tar.xz"
-INSTALL_DIR="$HOME/debian-fs"
-BIN_DIR="$HOME/bin"
-
-# Ensure a bin directory is on PATH
-mkdir -p "$BIN_DIR"
-export PATH="$BIN_DIR:$PATH"
-
-# Select architecture
-case "$ARCH" in
-    x86_64)
-        ROOTFS_URL="https://cdimage.debian.org/cdimage/archive/11.7.0/amd64/iso-cd/debian-11.7.0-amd64-netinst.iso"
-        ;;
-    aarch64 | arm64)
-        ROOTFS_URL="https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/master/Rootfs/arm64/debian-rootfs-arm64.tar.xz"
-        ;;
-    armv7l)
-        ROOTFS_URL="https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/master/Rootfs/armhf/debian-rootfs-armhf.tar.xz"
-        ;;
-    *)
-        echo "Unsupported architecture: $ARCH"
-        exit 1
-        ;;
-esac
-
-# Download proot binary if not present
-if ! command -v proot &>/dev/null; then
-    echo "[+] Downloading proot..."
-    PROOT_BIN="proot"
-    wget https://github.com/proot-me/proot-static-build/releases/latest/download/proot-x86_64 -O "$BIN_DIR/$PROOT_BIN"
-    chmod +x "$BIN_DIR/$PROOT_BIN"
+# Download and install proot if not present
+if [ ! -f "./proot" ]; then
+    echo "[*] Downloading proot..."
+    wget https://github.com/proot-me/proot/releases/download/v5.3.0/proot-x86_64 -O proot
+    chmod +x proot
 fi
 
-# Download rootfs
-if [ ! -f "$ROOTFS_TAR" ]; then
-    echo "[+] Downloading Debian rootfs..."
-    wget "$ROOTFS_URL" -O "$ROOTFS_TAR"
+# Download Debian rootfs if not already downloaded
+if [ ! -d "$DEBIAN_DIR" ]; then
+    echo "[*] Downloading Debian rootfs..."
+    wget ${MIRROR}/pool/main/d/debootstrap/debootstrap_1.0.123_all.deb -O debootstrap.deb
+    mkdir -p "$DEBIAN_DIR"
+    echo "[*] Extracting Debian rootfs..."
+    wget "https://mirrors.tuna.tsinghua.edu.cn/lug/debian-rootfs/${DEBIAN_VERSION}-${ARCH}.tar.gz" -O "$DEBIAN_TARBALL"
+    tar -xzf "$DEBIAN_TARBALL" -C "$DEBIAN_DIR"
 fi
 
-# Extract rootfs
-if [ ! -d "$INSTALL_DIR" ]; then
-    echo "[+] Extracting Debian filesystem..."
-    mkdir -p "$INSTALL_DIR"
-    tar -xJf "$ROOTFS_TAR" -C "$INSTALL_DIR"
-fi
-
-# Create launcher script
-echo "[+] Creating launch script..."
-
-cat > "$HOME/start-debian.sh" <<- EOM
+# Create launch script
+cat > start-debian.sh <<- EOM
 #!/bin/bash
+cd \$(dirname \$0)
 unset LD_PRELOAD
-COMMAND="proot \\
-    --link2symlink \\
-    -0 \\
-    -r $INSTALL_DIR \\
-    -b /dev \\
-    -b /proc \\
-    -b /sys \\
-    -b \$HOME \\
-    -w /root \\
-    /bin/bash --login"
-exec \$COMMAND
+./proot -0 -r $DEBIAN_DIR -b /dev -b /proc -b /sys -b /etc/resolv.conf:/etc/resolv.conf -w /root /bin/bash --login
 EOM
 
-chmod +x "$HOME/start-debian.sh"
+chmod +x start-debian.sh
 
-echo ""
-echo "✅ Debian rootfs installed successfully!"
-echo "➡️  Run it using: ./start-debian.sh"
+echo "[*] Setup complete. Run ./start-debian.sh to enter Debian environment."
