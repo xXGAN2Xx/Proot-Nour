@@ -1,57 +1,35 @@
+#!/usr/bin/env kotlin
+
 import java.io.File
-import java.net.URL
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
+import java.io.IOException
 
-fun main() {
-    val scriptUrl = URL("https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh")
-    val scriptFile = File("PteroVM.sh")
+val scriptUrl = "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/PteroVM.sh"
+val scriptName = "PteroVM.sh"
 
-    try {
-        println("🔽 Downloading script...")
-        downloadFile(scriptUrl, scriptFile.toPath())
-
-        println("🔐 Setting executable permissions...")
-        makeExecutable(scriptFile)
-
-        println("🚀 Running script...")
-        runScript(scriptFile)
-
-        println("🧹 Cleaning up...")
-        deleteFile(scriptFile)
-
-        println("✅ Done.")
-    } catch (e: Exception) {
-        System.err.println("❌ Error during script execution: ${e.message}")
-        e.printStackTrace()
+fun runCommand(command: String): String {
+    println("Running: $command")
+    return try {
+        val process = ProcessBuilder("/bin/bash", "-c", command)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor()
+        println(output)
+        output
+    } catch (e: IOException) {
+        println("Error running command: $e")
+        ""
     }
 }
 
-fun downloadFile(url: URL, destination: Path) {
-    url.openStream().use { input ->
-        Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING)
-    }
-}
+// Step 1: Download the script
+println("Downloading $scriptUrl...")
+runCommand("curl -L -o $scriptName $scriptUrl")
 
-fun makeExecutable(file: File) {
-    if (!file.setExecutable(true)) {
-        throw RuntimeException("Failed to set script as executable")
-    }
-}
+// Step 2: Make it executable
+println("Making $scriptName executable...")
+runCommand("chmod +x $scriptName")
 
-fun runScript(file: File) {
-    val process = ProcessBuilder("sh", file.name)
-        .inheritIO()
-        .start()
-    val exitCode = process.waitFor()
-    if (exitCode != 0) {
-        throw RuntimeException("Script exited with code $exitCode")
-    }
-}
-
-fun deleteFile(file: File) {
-    if (file.exists() && !file.delete()) {
-        println("⚠️ Warning: Failed to delete script file: ${file.absolutePath}")
-    }
-}
+// Step 3: Run the script
+println("Running $scriptName...")
+runCommand("./$scriptName")
