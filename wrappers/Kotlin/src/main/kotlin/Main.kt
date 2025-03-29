@@ -1,35 +1,69 @@
-#!/usr/bin/env kotlin
-
 import java.io.File
 import java.io.IOException
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import kotlin.system.exitProcess
 
-val scriptUrl = "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/PteroVM.sh"
-val scriptName = "PteroVM.sh"
+fun main() {
+    val scriptUrl = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh"
+    val scriptFile = File("PteroVM.sh")
 
-fun runCommand(command: String): String {
-    println("Running: $command")
-    return try {
-        val process = ProcessBuilder("/bin/bash", "-c", command)
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().readText()
-        process.waitFor()
-        println(output)
-        output
-    } catch (e: IOException) {
-        println("Error running command: $e")
-        ""
+    try {
+        log("🔽 Downloading script from $scriptUrl")
+        downloadFile(URL(scriptUrl), scriptFile.toPath())
+
+        log("🔐 Making script executable")
+        makeExecutable(scriptFile)
+
+        log("🚀 Executing script")
+        runScript(scriptFile)
+
+        log("🧹 Cleaning up script file")
+        deleteFile(scriptFile)
+
+        log("✅ Script executed successfully.")
+    } catch (e: Exception) {
+        error("❌ Error: ${e.message}")
+        e.printStackTrace()
+        exitProcess(1)
     }
 }
 
-// Step 1: Download the script
-println("Downloading $scriptUrl...")
-runCommand("curl -L -o $scriptName $scriptUrl")
+fun downloadFile(url: URL, destination: Path) {
+    try {
+        url.openStream().use { input ->
+            Files.copy(input, destination, StandardCopyOption.REPLACE_EXISTING)
+        }
+    } catch (e: IOException) {
+        throw IOException("Failed to download file from $url", e)
+    }
+}
 
-// Step 2: Make it executable
-println("Making $scriptName executable...")
-runCommand("chmod +x $scriptName")
+fun makeExecutable(file: File) {
+    if (!file.setExecutable(true)) {
+        throw IOException("Unable to set executable permission on ${file.absolutePath}")
+    }
+}
 
-// Step 3: Run the script
-println("Running $scriptName...")
-runCommand("./$scriptName")
+fun runScript(file: File) {
+    val process = ProcessBuilder("sh", file.absolutePath)
+        .redirectErrorStream(true)
+        .inheritIO()
+        .start()
+
+    val exitCode = process.waitFor()
+    if (exitCode != 0) {
+        throw RuntimeException("Script exited with non-zero code: $exitCode")
+    }
+}
+
+fun deleteFile(file: File) {
+    if (file.exists() && !file.delete()) {
+        log("⚠️ Warning: Could not delete file ${file.absolutePath}")
+    }
+}
+
+fun log(message: String) = println("[INFO] $message")
+fun error(message: String) = System.err.println("[ERROR] $message")
