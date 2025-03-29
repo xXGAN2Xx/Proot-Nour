@@ -78,7 +78,7 @@ display_gg() {
   echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
 }
 
-clear
+
 display_gg
 
 $ROOTFS_DIR/usr/local/bin/proot \
