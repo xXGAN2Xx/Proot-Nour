@@ -23,7 +23,7 @@ fun main() {
 
     if (!prootFile.exists()) {
         println("Downloading PRoot...")
-        runCommand(listOf("wget", "https://github.com/proot-me/proot/releases/download/v5.1.0/proot-static-x86_64"), File("."))
+        runCommand(listOf("wget", "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-x86_64-static"), File("."))
         prootFile.renameTo(File("proot"))
         runCommand(listOf("chmod", "+x", "proot"), File("."))
     }
