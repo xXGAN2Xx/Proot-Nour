@@ -1,39 +1,66 @@
 #!/bin/bash
 
-# Set variables
-DEBIAN_VERSION="bullseye"
-ARCH="amd64"
-MIRROR="https://mirrors.tuna.tsinghua.edu.cn/debian"
-ROOTFS_URL="https://mirrors.tuna.tsinghua.edu.cn/debian/dists/${DEBIAN_VERSION}/main/installer-${ARCH}/current/images/netboot/debian-installer/${ARCH}/initrd.gz"
-DEBIAN_TARBALL="debian-rootfs.tar.gz"
-DEBIAN_DIR="debian-fs"
-PROOT_BIN="proot"
+#========================================
+# Auto KVM Environment Setup + VM Creator
+#========================================
 
-# Download and install proot if not present
-if [ ! -f "./proot" ]; then
-    echo "[*] Downloading proot..."
-    wget https://github.com/proot-me/proot/releases/download/v5.3.0/proot-x86_64 -O proot
-    chmod +x proot
+set -e
+
+# ------------ CONFIG ------------
+VM_NAME="myvm-auto"
+RAM_MB=2048
+VCPUS=2
+DISK_SIZE_GB=20
+ISO_URL="https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso"
+ISO_DIR="/var/lib/libvirt/boot"
+ISO_NAME="$(basename $ISO_URL)"
+ISO_PATH="${ISO_DIR}/${ISO_NAME}"
+DISK_PATH="/var/lib/libvirt/images/${VM_NAME}.qcow2"
+OS_VARIANT="ubuntu22.04"
+NETWORK_BRIDGE="default"
+# ------------ END CONFIG ------------
+
+echo "[*] Updating and installing KVM and dependencies..."
+
+sudo apt update
+sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager virtinst osinfo-bin
+
+echo "[*] Enabling and starting libvirtd service..."
+sudo systemctl enable libvirtd
+sudo systemctl start libvirtd
+
+echo "[*] Adding user '${USER}' to libvirt and kvm groups..."
+sudo usermod -aG libvirt "$USER"
+sudo usermod -aG kvm "$USER"
+
+echo "[*] Creating ISO directory if not exists..."
+sudo mkdir -p "$ISO_DIR"
+
+if [ ! -f "$ISO_PATH" ]; then
+    echo "[*] Downloading ISO from $ISO_URL..."
+    sudo wget -O "$ISO_PATH" "$ISO_URL"
+else
+    echo "[*] ISO already exists at $ISO_PATH"
 fi
 
-# Download Debian rootfs if not already downloaded
-if [ ! -d "$DEBIAN_DIR" ]; then
-    echo "[*] Downloading Debian rootfs..."
-    wget ${MIRROR}/pool/main/d/debootstrap/debootstrap_1.0.123_all.deb -O debootstrap.deb
-    mkdir -p "$DEBIAN_DIR"
-    echo "[*] Extracting Debian rootfs..."
-    wget "https://mirrors.tuna.tsinghua.edu.cn/lug/debian-rootfs/${DEBIAN_VERSION}-${ARCH}.tar.gz" -O "$DEBIAN_TARBALL"
-    tar -xzf "$DEBIAN_TARBALL" -C "$DEBIAN_DIR"
-fi
+echo "[*] Creating VM disk image..."
+sudo qemu-img create -f qcow2 "$DISK_PATH" "${DISK_SIZE_GB}G"
 
-# Create launch script
-cat > start-debian.sh <<- EOM
-#!/bin/bash
-cd \$(dirname \$0)
-unset LD_PRELOAD
-./proot -0 -r $DEBIAN_DIR -b /dev -b /proc -b /sys -b /etc/resolv.conf:/etc/resolv.conf -w /root /bin/bash --login
-EOM
+echo "[*] Starting VM installation..."
 
-chmod +x start-debian.sh
+sudo virt-install \
+  --name="${VM_NAME}" \
+  --ram="${RAM_MB}" \
+  --vcpus="${VCPUS}" \
+  --os-variant="${OS_VARIANT}" \
+  --hvm \
+  --cdrom="${ISO_PATH}" \
+  --network network="${NETWORK_BRIDGE}" \
+  --graphics vnc \
+  --disk path="${DISK_PATH}",format=qcow2 \
+  --noautoconsole
 
-echo "[*] Setup complete. Run ./start-debian.sh to enter Debian environment."
+echo ""
+echo "[+] VM '${VM_NAME}' installation started."
+echo "[!] You may need to log out and back in for group permissions to apply."
+echo "[*] Connect using: sudo virt-viewer --connect qemu:///system ${VM_NAME}, or use VNC."
