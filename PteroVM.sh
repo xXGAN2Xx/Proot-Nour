@@ -31,7 +31,7 @@ fi
 case $install_ubuntu in
   [yY][eE][sS])
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.xz \
-      "https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/refs/heads/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-${ARCH_ALT}.tar.xz"
+      "https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-${ARCH}-pd-v4.17.3.tar.xz"
     tar -xf rootfs.tar.xz -C $ROOTFS_DIR
     ;;
   *)
