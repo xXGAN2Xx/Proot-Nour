@@ -1,56 +1,34 @@
 import java.io.File
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
-fun runCommand(command: List<String>, workingDir: File = File(".")) {
-    println("Running: ${command.joinToString(" ")}")
-    val process = ProcessBuilder(command)
-        .directory(workingDir)
-        .redirectErrorStream(true)
-        .start()
+fun main() {
+    val url = URL("https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh")
+    val destination = File("PteroVM.sh")
 
-    process.inputStream.bufferedReader().use { reader ->
-        reader.lines().forEach { println(it) }
-    }
+    try {
+        downloadFile(url, destination)
 
-    val exitCode = process.waitFor()
-    if (exitCode != 0) {
-        throw RuntimeException("Command failed: ${command.joinToString(" ")} (Exit code: $exitCode)")
+        // Set executable permission on downloaded file
+        val chmod = ProcessBuilder("chmod", "+x", destination.name)
+        chmod.inheritIO()
+        chmod.start().waitFor()
+
+        // Run the downloaded file
+        val harbor = ProcessBuilder("sh", destination.name)
+        harbor.inheritIO()
+        harbor.start().waitFor()
+
+        // Remove the downloaded script after running
+        destination.delete()
+    } catch (e: Exception) {
+        println("Error downloading or running script: ${e.message}")
+        e.printStackTrace()
     }
 }
 
-fun main() {
-    val rootFsDir = File("debian-fs")
-    val prootFile = File("proot")
-
-    if (!prootFile.exists()) {
-        println("Downloading PRoot...")
-        runCommand(listOf("wget", "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-x86_64-static"), File("."))
-        prootFile.renameTo(File("proot"))
-        runCommand(listOf("chmod", "+x", "proot"), File("."))
-    }
-
-    if (!rootFsDir.exists()) {
-        println("Creating Debian filesystem...")
-        rootFsDir.mkdir()
-        // Download Debian rootfs - ensure architecture is correct (e.g., amd64)
-        runCommand(listOf("wget", "https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz"), rootFsDir)
-        println("Downloading rootfs using debootstrap or rootfs tarball...")
-
-        // Quick method: Use prebuilt rootfs tarball
-        runCommand(listOf("wget", "https://github.com/debuerreotype/docker-debian-artifacts/raw/dist-amd64/bookworm/slim/rootfs.tar.xz"), File("."))
-        println("Extracting rootfs...")
-        runCommand(listOf("tar", "-xJf", "rootfs.tar.xz", "-C", rootFsDir.absolutePath))
-    }
-
-    // Create start script
-    val startScript = File("start-debian.sh")
-    startScript.writeText(
-        """
-        #!/bin/bash
-        unset LD_PRELOAD
-        ./proot -0 -r debian-fs -b /dev -b /proc -b /sys -w /root /bin/bash
-        """.trimIndent()
-    )
-    runCommand(listOf("chmod", "+x", "start-debian.sh"))
-
-    println("Setup complete! Run ./start-debian.sh to enter Debian environment.")
+fun downloadFile(url: URL, destination: File) {
+    Files.copy(url.openStream(), Paths.get(destination.toURI()), StandardCopyOption.REPLACE_EXISTING)
 }
