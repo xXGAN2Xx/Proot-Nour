@@ -1,154 +1,64 @@
 #!/bin/bash
 
-#############################
-# Linux Installation Script #
-#############################
+# Variables
+IMAGE_NAME="custom/debian12"
+IMAGE_VERSION="latest"
+FULL_IMAGE_NAME="$IMAGE_NAME:$IMAGE_VERSION"
+DOCKERFILE_DIR="./debian12_container"
 
-ROOTFS_DIR="/home/container"
-export PATH="$PATH:$HOME/.local/usr/bin"
+echo "[*] Creating Dockerfile for Debian 12..."
 
-max_retries=50
-timeout=3
+# Create Dockerfile directory
+mkdir -p "$DOCKERFILE_DIR"
 
-# Detect the machine architecture.
-ARCH=$(uname -m)
+# Create Dockerfile
+cat > "$DOCKERFILE_DIR/Dockerfile" <<EOF
+FROM debian:12
 
-# Determine package architecture.
-case "$ARCH" in
-  x86_64) PACKAGE_ARCH="amd64" ;;  # changed to match Debian naming
-  aarch64) PACKAGE_ARCH="aarch64" ;;
-  i686 | i386) PACKAGE_ARCH="i386" ;;
-  armv7l | armhf) PACKAGE_ARCH="arm" ;;
-  *)
-    echo "Unsupported CPU architecture: ${ARCH}"
-    exit 1
-    ;;
-esac
+LABEL maintainer="Your Name <you@example.com>"
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Download & install Linux root filesystem if not done already
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then
-    echo "#######################################################################################"
-    echo "#"
-    echo "#                                Nour PteroVM Installer"
-    echo "#"
-    echo "#                           Copyright © VPSFREE.ES"
-    echo "#"
-    echo "#######################################################################################"
-    echo ""
-    echo "[!] Defaulting to Debian (no input)..."
+RUN apt update && \\
+    apt install -y curl nano iproute2 iputils-ping net-tools && \\
+    apt clean
 
-    echo "[!] Downloading Debian netboot rootfs..."
-    NETBOOT_URL="https://mirrors.tuna.tsinghua.edu.cn/debian/dists/bookworm/main/installer-${ARCH}/current/images/netboot/netboot.tar.gz"
-    wget --tries=$max_retries --timeout=$timeout -O /tmp/netboot.tar.gz "$NETBOOT_URL"
+CMD ["/bin/bash"]
+EOF
 
-    echo "[!] Installing gzip utils..."
-    apt update && apt install -y gzip tar
+echo "[+] Dockerfile created at $DOCKERFILE_DIR/Dockerfile"
 
-    echo "[!] Extracting netboot rootfs..."
-    mkdir -p "$ROOTFS_DIR"
-    tar -xzf /tmp/netboot.tar.gz -C "$ROOTFS_DIR"
+# Build Docker image
+echo "[*] Building Docker image: $FULL_IMAGE_NAME"
+docker build -t "$FULL_IMAGE_NAME" "$DOCKERFILE_DIR"
+
+if [ $? -ne 0 ]; then
+  echo "[!] Docker build failed!"
+  exit 1
 fi
 
-################################
-# Package Installation & Setup #
-################################
+echo "[+] Docker image $FULL_IMAGE_NAME built successfully."
 
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then
-    mkdir -p "$ROOTFS_DIR/usr/local/bin"
+# Ask user if they want to push to Docker Hub
+read -p "Do you want to push this image to Docker Hub? (y/n): " push_confirm
 
-    echo "[!] Downloading proot binary..."
-    proot_url="https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot"
-    proot_bin="$ROOTFS_DIR/usr/local/bin/proot"
-
-    attempt=0
-    until [ -s "$proot_bin" ] || [ "$attempt" -ge "$max_retries" ]; do
-        wget --timeout=$timeout -O "$proot_bin" "$proot_url"
-        chmod +x "$proot_bin"
-        ((attempt++))
-        if [ ! -s "$proot_bin" ]; then
-            echo "[!] proot download failed, retrying... ($attempt/$max_retries)"
-            sleep 1
-        fi
-    done
-
-    if [ ! -s "$proot_bin" ]; then
-        echo "[ERROR] Failed to download proot after $max_retries attempts."
-        exit 1
-    fi
+if [[ "$push_confirm" == "y" ]]; then
+  read -p "Enter your Docker Hub username: " docker_user
+  docker tag "$FULL_IMAGE_NAME" "$docker_user/debian12-ptero:latest"
+  docker push "$docker_user/debian12-ptero:latest"
+  echo "[+] Image pushed as $docker_user/debian12-ptero:latest"
+  IMAGE_FOR_PANEL="$docker_user/debian12-ptero:latest"
+else
+  echo "[!] Skipping push. You will need to load this image directly into the Pterodactyl daemon."
+  IMAGE_FOR_PANEL="$FULL_IMAGE_NAME"
 fi
 
-# Final setup & mark as installed
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then
-    echo "[!] Finalizing installation..."
-
-    # Fix DNS settings inside chroot
-    echo -e "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
-
-    # Cleanup
-    rm -f /tmp/netboot.tar.gz
-
-    # Mark as installed
-    touch "$ROOTFS_DIR/.installed"
-fi
-
-####################################
-# Display system resources summary #
-####################################
-
-# Define color escape codes
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[1;33m'
-MAGENTA='\e[1;35m'
-RESET_COLOR='\e[0m'
-
-# Optional: check if these environment variables are set
-SERVER_MEMORY=${SERVER_MEMORY:-"Unknown"}
-SERVER_PORT=${SERVER_PORT:-"Unknown"}
-P_SERVER_ALLOCATION_LIMIT=${P_SERVER_ALLOCATION_LIMIT:-"Unknown"}
-P_SERVER_UUID=${P_SERVER_UUID:-"Unknown"}
-P_SERVER_LOCATION=${P_SERVER_LOCATION:-"Unknown"}
-
-display_header() {
-    echo -e "${MAGENTA} __      __        ______"
-    echo -e " \\ \\    / /       |  ____|"
-    echo -e "  \\ \\  / / __  ___| |__ _ __ ___  ___   ___  ___"
-    echo -e "   \\ \\/ / '_ \\/ __|  __| '__/ _ \\/ _ \\ / _ \\/ __|"
-    echo -e "    \\  /| |_) \\__ \\ |  | | |  __/  __/|  __/\\__ \\"
-    echo -e "     \\/ | .__/|___/_|  |_|  \\___|\\___(_)___||___/"
-    echo -e "        | |"
-    echo -e "        |_|"
-    echo -e "__________________________________________________________"
-    echo -e "        ${YELLOW}-----> System Resources <-----${RESET_COLOR}"
-    echo
-}
-
-display_resources() {
-    echo -e " INSTALLER OS -> ${RED}$(grep 'PRETTY_NAME' /etc/os-release | cut -d\" -f2)${RESET_COLOR}"
-    echo -e " CPU          -> ${YELLOW}$(grep 'model name' /proc/cpuinfo | head -n1 | cut -d ':' -f2 | sed 's/^ *//')${RESET_COLOR}"
-    echo -e " RAM          -> ${GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
-    echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET_COLOR}"
-    echo -e " EXTRA PORTS  -> ${GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
-    echo -e " SERVER UUID  -> ${GREEN}${P_SERVER_UUID}${RESET_COLOR}"
-    echo -e " LOCATION     -> ${GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
-}
-
-display_footer() {
-    echo -e "${MAGENTA}__________________________________________________________${RESET_COLOR}"
-    echo -e ""
-    echo -e "         ${YELLOW}-----> VPS HAS STARTED <-----${RESET_COLOR}"
-}
-
-clear
-display_header
-display_resources
-display_footer
-
-####################################
-# Start PRoot Linux environment   #
-####################################
-
-"$ROOTFS_DIR/usr/local/bin/proot" \
-  --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
-  -b /dev -b /sys -b /proc -b /etc/resolv.conf \
-  --kill-on-exit
+echo ""
+echo "======================================================"
+echo "✅ Done! Next Steps for Pterodactyl Setup:"
+echo "1. Go to your Pterodactyl Admin Panel."
+echo "2. Create a new Egg or modify an existing one."
+echo "3. In Docker Image field, use: $IMAGE_FOR_PANEL"
+echo "4. Set startup command: /bin/bash or any server you want."
+echo "5. Allocate ports if needed and assign to a node."
+echo "6. Done!"
+echo "======================================================"
