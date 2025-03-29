@@ -31,7 +31,7 @@ fi
 case $install_ubuntu in
   [yY][eE][sS])
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-      "https://github.com/AndronixApp/AndronixOrigin/blob/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-amd64.tar.xz"
+      "https://raw.githubusercontent.com/AndronixApp/AndronixOrigin/refs/heads/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-${ARCH_ALT}.tar.xz"
     tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
     ;;
   *)
