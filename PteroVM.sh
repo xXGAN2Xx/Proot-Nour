@@ -30,9 +30,9 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.xz \
-      "https://cloud.debian.org/images/cloud/bookworm/20250316-2053/debian-12-azure-${ARCH_ALT}-20250316-2053.tar.xz"
-    tar -xf rootfs.tar.xz -C $ROOTFS_DIR
+    wget --tries=$max_retries --timeout=$timeout --no-hsts -O rootfs.tar.gz \
+      "http://cdimage.ubuntu.com/ubuntu-base/releases/24.10/release/ubuntu-base-24.10-base-${ARCH_ALT}.tar.gz"
+    tar -xf rootfs.tar.gz -C $ROOTFS_DIR
     ;;
   *)
     echo "Skipping Ubuntu installation."
