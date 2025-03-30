@@ -30,7 +30,6 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
   echo "#"
   echo "#                           Copyright (C) 2024, RecodeStudios.Cloud"
   echo "#"
-  echo "#"
   echo "#######################################################################################"
 
   install_ubuntu=YES
