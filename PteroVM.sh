@@ -30,8 +30,9 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    curl -sSLo rootfs.tar.gz https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.tar.gz >/dev/null 2>err.log
-    tar -xf rootfs.tar.gz >/dev/null 2>err.log
+    curl -sSLo rootfs.tar.gz https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.tar.gz
+    apt download xz-utils
+    tar -xf rootfs.tar.gz
     ;;
   *)
     echo "Skipping Ubuntu installation."
