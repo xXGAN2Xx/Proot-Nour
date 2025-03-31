@@ -35,7 +35,7 @@ case $install_ubuntu in
     deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
     dpkg -x $deb_file ~/.local/
     rm "$deb_file"
-    tar -xJf rootfs.tar.xz
+    tar -xJf rootfs.tar.xz -C $ROOTFS_DIR
     ;;
   *)
     echo "Skipping Ubuntu installation."
