@@ -1,345 +1,543 @@
 #!/bin/bash
-# ==================================================================
-# PRoot Environment Controller for Pterodactyl Panel
-# Version: 4.0 - Enterprise Edition
+# ======================================================
+# Advanced PRoot Environment Setup for Pterodactyl Panel
+# Version: 3.0 - Enhanced Edition
 # Copyright (C) 2024, RecodeStudios.Cloud
-# 
-# Advanced containerization solution for Pterodactyl Panel with
-# multi-distribution support, health monitoring, and auto-recovery
-# ==================================================================
+# ======================================================
 
-# Strict error handling and runtime protection
-set -e
-# Check if running in bash before setting pipefail
-if [ -n "$BASH_VERSION" ]; then
-    set -o pipefail
-fi
+# Strict error handling
+set -eo pipefail  # Exit on error and pipe failures
+trap 'handle_error $? $LINENO' ERR  # Custom error handler
 
-# Modified error handling approach to avoid ERR trap issues
-# Instead of: trap 'handle_error $? $LINENO $BASH_COMMAND' ERR
-command_error_handler() {
-    local exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        handle_error $exit_code $1 "$2"
-    fi
-    return $exit_code
-}
-
-trap cleanup EXIT INT TERM
-
-# ====================== GLOBAL VARIABLES ======================
-
-# Core paths
+# Configuration variables
 ROOTFS_DIR="$(pwd)"
 CACHE_DIR="${ROOTFS_DIR}/.cache"
-CONFIG_DIR="${ROOTFS_DIR}/.config"
-BACKUP_DIR="${ROOTFS_DIR}/.backups"
-PLUGIN_DIR="${ROOTFS_DIR}/.plugins"
-LOG_DIR="${ROOTFS_DIR}/.logs"
-
-# Files
-CONFIG_FILE="${CONFIG_DIR}/settings.conf"
-LOG_FILE="${LOG_DIR}/proot-installer.log"
-STATUS_FILE="${CONFIG_DIR}/status.json"
-LOCK_FILE="/tmp/proot-installer.lock"
-
-# Environment variables
-export PATH="$PATH:${HOME}/.local/usr/bin:${ROOTFS_DIR}/usr/local/bin"
-export LANG=C.UTF-8
-export LC_ALL=C.UTF-8
+export PATH="$PATH:${HOME}/.local/usr/bin"
+LOG_FILE="${ROOTFS_DIR}/installation.log"
+CONFIG_FILE="${ROOTFS_DIR}/.config"
 
 # Default settings
-declare -A DEFAULTS=(
-    ["MAX_RETRIES"]="50"
-    ["TIMEOUT"]="10"
-    ["DISTRO"]="ubuntu"
-    ["DISTRO_VERSION"]="focal"
-    ["PROOT_VERSION"]="latest"
-    ["DNS_SERVERS"]="1.1.1.1,1.0.0.1"
-    ["MEMORY_LIMIT"]="0"  # 0 = no limit
-    ["AUTO_UPDATE"]="false"
-    ["HEALTH_CHECK_INTERVAL"]="3600"
-    ["ADVANCED_NETWORKING"]="false"
-    ["ENABLE_X11"]="false"
-    ["LOCALE"]="en_US.UTF-8"
-    ["TIMEZONE"]="UTC"
-    ["USER_PACKAGES"]=""
-    ["BIND_MOUNTS"]="/dev,/proc,/sys,/tmp"
-    ["COMPRESSION_LEVEL"]="6"
-)
+DEFAULT_MAX_RETRIES=50
+DEFAULT_TIMEOUT=8
+DEFAULT_UBUNTU_VERSION="focal"
+DEFAULT_PROOT_VERSION="latest"
+DEFAULT_DNS_SERVERS="1.1.1.1,1.0.0.1"
 
-# Repository URLs
-declare -A REPO_URLS=(
-    ["ubuntu"]="https://partner-images.canonical.com/core"
-    ["debian"]="https://deb.debian.org/debian/dists"
-    ["alpine"]="https://dl-cdn.alpinelinux.org/alpine"
-    ["arch"]="https://archive.archlinux.org/iso"
-    ["fedora"]="https://dl.fedoraproject.org/pub/fedora/linux/releases"
-    ["opensuse"]="https://download.opensuse.org/repositories/openSUSE"
-)
+# URLs
+PROOT_URL="https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+UBUNTU_BASE_URL="https://partner-images.canonical.com/core"
 
-# Terminal colors with fallback to no colors when not in a terminal
-if [ -t 1 ]; then
-    BOLD='\e[1m'
-    UNDERLINE='\e[4m'
-    CYAN='\e[0;36m'
-    GREEN='\e[0;32m'
-    YELLOW='\e[0;33m'
-    RED='\e[0;31m'
-    BLUE='\e[0;34m'
-    MAGENTA='\e[0;35m'
-    WHITE='\e[0;37m'
-    RESET='\e[0m'
-else
-    BOLD=''
-    UNDERLINE=''
-    CYAN=''
-    GREEN=''
-    YELLOW=''
-    RED=''
-    BLUE=''
-    MAGENTA=''
-    WHITE=''
-    RESET=''
-fi
+# Terminal colors
+BOLD='\e[1m'
+CYAN='\e[0;36m'
+GREEN='\e[0;32m'
+YELLOW='\e[0;33m'
+RED='\e[0;31m'
+BLUE='\e[0;34m'
+WHITE='\e[0;37m'
+RESET='\e[0m'
 
-# Runtime variables (initialized in main)
-DISTRO=""
-DISTRO_VERSION=""
-ARCH=""
-ARCH_ALT=""
-VERSION_INFO=""
-START_TIME=""
-FORCE_INSTALL="false"
-FORCE_DOWNLOAD="false"
-SKIP_DEPS_CHECK="false"
-VERBOSE="false"
-QUIET="false"
-DRY_RUN="false"
-BENCHMARK="false"
-MONITOR_MODE="false"
-INTERACTIVE="true"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
-SCRIPT_FULL_PATH="${SCRIPT_DIR}/${SCRIPT_NAME}"
-
-# ====================== UTILITY FUNCTIONS ======================
-
-# Function to initialize the environment
-initialize_environment() {
-    # Create necessary directories
-    mkdir -p "$CACHE_DIR" "$CONFIG_DIR" "$BACKUP_DIR" "$PLUGIN_DIR" "$LOG_DIR"
-    
-    # Initialize status file
-    if [ ! -f "$STATUS_FILE" ]; then
-        echo '{
-            "status": "not_installed",
-            "last_update": null,
-            "version": null,
-            "distro": null,
-            "arch": null,
-            "health": null,
-            "uptime": 0,
-            "installed_packages": []
-        }' > "$STATUS_FILE"
-    fi
-    
-    # Set up lock file to prevent concurrent execution
-    if [ -f "$LOCK_FILE" ]; then
-        pid=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            log_message "ERROR" "Another instance is already running (PID: $pid)"
-            exit 1
-        fi
-    fi
-    echo $$ > "$LOCK_FILE"
-    
-    # Record start time for benchmarking
-    START_TIME=$(date +%s)
-    
-    # Set interactive mode based on terminal detection
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
-        INTERACTIVE="false"
-    fi
-}
+# ====================== FUNCTIONS ======================
 
 # Function to handle errors
 handle_error() {
     local exit_code=$1
     local line_number=$2
-    local command=$3
-    
-    if [ "$DRY_RUN" = "true" ]; then
-        log_message "WARNING" "Would have failed at line ${line_number} with command: ${command}"
-        return 0
-    fi
-    
     log_message "ERROR" "Script failed at line ${line_number} with exit code ${exit_code}"
-    log_message "ERROR" "Failed command: ${command}"
-    
-    # Generate diagnostic information
-    generate_diagnostics
-    
-    if [ "$INTERACTIVE" = "true" ]; then
-        echo -e "\n${RED}${BOLD}Installation failed!${RESET}"
-        echo -e "${YELLOW}Diagnostic information has been saved to: ${LOG_DIR}/diagnostics.log${RESET}"
-        
-        # Offer recovery options
-        echo -e "\n${BOLD}Recovery options:${RESET}"
-        echo -e "  ${BOLD}1)${RESET} Retry installation"
-        echo -e "  ${BOLD}2)${RESET} Clean cache and retry"
-        echo -e "  ${BOLD}3)${RESET} Restore from backup (if available)"
-        echo -e "  ${BOLD}4)${RESET} Exit"
-        
-        read -p "Select an option (1-4): " recovery_option
-        case $recovery_option in
-            1) log_message "INFO" "Retrying installation"; main retry;;
-            2) log_message "INFO" "Cleaning cache and retrying"; rm -rf "$CACHE_DIR"; main retry;;
-            3) restore_from_backup; exit $?;;
-            *) log_message "INFO" "Exiting"; exit $exit_code;;
-        esac
-    else
-        exit $exit_code
+    echo -e "${RED}${BOLD}Installation failed! Check the log file for details: ${LOG_FILE}${RESET}"
+    exit $exit_code
+}
+
+# Function to load configuration
+load_config() {
+    # Create default config if it doesn't exist
+    if [ ! -f "$CONFIG_FILE" ]; then
+        mkdir -p "$(dirname "$CONFIG_FILE")"
+        cat > "$CONFIG_FILE" <<EOF
+MAX_RETRIES=$DEFAULT_MAX_RETRIES
+TIMEOUT=$DEFAULT_TIMEOUT
+UBUNTU_VERSION=$DEFAULT_UBUNTU_VERSION
+PROOT_VERSION=$DEFAULT_PROOT_VERSION
+DNS_SERVERS=$DEFAULT_DNS_SERVERS
+EOF
+        log_message "INFO" "Created default configuration file"
     fi
+    
+    # Load configuration
+    source "$CONFIG_FILE"
+    
+    # Set defaults for any missing values
+    MAX_RETRIES=${MAX_RETRIES:-$DEFAULT_MAX_RETRIES}
+    TIMEOUT=${TIMEOUT:-$DEFAULT_TIMEOUT}
+    UBUNTU_VERSION=${UBUNTU_VERSION:-$DEFAULT_UBUNTU_VERSION}
+    PROOT_VERSION=${PROOT_VERSION:-$DEFAULT_PROOT_VERSION}
+    DNS_SERVERS=${DNS_SERVERS:-$DEFAULT_DNS_SERVERS}
+    
+    log_message "INFO" "Configuration loaded successfully"
 }
 
-# Modified run_command function to use our error handler
-run_command() {
-    local line_number=$LINENO
-    local command="$*"
-    "$@"
-    command_error_handler $line_number "$command"
-}
-
-# Function to clean up on exit
-cleanup() {
-    log_message "DEBUG" "Performing cleanup tasks"
-    
-    # Remove lock file
-    rm -f "$LOCK_FILE"
-    
-    # Calculate and log execution time
-    if [ -n "$START_TIME" ]; then
-        local end_time=$(date +%s)
-        local duration=$((end_time - START_TIME))
-        log_message "DEBUG" "Script execution time: ${duration} seconds"
-        
-        if [ "$BENCHMARK" = "true" ]; then
-            echo -e "\n${BOLD}Benchmark Results:${RESET}"
-            echo -e "  Total execution time: ${duration} seconds"
-            echo -e "  Log file size: $(du -h "$LOG_FILE" | cut -f1) bytes"
-            echo -e "  Cache size: $(du -sh "$CACHE_DIR" | cut -f1)"
-        fi
-    fi
-}
-
-# Function to generate diagnostics
-generate_diagnostics() {
-    local diag_file="${LOG_DIR}/diagnostics.log"
-    
-    {
-        echo "=== DIAGNOSTIC REPORT ==="
-        echo "Date: $(date)"
-        echo "Script version: 4.0 Enterprise Edition"
-        echo "Command: $0 $ORIGINAL_ARGS"
-        echo ""
-        
-        echo "=== SYSTEM INFORMATION ==="
-        echo "Kernel: $(uname -a)"
-        echo "Architecture: $ARCH ($ARCH_ALT)"
-        echo "Memory: $(free -h | grep Mem | awk '{print $2" total, "$4" available"}')"
-        echo "Disk space: $(df -h "$ROOTFS_DIR" | awk 'NR==2 {print $2" total, "$4" available"}')"
-        echo ""
-        
-        echo "=== CONFIGURATION ==="
-        cat "$CONFIG_FILE" 2>/dev/null || echo "Config file not found"
-        echo ""
-        
-        echo "=== ENVIRONMENT VARIABLES ==="
-        env | sort
-        echo ""
-        
-        echo "=== LAST 20 LOG ENTRIES ==="
-        tail -n 20 "$LOG_FILE" 2>/dev/null || echo "Log file not available"
-        echo ""
-        
-        echo "=== INSTALLED PACKAGES ==="
-        if [ -f "${CONFIG_DIR}/packages.list" ]; then
-            cat "${CONFIG_DIR}/packages.list"
-        else
-            echo "No package list found"
-        fi
-        echo ""
-        
-        echo "=== NETWORK CONNECTIVITY ==="
-        ping -c 3 8.8.8.8 2>&1 || echo "Cannot ping 8.8.8.8"
-        echo ""
-        
-        echo "=== FILE PERMISSIONS ==="
-        ls -la "$ROOTFS_DIR" | head -n 20
-        echo ""
-    } > "$diag_file"
-    
-    log_message "INFO" "Diagnostics saved to $diag_file"
+# Function to save configuration
+save_config() {
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    cat > "$CONFIG_FILE" <<EOF
+MAX_RETRIES=$MAX_RETRIES
+TIMEOUT=$TIMEOUT
+UBUNTU_VERSION=$UBUNTU_VERSION
+PROOT_VERSION=$PROOT_VERSION
+DNS_SERVERS=$DNS_SERVERS
+EOF
+    log_message "INFO" "Configuration saved successfully"
 }
 
 # Function to log messages
 log_message() {
     local level="$1"
     local message="$2"
-    local color=""
-    local timestamp=""
+    local color="$WHITE"
     
-    # Skip debug messages unless verbose mode is enabled
-    if [ "$level" = "DEBUG" ] && [ "$VERBOSE" != "true" ]; then
-        return 0
-    fi
-    
-    # Skip all messages in quiet mode except errors
-    if [ "$QUIET" = "true" ] && [ "$level" != "ERROR" ]; then
-        return 0
-    fi
-    
-    # Set color based on message level
     case "$level" in
-        "INFO")    color="$WHITE" ;;
+        "INFO") color="$WHITE" ;;
         "SUCCESS") color="$GREEN" ;;
         "WARNING") color="$YELLOW" ;;
-        "ERROR")   color="$RED" ;;
-        "DEBUG")   color="$BLUE" ;;
-        *)         color="$WHITE" ;;
+        "ERROR") color="$RED" ;;
+        "DEBUG") color="$BLUE" ;;
     esac
-    
-    # Format timestamp
-    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
     
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
     
-    # Print to console if not in quiet mode
-    if [ "$QUIET" != "true" ] || [ "$level" = "ERROR" ]; then
-        echo -e "${color}[${timestamp}] [${level}] ${message}${RESET}"
+    # Log to console and file
+    echo -e "${color}[$(date '+%Y-%m-%d %H:%M:%S')] [${level}] ${message}${RESET}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${level}] ${message}" >> "$LOG_FILE"
+}
+
+# Function to check dependencies
+check_dependencies() {
+    local missing_deps=()
+    
+    for cmd in wget tar grep awk sed; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing_deps+=("$cmd")
+        fi
+    done
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        log_message "ERROR" "Missing dependencies: ${missing_deps[*]}"
+        echo -e "${RED}Please install the following packages: ${missing_deps[*]}${RESET}"
+        exit 1
     fi
     
-    # Always log to file
-    echo "[${timestamp}] [${level}] ${message}" >> "$LOG_FILE"
+    log_message "SUCCESS" "All dependencies are installed"
+}
+
+# Function to detect system architecture
+detect_architecture() {
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64)  ARCH_ALT="amd64" ;;
+        aarch64) ARCH_ALT="arm64" ;;
+        armv7l|armv7) ARCH_ALT="armhf" ;;
+        ppc64le) ARCH_ALT="ppc64el" ;;
+        riscv64) ARCH_ALT="riscv64" ;;
+        s390x)   ARCH_ALT="s390x" ;;
+        *)
+            log_message "ERROR" "Unsupported CPU architecture: ${ARCH}"
+            exit 1
+            ;;
+    esac
     
-    # Rotate log if it gets too large (> 5MB)
-    if [ -f "$LOG_FILE" ] && [ "$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)" -gt 5242880 ]; then
-        mv "$LOG_FILE" "${LOG_FILE}.old"
-        touch "$LOG_FILE"
-        log_message "DEBUG" "Log file rotated due to size"
+    log_message "INFO" "Detected architecture: ${ARCH} (${ARCH_ALT})"
+}
+
+# Function to download a file with retries
+download_with_retry() {
+    local url="$1"
+    local output_file="$2"
+    local description="${3:-file}"
+    local success=false
+    local wget_args=()
+    
+    # Create cache directory if it doesn't exist
+    mkdir -p "$CACHE_DIR"
+    
+    # Skip download if file exists in cache and we're not forced to redownload
+    if [ -f "${CACHE_DIR}/$(basename "$output_file")" ] && [ -s "${CACHE_DIR}/$(basename "$output_file")" ] && [ "$FORCE_DOWNLOAD" != "true" ]; then
+        log_message "INFO" "Using cached ${description} from ${CACHE_DIR}/$(basename "$output_file")"
+        cp "${CACHE_DIR}/$(basename "$output_file")" "$output_file"
+        return 0
+    fi
+    
+    # Display progress bar only if connected to a terminal
+    if [ -t 1 ]; then
+        wget_args+=("--show-progress")
+    else
+        wget_args+=("-q")
+    fi
+    
+    log_message "INFO" "Downloading ${description} from ${url}"
+    
+    for attempt in $(seq 1 $MAX_RETRIES); do
+        log_message "DEBUG" "Download attempt $attempt/$MAX_RETRIES"
+        
+        if wget --tries=3 --timeout=$TIMEOUT --no-hsts "${wget_args[@]}" -O "$output_file" "$url"; then
+            if [ -s "$output_file" ]; then
+                log_message "SUCCESS" "Downloaded ${description} successfully"
+                
+                # Cache the download
+                cp "$output_file" "${CACHE_DIR}/$(basename "$output_file")"
+                
+                success=true
+                break
+            else
+                log_message "WARNING" "Downloaded ${description} is empty"
+                rm -f "$output_file"
+            fi
+        else
+            log_message "WARNING" "Failed to download ${description}"
+            rm -f "$output_file"
+        fi
+        
+        # Progressive backoff
+        sleep_time=$((attempt < 10 ? attempt : 10))
+        log_message "DEBUG" "Waiting ${sleep_time} seconds before retrying..."
+        sleep $sleep_time
+    done
+    
+    if [ "$success" != "true" ]; then
+        log_message "ERROR" "Failed to download ${description} after $MAX_RETRIES attempts"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Function to check available space
+check_available_space() {
+    local required_space_kb=500000  # ~500 MB
+    local available_space_kb
+    
+    available_space_kb=$(df -k "$ROOTFS_DIR" | awk 'NR==2 {print $4}')
+    
+    if [ "$available_space_kb" -lt "$required_space_kb" ]; then
+        log_message "WARNING" "Low disk space: ${available_space_kb}KB available, ${required_space_kb}KB recommended"
+        
+        read -p "Continue anyway? (y/N): " -r confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            log_message "INFO" "Installation aborted by user due to low disk space"
+            exit 0
+        fi
+    else
+        log_message "INFO" "Sufficient disk space available: ${available_space_kb}KB"
     fi
 }
 
-# Main function placeholder - you would add your actual main function here
+# Function to install Ubuntu rootfs
+install_ubuntu_rootfs() {
+    local ubuntu_url="${UBUNTU_BASE_URL}/${UBUNTU_VERSION}/current/ubuntu-${UBUNTU_VERSION}-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+    local tempfile="/tmp/rootfs.tar.gz"
+    
+    log_message "INFO" "Installing Ubuntu ${UBUNTU_VERSION} rootfs"
+    
+    if download_with_retry "$ubuntu_url" "$tempfile" "Ubuntu rootfs"; then
+        log_message "INFO" "Extracting Ubuntu rootfs to $ROOTFS_DIR"
+        
+        # Create a backup of existing files if directory is not empty
+        if [ "$(ls -A "$ROOTFS_DIR" 2>/dev/null | grep -v "^\." 2>/dev/null)" ]; then
+            local backup_dir="${ROOTFS_DIR}.backup.$(date +%Y%m%d%H%M%S)"
+            log_message "INFO" "Creating backup of existing files to $backup_dir"
+            mkdir -p "$backup_dir"
+            
+            find "$ROOTFS_DIR" -maxdepth 1 -not -name ".*" -exec cp -r {} "$backup_dir/" \;
+        fi
+        
+        # Extract with progress indication if running in terminal
+        if [ -t 1 ]; then
+            tar -xvf "$tempfile" -C "$ROOTFS_DIR" | grep -v '/$' | awk 'NR % 100 == 0 { print "Extracted " NR " files..." }'
+        else
+            tar -xf "$tempfile" -C "$ROOTFS_DIR"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            log_message "SUCCESS" "Ubuntu rootfs extracted successfully"
+        else
+            log_message "ERROR" "Failed to extract Ubuntu rootfs"
+            rm -f "$tempfile"
+            return 1
+        fi
+        
+        rm -f "$tempfile"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to install proot
+install_proot() {
+    log_message "INFO" "Installing proot binary"
+    
+    mkdir -p "$ROOTFS_DIR/usr/local/bin"
+    
+    if download_with_retry "$PROOT_URL" "$ROOTFS_DIR/usr/local/bin/proot" "proot binary"; then
+        chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
+        log_message "SUCCESS" "Proot binary installed successfully"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to setup rootfs environment
+setup_rootfs_environment() {
+    log_message "INFO" "Setting up rootfs environment"
+    
+    # Set up DNS servers
+    IFS=',' read -ra DNS_LIST <<< "$DNS_SERVERS"
+    local resolv_conf="${ROOTFS_DIR}/etc/resolv.conf"
+    
+    > "$resolv_conf"  # Clear the file
+    for dns in "${DNS_LIST[@]}"; do
+        echo "nameserver $dns" >> "$resolv_conf"
+    done
+    
+    # Set up hostname
+    if [ -f "/etc/hostname" ]; then
+        cp "/etc/hostname" "${ROOTFS_DIR}/etc/hostname"
+    else
+        echo "proot-container" > "${ROOTFS_DIR}/etc/hostname"
+    fi
+    
+    # Create essential directories
+    mkdir -p "${ROOTFS_DIR}/root"
+    mkdir -p "${ROOTFS_DIR}/tmp"
+    chmod 1777 "${ROOTFS_DIR}/tmp"
+    
+    # Create a simple startup script inside the container
+    cat > "${ROOTFS_DIR}/root/.profile.d/01-welcome.sh" <<EOF
+#!/bin/bash
+echo "Welcome to PRoot Ubuntu Environment!"
+echo "This environment was set up by NOUR Installer"
+echo "Copyright (C) 2024, RecodeStudios.Cloud"
+EOF
+    chmod +x "${ROOTFS_DIR}/root/.profile.d/01-welcome.sh"
+    
+    # Mark as installed
+    touch "$ROOTFS_DIR/.installed"
+    log_message "SUCCESS" "Rootfs environment setup completed"
+}
+
+# Function to display completion message
+display_completion() {
+    cat <<EOF
+
+${WHITE}___________________________________________________${RESET}
+
+           ${CYAN}${BOLD}-----> Mission Completed ! <----${RESET}
+
+${GREEN}${BOLD} Ubuntu rootfs and proot have been successfully set up!${RESET}
+${WHITE} You are about to enter the proot environment.${RESET}
+${BLUE} Installation Log: ${LOG_FILE}${RESET}
+${YELLOW} Use 'exit' to return to the host system.${RESET}
+
+${WHITE}___________________________________________________${RESET}
+
+EOF
+}
+
+# Function to display help
+display_help() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  -h, --help            Display this help message
+  -f, --force           Force reinstallation even if already installed
+  -v, --version VER     Specify Ubuntu version (default: ${DEFAULT_UBUNTU_VERSION})
+  -t, --timeout SEC     Set download timeout in seconds (default: ${DEFAULT_TIMEOUT})
+  -r, --retries NUM     Set maximum retry attempts (default: ${DEFAULT_MAX_RETRIES})
+  -d, --dns SERVERS     Set DNS servers, comma-separated (default: ${DEFAULT_DNS_SERVERS})
+  -c, --clean           Clean cache before installation
+  -s, --skip-deps       Skip dependency checking
+  --no-color            Disable colored output
+
+Examples:
+  $0 --version jammy    # Install Ubuntu 22.04 (Jammy)
+  $0 --force            # Force reinstallation
+  $0 --dns 8.8.8.8,8.8.4.4  # Use Google DNS servers
+
+EOF
+    exit 0
+}
+
+# Function to parse command line arguments
+parse_arguments() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                display_help
+                ;;
+            -f|--force)
+                FORCE_INSTALL=true
+                FORCE_DOWNLOAD=true
+                ;;
+            -v|--version)
+                UBUNTU_VERSION="$2"
+                shift
+                ;;
+            -t|--timeout)
+                TIMEOUT="$2"
+                shift
+                ;;
+            -r|--retries)
+                MAX_RETRIES="$2"
+                shift
+                ;;
+            -d|--dns)
+                DNS_SERVERS="$2"
+                shift
+                ;;
+            -c|--clean)
+                rm -rf "$CACHE_DIR"
+                log_message "INFO" "Cache cleaned"
+                ;;
+            -s|--skip-deps)
+                SKIP_DEPS_CHECK=true
+                ;;
+            --no-color)
+                # Disable colors
+                BOLD=''
+                CYAN=''
+                GREEN=''
+                YELLOW=''
+                RED=''
+                BLUE=''
+                WHITE=''
+                RESET=''
+                ;;
+            *)
+                log_message "WARNING" "Unknown option: $1"
+                ;;
+        esac
+        shift
+    done
+}
+
+# Function to start the proot environment
+start_proot_environment() {
+    log_message "INFO" "Starting proot environment"
+    
+    # List of directories to bind mount
+    local bind_mounts=(
+        "/dev"
+        "/proc"
+        "/sys"
+        "/etc/resolv.conf:/etc/resolv.conf"
+        "/tmp:/tmp"
+        "$ROOTFS_DIR/.installed:/root/.installed"
+        "$LOG_FILE:/root/installation.log"
+    )
+    
+    # Add optional bind mounts
+    if [ -d "/sdcard" ]; then
+        bind_mounts+=("/sdcard:/sdcard")
+    fi
+    
+    # Convert bind_mounts array to proot arguments
+    local bind_args=()
+    for mount in "${bind_mounts[@]}"; do
+        bind_args+=("-b" "$mount")
+    done
+    
+    # Create command with all arguments
+    exec "$ROOTFS_DIR/usr/local/bin/proot" \
+        --rootfs="${ROOTFS_DIR}" \
+        --link2symlink \
+        -0 \
+        -w "/root" \
+        "${bind_args[@]}" \
+        --kill-on-exit
+}
+
+# Function for the main installation process
 main() {
-    # Your main function implementation would go here
-    echo "Main function executed with argument: $1"
+    # Parse command line arguments
+    parse_arguments "$@"
+    
+    # Load configuration
+    load_config
+    
+    # Initialize log file
+    > "$LOG_FILE"
+    log_message "INFO" "Starting PRoot environment setup"
+    
+    # Check dependencies
+    if [ "$SKIP_DEPS_CHECK" != "true" ]; then
+        check_dependencies
+    fi
+    
+    # Detect architecture
+    detect_architecture
+    
+    # Check if already installed and not forced to reinstall
+    if [ -e "$ROOTFS_DIR/.installed" ] && [ "$FORCE_INSTALL" != "true" ]; then
+        log_message "INFO" "PRoot environment already installed"
+        display_completion
+        start_proot_environment
+        exit 0
+    fi
+    
+    # Display banner
+    echo "#######################################################################################"
+    echo "#"
+    echo "#                                      NOUR INSTALLER"
+    echo "#"
+    echo "#                           Copyright (C) 2024, RecodeStudios.Cloud"
+    echo "#"
+    echo "#######################################################################################"
+    
+    # Check available space
+    check_available_space
+    
+    # Prompt for installation if not already confirmed
+    if [ -z "$install_ubuntu" ]; then
+        read -p "Do you want to install Ubuntu rootfs? (yes/no): " install_ubuntu
+    fi
+    
+    case $install_ubuntu in
+        [yY][eE][sS]|[yY])
+            # Install Ubuntu rootfs
+            if ! install_ubuntu_rootfs; then
+                log_message "ERROR" "Failed to install Ubuntu rootfs"
+                exit 1
+            fi
+            ;;
+        *)
+            log_message "INFO" "Skipping Ubuntu rootfs installation"
+            ;;
+    esac
+    
+    # Install proot
+    if ! install_proot; then
+        log_message "ERROR" "Failed to install proot"
+        exit 1
+    fi
+    
+    # Setup environment
+    setup_rootfs_environment
+    
+    # Save configuration
+    save_config
+    
+    # Display completion message
+    clear
+    display_completion
+    
+    # Start proot environment
+    start_proot_environment
 }
 
-# Add other functions from your original script here
-# ...
+# Create necessary directories
+mkdir -p "$CACHE_DIR"
 
-# Example usage of run_command instead of relying on ERR trap
-# run_command wget http://example.com/file.tar.gz
+# Run main function with all arguments
+main "$@"
