@@ -36,7 +36,7 @@ deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
 rm "$deb_file"
 export PATH=~/.local/usr/bin:$PATH
-tar -xJf rootfs.tar.xz --strip-components=1
+tar -xJf rootfs.tar.xz
     ;;
   *)
     echo "Skipping Ubuntu installation."
@@ -65,7 +65,6 @@ fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
-  rm -rf rootfs.tar.xz sbin
   touch $ROOTFS_DIR/.installed
 fi
 
