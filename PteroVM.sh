@@ -2,7 +2,11 @@
 ROOTFS_DIR=$(pwd)
 export PATH=$PATH:~/.local/usr/bin
 max_retries=50
-timeout=10
+timeout=1
+
+# Set Ubuntu version
+UBUNTU_VERSION="22.04.5"  # Ubuntu 22.04 LTS
+UBUNTU_CODENAME="jammy"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -32,27 +36,27 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
   echo "#                           Copyright (C) 2024, RecodeStudios.Cloud"
   echo "#"
   echo "#######################################################################################"
-  install_debian=YES
+  install_ubuntu=YES
 fi
 
-# Install Debian rootfs if needed
-case $install_debian in
+# Install Ubuntu rootfs if needed
+case $install_ubuntu in
   [yY][eE][sS])
-    echo "Downloading Debian rootfs..."
+    echo "Downloading Ubuntu rootfs..."
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-      "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-${ARCH_ALT}.tar.xz"
+      "http://cdimage.ubuntu.com/ubuntu-base/releases/${UBUNTU_VERSION}/release/ubuntu-base-${UBUNTU_VERSION}-base-${ARCH_ALT}.tar.gz"
     
     if [ $? -eq 0 ] && [ -s "/tmp/rootfs.tar.gz" ]; then
       echo "Extracting rootfs..."
       tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR"
       rm -f /tmp/rootfs.tar.gz
     else
-      echo "Failed to download Debian rootfs. Please check your internet connection."
+      echo "Failed to download Ubuntu rootfs. Please check your internet connection."
       exit 1
     fi
     ;;
   *)
-    echo "Skipping Debian installation."
+    echo "Skipping Ubuntu installation."
     ;;
 esac
 
