@@ -30,9 +30,9 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    curl -sSLo rootfs.tar.gz https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.tar.gz
+    curl -sSLo rootfs.tar.xz https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-x86_64-pd-v4.17.3.tar.xz
     apt download xz-utils
-    tar -xf rootfs.tar.gz
+    tar -xJf rootfs.tar.xz
     ;;
   *)
     echo "Skipping Ubuntu installation."
