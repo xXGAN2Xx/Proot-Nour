@@ -4,7 +4,7 @@ PROOT_DIR="$ROOTFS_DIR/.proot"
 mkdir -p "$PROOT_DIR/bin"
 
 max_retries=50
-timeout=5
+timeout=1
 
 # Set Ubuntu version
 UBUNTU_VERSION="22.04.5"  # Ubuntu 22.04 LTS
