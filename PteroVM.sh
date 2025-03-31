@@ -37,9 +37,26 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-      "https://partner-images.canonical.com/core/focal/current/ubuntu-jammy-core-cloudimg-${ARCH_ALT}-root.tar.gz"
-    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
+# Download the rootfs archive
+wget --tries="$max_retries" --timeout="$timeout" --no-hsts -O /tmp/rootfs.tar.xz \
+  "https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-${ARCH}-pd-v4.17.3.tar.xz"
+
+# Check if download was successful
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to download rootfs archive."
+  exit 1
+fi
+
+# Extract the archive
+tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR"
+
+# Check if extraction was successful
+if [ $? -ne 0 ]; then
+  echo "Error: Failed to extract rootfs archive."
+  exit 1
+fi
+
+echo "Rootfs successfully downloaded and extracted to $ROOTFS_DIR"
     ;;
   *)
     echo "Skipping Ubuntu installation."
