@@ -32,27 +32,27 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
   echo "#                           Copyright (C) 2024, RecodeStudios.Cloud"
   echo "#"
   echo "#######################################################################################"
-  install_ubuntu=YES
+  install_debian=YES
 fi
 
-# Install Ubuntu rootfs if needed
-case $install_ubuntu in
+# Install Debian rootfs if needed
+case $install_debian in
   [yY][eE][sS])
-    echo "Downloading Ubuntu rootfs..."
+    echo "Downloading Debian rootfs..."
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-      "https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+      "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-${ARCH_ALT}.tar.xz"
     
     if [ $? -eq 0 ] && [ -s "/tmp/rootfs.tar.gz" ]; then
       echo "Extracting rootfs..."
       tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR"
       rm -f /tmp/rootfs.tar.gz
     else
-      echo "Failed to download Ubuntu rootfs. Please check your internet connection."
+      echo "Failed to download Debian rootfs. Please check your internet connection."
       exit 1
     fi
     ;;
   *)
-    echo "Skipping Ubuntu installation."
+    echo "Skipping Debian installation."
     ;;
 esac
 
