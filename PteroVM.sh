@@ -133,5 +133,6 @@ display_gg
   -b /dev \
   -b /sys \
   -b /proc \
+  -b /etc/resolv.conf \
   --kill-on-exit \
   /bin/bash
