@@ -4,8 +4,9 @@
 # Fun and Interactive Linux Installation #
 #############################
 
-# Define the root directory to /home/runner/vpsfreepterovm
-ROOTFS_DIR=/home/runner/vpsfreepterovm
+# Define the root directory in a location that should be writable
+# Using /tmp which is typically writable in most environments
+ROOTFS_DIR=/tmp/vpsfreepterovm
 
 # Create the directory if it doesn't exist
 mkdir -p $ROOTFS_DIR
@@ -78,49 +79,74 @@ else
       0)
         echo -e "${YELLOW}Debian it is! A solid choice. Let's get to work!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
-        apt-get update && apt-get install -y xz-utils
+        "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz" || {
+          echo -e "${RED}Failed to download Debian rootfs. Check your network connection.${RESET_COLOR}"
+          return 1
+        }
+        command -v apt-get >/dev/null && { apt-get update && apt-get install -y xz-utils; } || true
         ;;
       1)
         echo -e "${YELLOW}Ubuntu, a user-friendly choice. You'll be up and running in no time!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-jammy-${ARCH}-pd-v4.11.0.tar.xz"
-        apt-get update && apt-get install -y xz-utils
+        "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-jammy-${ARCH}-pd-v4.11.0.tar.xz" || {
+          echo -e "${RED}Failed to download Ubuntu rootfs. Check your network connection.${RESET_COLOR}"
+          return 1
+        }
+        command -v apt-get >/dev/null && { apt-get update && apt-get install -y xz-utils; } || true
         ;;
       2)
         echo -e "${YELLOW}Alpine it is! Small, fast, and efficient, just like you!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-        "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-${ARCH}.tar.gz"
+        "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-${ARCH}.tar.gz" || {
+          echo -e "${RED}Failed to download Alpine rootfs. Check your network connection.${RESET_COLOR}"
+          return 1
+        }
         ;;
       3)
         echo -e "${YELLOW}Fedora, living on the edge. Bold choice!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-noble-${ARCH}-pd-v4.11.0.tar.xz"
-        apt-get update && apt-get install -y xz-utils
+        "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-noble-${ARCH}-pd-v4.11.0.tar.xz" || {
+          echo -e "${RED}Failed to download Fedora rootfs. Check your network connection.${RESET_COLOR}"
+          return 1
+        }
+        command -v apt-get >/dev/null && { apt-get update && apt-get install -y xz-utils; } || true
         ;;
       *)
         echo -e "${RED}Invalid choice! Let's stick with Debian.${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
-        apt-get update && apt-get install -y xz-utils
+        "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz" || {
+          echo -e "${RED}Failed to download Debian rootfs. Check your network connection.${RESET_COLOR}"
+          return 1
+        }
+        command -v apt-get >/dev/null && { apt-get update && apt-get install -y xz-utils; } || true
         ;;
     esac
 
     echo -e "${YELLOW}Extracting the root filesystem...${RESET_COLOR}"
     if [[ "$os_choice" == "2" ]]; then
-      tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
+      tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR || {
+        echo -e "${RED}Failed to extract root filesystem.${RESET_COLOR}"
+        return 1
+      }
     else
-      tar -xf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1
+      tar -xf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1 || {
+        echo -e "${RED}Failed to extract root filesystem.${RESET_COLOR}"
+        return 1
+      }
     fi
 
     # Creating .installed file after successful installation
     touch $ROOTFS_DIR/.installed
     echo -e "${GREEN}Root filesystem installed successfully and .installed file created!${RESET_COLOR}"
+    return 0
   }
 
   # Run the OS choice and installation if not installed
   input=$(fun_os_choices)
-  install_rootfs "$input"
+  install_rootfs "$input" || {
+    echo -e "${BOLD_RED}Installation failed. Please check error messages above.${RESET_COLOR}"
+    exit 1
+  }
 fi
 
 # Fun header
@@ -141,16 +167,16 @@ fun_header() {
 # Fun system resources display
 fun_resources() {
   # Get CPU info
-  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g' || echo "Unknown CPU")
-  CPU_CORES=$(grep -c 'processor' /proc/cpuinfo || echo "Unknown")
+  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d ':' -f 2 | sed 's/^ //g' || echo "Unknown CPU")
+  CPU_CORES=$(grep -c 'processor' /proc/cpuinfo 2>/dev/null || echo "Unknown")
 
   # Get RAM info (in MB)
-  TOTAL_RAM=$(free -m | awk '/Mem:/ {print $2}' || echo "Unknown")
-  USED_RAM=$(free -m | awk '/Mem:/ {print $3}' || echo "Unknown")
-  FREE_RAM=$(free -m | awk '/Mem:/ {print $4}' || echo "Unknown")
+  TOTAL_RAM=$(free -m 2>/dev/null | awk '/Mem:/ {print $2}' || echo "Unknown")
+  USED_RAM=$(free -m 2>/dev/null | awk '/Mem:/ {print $3}' || echo "Unknown")
+  FREE_RAM=$(free -m 2>/dev/null | awk '/Mem:/ {print $4}' || echo "Unknown")
 
   # Get disk usage (in human-readable form)
-  DISK_USAGE=$(df -h / | awk 'NR==2 {print $3 " used out of " $2}' || echo "Unknown")
+  DISK_USAGE=$(df -h / 2>/dev/null | awk 'NR==2 {print $3 " used out of " $2}' || echo "Unknown")
 
   # Get system uptime (replacing 'uptime -p' for compatibility)
   UPTIME=$(awk '{print int($1/3600)" hours, "int($1%3600/60)" minutes"}' /proc/uptime 2>/dev/null || echo "Unknown")
@@ -185,29 +211,54 @@ fun_footer
 ###########################
 
 # Check if proot exists, if not try to install it
-if [ ! -f "$ROOTFS_DIR/usr/local/bin/proot" ] && [ ! -f "$ROOTFS_DIR/usr/bin/proot" ]; then
-  echo -e "${YELLOW}Installing proot...${RESET_COLOR}"
-  apt-get update && apt-get install -y proot
+PROOT_PATH=""
+
+# Try to find an existing proot
+for path in "$ROOTFS_DIR/usr/local/bin/proot" "$ROOTFS_DIR/usr/bin/proot" "$(which proot 2>/dev/null)"; do
+  if [ -f "$path" ] && [ -x "$path" ]; then
+    PROOT_PATH="$path"
+    break
+  fi
+done
+
+# If proot not found, try to install it
+if [ -z "$PROOT_PATH" ]; then
+  echo -e "${YELLOW}Proot not found. Attempting to install...${RESET_COLOR}"
   
-  # Create directory if it doesn't exist
-  mkdir -p "$ROOTFS_DIR/usr/local/bin/"
+  # Try to install with apt-get if available
+  if command -v apt-get >/dev/null; then
+    apt-get update && apt-get install -y proot
+    if command -v proot >/dev/null; then
+      PROOT_PATH="$(which proot)"
+      # Create directory if it doesn't exist and copy proot to rootfs
+      mkdir -p "$ROOTFS_DIR/usr/local/bin/"
+      cp "$PROOT_PATH" "$ROOTFS_DIR/usr/local/bin/proot"
+      chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
+      PROOT_PATH="$ROOTFS_DIR/usr/local/bin/proot"
+    fi
+  fi
   
-  # Copy proot to the rootfs if it exists in the host
-  if [ -f "/usr/bin/proot" ]; then
-    cp "/usr/bin/proot" "$ROOTFS_DIR/usr/local/bin/proot"
+  # If still not found, try downloading a statically compiled version
+  if [ -z "$PROOT_PATH" ]; then
+    echo -e "${YELLOW}Downloading precompiled proot...${RESET_COLOR}"
+    mkdir -p "$ROOTFS_DIR/usr/local/bin/"
+    wget -q -O "$ROOTFS_DIR/usr/local/bin/proot" \
+      "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-${ARCH_ALT}-static" || {
+      echo -e "${RED}Failed to download proot. Cannot continue.${RESET_COLOR}"
+      exit 1
+    }
     chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
+    PROOT_PATH="$ROOTFS_DIR/usr/local/bin/proot"
   fi
 fi
 
-# Try both possible proot paths
-if [ -f "$ROOTFS_DIR/usr/local/bin/proot" ]; then
-  PROOT_PATH="$ROOTFS_DIR/usr/local/bin/proot"
-elif [ -f "$ROOTFS_DIR/usr/bin/proot" ]; then
-  PROOT_PATH="$ROOTFS_DIR/usr/bin/proot"
-else
-  echo -e "${BOLD_RED}Error: proot not found. Cannot start the environment.${RESET_COLOR}"
+# Final check if proot is available
+if [ -z "$PROOT_PATH" ] || [ ! -x "$PROOT_PATH" ]; then
+  echo -e "${BOLD_RED}Error: proot not found and could not be installed. Cannot start the environment.${RESET_COLOR}"
   exit 1
 fi
+
+echo -e "${GREEN}Starting PRoot environment using: $PROOT_PATH${RESET_COLOR}"
 
 # Start proot environment
 $PROOT_PATH --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
