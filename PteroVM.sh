@@ -4,8 +4,11 @@
 # Fun and Interactive Linux Installation #
 #############################
 
-# Define the root directory to /home/container.
+# Define the root directory to /home/runner/vpsfreepterovm
 ROOTFS_DIR=/home/runner/vpsfreepterovm
+
+# Create the directory if it doesn't exist
+mkdir -p $ROOTFS_DIR
 
 export PATH=$PATH:~/.local/usr/bin
 
@@ -64,21 +67,25 @@ else
     echo -e "  ${BOLD_GREEN}[3] Fedora${RESET_COLOR} - Cutting-edge and sleek, for the trendsetters."
     echo ""
     read -p "Enter OS (0-3): " input
+    echo "$input"
   }
 
   # Main installation function
   install_rootfs() {
-    case $input in
+    local os_choice=$1
+    
+    case $os_choice in
       0)
         echo -e "${YELLOW}Debian it is! A solid choice. Let's get to work!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
         "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
-        apt download xz-utils
+        apt-get update && apt-get install -y xz-utils
         ;;
       1)
         echo -e "${YELLOW}Ubuntu, a user-friendly choice. You'll be up and running in no time!${RESET_COLOR}"
-        wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+        wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
         "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-jammy-${ARCH}-pd-v4.11.0.tar.xz"
+        apt-get update && apt-get install -y xz-utils
         ;;
       2)
         echo -e "${YELLOW}Alpine it is! Small, fast, and efficient, just like you!${RESET_COLOR}"
@@ -89,16 +96,22 @@ else
         echo -e "${YELLOW}Fedora, living on the edge. Bold choice!${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
         "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-noble-${ARCH}-pd-v4.11.0.tar.xz"
+        apt-get update && apt-get install -y xz-utils
         ;;
       *)
         echo -e "${RED}Invalid choice! Let's stick with Debian.${RESET_COLOR}"
         wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
         "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
+        apt-get update && apt-get install -y xz-utils
         ;;
     esac
 
     echo -e "${YELLOW}Extracting the root filesystem...${RESET_COLOR}"
-    tar -xf /tmp/rootfs.tar.* -C $ROOTFS_DIR --strip-components=1
+    if [[ "$os_choice" == "2" ]]; then
+      tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
+    else
+      tar -xf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1
+    fi
 
     # Creating .installed file after successful installation
     touch $ROOTFS_DIR/.installed
@@ -106,8 +119,8 @@ else
   }
 
   # Run the OS choice and installation if not installed
-  fun_os_choices
-  install_rootfs
+  input=$(fun_os_choices)
+  install_rootfs "$input"
 fi
 
 # Fun header
@@ -128,19 +141,19 @@ fun_header() {
 # Fun system resources display
 fun_resources() {
   # Get CPU info
-  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g')
-  CPU_CORES=$(grep -c 'processor' /proc/cpuinfo)
+  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g' || echo "Unknown CPU")
+  CPU_CORES=$(grep -c 'processor' /proc/cpuinfo || echo "Unknown")
 
   # Get RAM info (in MB)
-  TOTAL_RAM=$(free -m | awk '/Mem:/ {print $2}')
-  USED_RAM=$(free -m | awk '/Mem:/ {print $3}')
-  FREE_RAM=$(free -m | awk '/Mem:/ {print $4}')
+  TOTAL_RAM=$(free -m | awk '/Mem:/ {print $2}' || echo "Unknown")
+  USED_RAM=$(free -m | awk '/Mem:/ {print $3}' || echo "Unknown")
+  FREE_RAM=$(free -m | awk '/Mem:/ {print $4}' || echo "Unknown")
 
   # Get disk usage (in human-readable form)
-  DISK_USAGE=$(df -h / | awk 'NR==2 {print $3 " used out of " $2}')
+  DISK_USAGE=$(df -h / | awk 'NR==2 {print $3 " used out of " $2}' || echo "Unknown")
 
   # Get system uptime (replacing 'uptime -p' for compatibility)
-  UPTIME=$(awk '{print int($1/3600)" hours, "int($1%3600/60)" minutes"}' /proc/uptime)
+  UPTIME=$(awk '{print int($1/3600)" hours, "int($1%3600/60)" minutes"}' /proc/uptime 2>/dev/null || echo "Unknown")
 
   echo -e "${BOLD_MAGENTA} CPU Model -> ${YELLOW}$CPU_MODEL${RESET_COLOR}"
   echo -e "${BOLD_CYAN} CPU Cores -> ${GREEN}$CPU_CORES${RESET_COLOR}"
@@ -170,4 +183,31 @@ fun_footer
 ###########################
 # Start PRoot environment #
 ###########################
-$ROOTFS_DIR/usr/local/bin/proot --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
+
+# Check if proot exists, if not try to install it
+if [ ! -f "$ROOTFS_DIR/usr/local/bin/proot" ] && [ ! -f "$ROOTFS_DIR/usr/bin/proot" ]; then
+  echo -e "${YELLOW}Installing proot...${RESET_COLOR}"
+  apt-get update && apt-get install -y proot
+  
+  # Create directory if it doesn't exist
+  mkdir -p "$ROOTFS_DIR/usr/local/bin/"
+  
+  # Copy proot to the rootfs if it exists in the host
+  if [ -f "/usr/bin/proot" ]; then
+    cp "/usr/bin/proot" "$ROOTFS_DIR/usr/local/bin/proot"
+    chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
+  fi
+fi
+
+# Try both possible proot paths
+if [ -f "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+  PROOT_PATH="$ROOTFS_DIR/usr/local/bin/proot"
+elif [ -f "$ROOTFS_DIR/usr/bin/proot" ]; then
+  PROOT_PATH="$ROOTFS_DIR/usr/bin/proot"
+else
+  echo -e "${BOLD_RED}Error: proot not found. Cannot start the environment.${RESET_COLOR}"
+  exit 1
+fi
+
+# Start proot environment
+$PROOT_PATH --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
