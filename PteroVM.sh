@@ -62,7 +62,6 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
-  printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
   rm -rf rootfs.tar.xz sbin
   touch $ROOTFS_DIR/.installed
 fi
@@ -127,6 +126,12 @@ fun_header
 fun_resources
 display_gg
 
-$ROOTFS_DIR/usr/local/bin/proot \
+"${ROOTFS_DIR}/usr/local/bin/proot" \
   --rootfs="${ROOTFS_DIR}" \
-  -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
+  -0 \
+  -w /root \
+  -b /dev \
+  -b /sys \
+  -b /proc \
+  --kill-on-exit \
+  /bin/bash
