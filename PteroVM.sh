@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ROOTFS_DIR=$(pwd)
+ROOTFS_DIR=/home/container
 export PATH=$PATH:~/.local/usr/bin
 max_retries=50
 timeout=1
