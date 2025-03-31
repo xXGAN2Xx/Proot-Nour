@@ -30,7 +30,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://github.com/AndronixApp/AndronixOrigin/raw/refs/heads/master/Rootfs/Debian/amd64/debian-rootfs-amd64.tar.xz
+curl -sSLo rootfs.tar.xz https://github.com/AndronixApp/AndronixOrigin/raw/refs/heads/master/Rootfs/Ubuntu22/jammy-arm64.tar.gz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
