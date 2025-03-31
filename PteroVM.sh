@@ -1,29 +1,30 @@
 #!/bin/bash
-
-set -e  # Exit on error
-
-ROOTFS_DIR="$(pwd)"
-export PATH="$PATH:$HOME/.local/usr/bin"
-MAX_RETRIES=50
-TIMEOUT=1
+ROOTFS_DIR=$(pwd)
+export PATH=$PATH:~/.local/usr/bin
+max_retries=50
+timeout=1
 
 # Detect architecture
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64)   ARCH_ALT="amd64" ;;
-  aarch64)  ARCH_ALT="arm64" ;;
-  armv7l|armv7) ARCH_ALT="armhf" ;;
-  ppc64le)  ARCH_ALT="ppc64el" ;;
-  riscv64)  ARCH_ALT="riscv64" ;;
-  s390x)    ARCH_ALT="s390x" ;;
-  *)
-    echo "Unsupported CPU architecture: $ARCH"
-    exit 1
-    ;;
-esac
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+  ARCH_ALT=amd64
+elif [ "$ARCH" = "aarch64" ]; then
+  ARCH_ALT=arm64
+elif [ "$ARCH" = "armv7l" ] || [ "$ARCH" = "armv7" ]; then
+  ARCH_ALT=armhf
+elif [ "$ARCH" = "ppc64le" ]; then
+  ARCH_ALT=ppc64el
+elif [ "$ARCH" = "riscv64" ]; then
+  ARCH_ALT=riscv64
+elif [ "$ARCH" = "s390x" ]; then
+  ARCH_ALT=s390x
+else
+  printf "Unsupported CPU architecture: ${ARCH}\n"
+  exit 1
+fi
 
-# If not installed, begin installation
-if [ ! -f "$ROOTFS_DIR/.installed" ]; then
+# Check if already installed
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
   echo "#######################################################################################"
   echo "#"
   echo "#                                      NOUR INSTALLER"
@@ -31,62 +32,73 @@ if [ ! -f "$ROOTFS_DIR/.installed" ]; then
   echo "#                           Copyright (C) 2024, RecodeStudios.Cloud"
   echo "#"
   echo "#######################################################################################"
-
-  INSTALL_UBUNTU="yes"
+  install_ubuntu=YES
 fi
 
-# Download and extract Ubuntu rootfs
-if [[ "$INSTALL_UBUNTU" =~ ^[Yy][Ee]?[Ss]?$ ]]; then
-  echo "[*] Downloading Ubuntu rootfs..."
-  wget --tries="$MAX_RETRIES" --timeout="$TIMEOUT" --no-hsts -O /tmp/rootfs.tar.gz \
-    "https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-${ARCH_ALT}-root.tar.gz"
-
-  echo "[*] Extracting rootfs..."
-  tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR"
-else
-  echo "[*] Skipping Ubuntu installation."
-fi
-
-# Download proot binary
-if [ ! -f "$ROOTFS_DIR/.installed" ]; then
-  echo "[*] Downloading proot binary..."
-  mkdir -p "$ROOTFS_DIR/usr/local/bin"
-
-  PROOT_URL="https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
-  PROOT_BIN="$ROOTFS_DIR/usr/local/bin/proot"
-
-  while true; do
-    wget --tries="$MAX_RETRIES" --timeout="$TIMEOUT" --no-hsts -O "$PROOT_BIN" "$PROOT_URL"
-
-    if [ -s "$PROOT_BIN" ]; then
-      chmod +x "$PROOT_BIN"
-      break
+# Install Ubuntu rootfs if needed
+case $install_ubuntu in
+  [yY][eE][sS])
+    echo "Downloading Ubuntu rootfs..."
+    wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
+      "https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+    
+    if [ $? -eq 0 ] && [ -s "/tmp/rootfs.tar.gz" ]; then
+      echo "Extracting rootfs..."
+      tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR"
+      rm -f /tmp/rootfs.tar.gz
     else
-      echo "[!] proot download failed or file is empty. Retrying..."
-      rm -f "$PROOT_BIN"
-      sleep 1
+      echo "Failed to download Ubuntu rootfs. Please check your internet connection."
+      exit 1
     fi
+    ;;
+  *)
+    echo "Skipping Ubuntu installation."
+    ;;
+esac
+
+# Download and install proot binary
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+  echo "Setting up proot..."
+  mkdir -p "$ROOTFS_DIR/usr/local/bin"
+  
+  # Attempt to download proot with retries
+  download_success=false
+  for attempt in $(seq 1 $max_retries); do
+    echo "Downloading proot (attempt $attempt/$max_retries)..."
+    wget --tries=3 --timeout=$timeout --no-hsts -O "$ROOTFS_DIR/usr/local/bin/proot" \
+      "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+    
+    if [ $? -eq 0 ] && [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+      chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
+      download_success=true
+      echo "Successfully downloaded proot."
+      break
+    fi
+    
+    echo "Download failed, retrying in 1 second..."
+    rm -f "$ROOTFS_DIR/usr/local/bin/proot"
+    sleep 1
   done
+  
+  if [ "$download_success" != "true" ]; then
+    echo "Failed to download proot after $max_retries attempts. Exiting."
+    exit 1
+  fi
 fi
 
-# Finalize installation
-if [ ! -f "$ROOTFS_DIR/.installed" ]; then
-  echo "[*] Finalizing installation..."
-
-  mkdir -p "$ROOTFS_DIR/etc"
-  echo -e "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "$ROOTFS_DIR/etc/resolv.conf"
-
-  rm -f /tmp/rootfs.tar.gz
+# Final setup
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+  echo "Finalizing installation..."
+  printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
+  rm -rf /tmp/rootfs.tar.xz /tmp/sbin
   touch "$ROOTFS_DIR/.installed"
 fi
 
-# Colors
+# Display completion message
 CYAN='\e[0;36m'
 WHITE='\e[0;37m'
 RESET_COLOR='\e[0m'
-
-# Display success message
-display_success() {
+display_gg() {
   echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
   echo -e ""
   echo -e "           ${CYAN}-----> Mission Completed ! <----${RESET_COLOR}"
@@ -95,11 +107,10 @@ display_success() {
 }
 
 clear
-display_success
+display_gg
 
-# Run proot
-exec "$ROOTFS_DIR/usr/local/bin/proot" \
-  --rootfs="$ROOTFS_DIR" \
-  -0 -w "/root" \
-  -b /dev -b /sys -b /proc -b /etc/resolv.conf \
-  --kill-on-exit
+# Start proot
+echo "Starting proot environment..."
+"$ROOTFS_DIR/usr/local/bin/proot" \
+  --rootfs="${ROOTFS_DIR}" \
+  -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
