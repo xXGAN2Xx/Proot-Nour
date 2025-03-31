@@ -2,7 +2,7 @@
 ROOTFS_DIR=$(pwd)
 export PATH=$PATH:~/.local/usr/bin
 max_retries=50
-timeout=1
+timeout=5
 
 # Set Ubuntu version
 UBUNTU_VERSION="22.04.5"  # Ubuntu 22.04 LTS
