@@ -10,8 +10,10 @@ if [ "$ARCH" = "x86_64" ]; then
   ARCH_ALT=amd64
 elif [ "$ARCH" = "aarch64" ]; then
   ARCH_ALT=arm64
+elif [ "$ARCH" = "armv7l" ]; then
+  ARCH_ALT=armhf
 else
-  printf "Unsupported CPU architecture: ${ARCH}"
+  printf "Unsupported CPU architecture: ${ARCH}\n"
   exit 1
 fi
 
@@ -30,7 +32,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://images.linuxcontainers.org/images/debian/bullseye/amd64/cloud/20250331_05:24/rootfs.tar.xz
+curl -sSLo https://images.linuxcontainers.org/images/debian/bullseye/${ARCH_ALT}/default/20250331_05:24/rootfs.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
@@ -59,12 +61,12 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     chmod +x $ROOTFS_DIR/usr/local/bin/proot
     sleep 1
   done
-
   chmod +x $ROOTFS_DIR/usr/local/bin/proot
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+  rm -rf rootfs.tar.xz sbin
   touch $ROOTFS_DIR/.installed
 fi
 
