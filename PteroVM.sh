@@ -9,7 +9,11 @@
 # ==================================================================
 
 # Strict error handling and runtime protection
-set -eo pipefail
+set -e
+# Check if running in bash before setting pipefail
+if [ -n "$BASH_VERSION" ]; then
+    set -o pipefail
+fi
 trap 'handle_error $? $LINENO $BASH_COMMAND' ERR
 trap cleanup EXIT INT TERM
 
@@ -791,9 +795,4 @@ restore_from_backup() {
     for i in "${!backups[@]}"; do
         local backup_size=$(du -h "${backups[$i]}" | cut -f1)
         local backup_date=$(date -r "${backups[$i]}" "+%Y-%m-%d %H:%M:%S")
-        echo -e "  ${BOLD}$((i+1))${RESET}) $(basename "${backups[$i]}") (${backup_size}, ${backup_date})"
-    done
-    
-    # Ask which backup to restore
-    local selection
-    read -p "Select a backup to restore (1-${#backups[@]}, or 0
+        echo -e "  ${BOLD}$((i+1))${RESET}) $(basename "${backups[$i]}") (${backup_size}, ${backup_date}
