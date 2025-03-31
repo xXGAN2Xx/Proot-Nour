@@ -62,7 +62,7 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
-  rm -rf rootfs.tar.xz sbin
+  rm -rf rootfs.tar.xz
   touch $ROOTFS_DIR/.installed
 fi
 
