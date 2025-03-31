@@ -39,7 +39,7 @@ case $install_ubuntu in
   [yY][eE][sS])
 # Download the rootfs archive
 wget --tries="$max_retries" --timeout="$timeout" --no-hsts -O /tmp/rootfs.tar.xz \
-  "https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-${ARCH}-pd-v4.17.3.tar.xz"
+  "https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-${ARCH_ALT}-root.tar.gz"
 
 # Check if download was successful
 if [ $? -ne 0 ]; then
