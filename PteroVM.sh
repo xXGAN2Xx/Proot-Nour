@@ -30,13 +30,13 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-x86_64-pd-v4.17.3.tar.xz
+curl -sSLo rootfs.tar.xz https://cdimage.debian.org/cdimage/cloud/bookworm/20250316-2053/debian-12-generic-amd64-20250316-2053.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
 rm "$deb_file"
 export PATH=~/.local/usr/bin:$PATH
-tar -xJf rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
+tar -xJf rootfs.tar.xz --strip-components=1
     ;;
   *)
     echo "Skipping Ubuntu installation."
@@ -45,22 +45,22 @@ esac
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   mkdir $ROOTFS_DIR/usr/local/bin -p
-  wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/foxytouxxx/freeroot/main/proot-${ARCH}"
+  wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
   while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
     rm $ROOTFS_DIR/usr/local/bin/proot -rf
-    wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/foxytouxxx/freeroot/main/proot-${ARCH}"
+    wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
     if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
-      chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+      chmod +x $ROOTFS_DIR/usr/local/bin/proot
       break
     fi
 
-    chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+    chmod +x $ROOTFS_DIR/usr/local/bin/proot
     sleep 1
   done
 
-  chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+  chmod +x $ROOTFS_DIR/usr/local/bin/proot
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
