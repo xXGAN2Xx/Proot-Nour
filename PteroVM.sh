@@ -38,7 +38,7 @@ fi
 case $install_ubuntu in
   [yY][eE][sS])
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-       "https://partner-images.canonical.com/core/focal/current/ubuntu-jammy-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+       "https://partner-images.canonical.com/core/focal/current/ubuntu-focal-core-cloudimg-${ARCH_ALT}-root.tar.gz"
      tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR
     ;;
   *)
