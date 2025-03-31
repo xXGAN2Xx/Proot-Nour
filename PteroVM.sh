@@ -1,227 +1,125 @@
-#!/bin/bash
-# Ubuntu rootfs installer with improved error handling and robustness
+#!/bin/sh
 
-# Set up environment
-ROOTFS_DIR=$(pwd)
+#############################
+# Linux Installation #
+#############################
+
+# Define the root directory to /home/container.
+# We can only write in /home/container and /tmp in the container.
+ROOTFS_DIR=/home/container
+
 export PATH=$PATH:~/.local/usr/bin
-MAX_RETRIES=5
-DOWNLOAD_TIMEOUT=30
-RETRY_WAIT=3
 
-# Log function for consistent output
-log() {
-  local level=$1
-  local message=$2
-  local color=""
-  local reset="\e[0m"
+PROOT_VERSION="5.3.0" # Some releases do not have static builds attached.
 
-  case $level in
-    "INFO")  color="\e[0;32m" ;;  # Green
-    "WARN")  color="\e[0;33m" ;;  # Yellow
-    "ERROR") color="\e[0;31m" ;;  # Red
-    "TITLE") color="\e[0;36m" ;;  # Cyan
-  esac
+# Detect the machine architecture.
+ARCH=$(uname -m)
 
-  echo -e "${color}[$level] $message${reset}"
-}
+# Check machine architecture to make sure it is supported.
+# If not, we exit with a non-zero status code.
+if [ "$ARCH" = "x86_64" ]; then
+  ARCH_ALT=amd64
+elif [ "$ARCH" = "aarch64" ]; then
+  ARCH_ALT=arm64
+else
+  printf "Unsupported CPU architecture: ${ARCH}"
+  exit 1
+fi
 
-display_banner() {
-  echo "######################################################################################"
-  echo "#"
-  echo "#                                   NOUR INSTALLER"
-  echo "#"
-  echo "#                        Copyright (C) 2024, RecodeStudios.Cloud"
-  echo "#"
-  echo "######################################################################################"
-  echo ""
-}
+# Download & decompress the Linux root file system if not already installed.
 
-# Determine system architecture
-determine_architecture() {
-  ARCH=$(uname -m)
-  case "$ARCH" in
-    "x86_64")   ARCH_ALT="amd64" ;;
-    "aarch64")  ARCH_ALT="arm64" ;;
-    "armv7l"|"armv7") ARCH_ALT="armhf" ;;
-    "ppc64le")  ARCH_ALT="ppc64el" ;;
-    "riscv64")  ARCH_ALT="riscv64" ;;
-    "s390x")    ARCH_ALT="s390x" ;;
-    *)
-      log "ERROR" "Unsupported CPU architecture: ${ARCH}"
-      exit 1
-      ;;
-  esac
-  log "INFO" "Detected architecture: ${ARCH} (${ARCH_ALT})"
-}
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+echo "#######################################################################################"
+echo "#"
+echo "#                                  VPSFREE.ES PteroVM"
+echo "#"
+echo "#                           Copyright (C) 2022 - 2023, VPSFREE.ES"
+echo "#"
+echo "#"
+echo "#######################################################################################"
+echo ""
+echo "* [0] Debian"
 
-# Download function with retries and proper error handling
-download_file() {
-  local url=$1
-  local destination=$2
-  local attempt=1
 
-  while [ $attempt -le $MAX_RETRIES ]; do
-    log "INFO" "Download attempt $attempt/$MAX_RETRIES: $(basename "$url")"
+read -p "Enter OS (0-3): " input
+
+case $input in
+
+    0)
+    wget --no-hsts -O /tmp/rootfs.tar.xz \
+    "https://github.com/termux/proot-distro/releases/tag/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
+    apt download xz-utils
+    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
+    dpkg -x $deb_file ~/.local/
+    rm "$deb_file"
     
-    if wget --tries=3 --timeout=$DOWNLOAD_TIMEOUT --no-hsts -q --show-progress -O "$destination" "$url"; then
-      if [ -s "$destination" ]; then
-        log "INFO" "Download successful: $(basename "$destination")"
-        return 0
-      else
-        log "WARN" "Downloaded file is empty, retrying..."
-      fi
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR;;
+
+
+
+esac
+
+fi
+
+################################
+# Package Installation & Setup #
+################################
+
+# Download static APK-Tools temporarily because minirootfs does not come with APK pre-installed.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Download the packages from their sources
+    mkdir $ROOTFS_DIR/usr/local/bin -p
+    wget --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/proot-me/proot/releases/download/v${PROOT_VERSION}/proot-v${PROOT_VERSION}-${ARCH}-static"
+    # Make PRoot executable.
+    chmod 755 $ROOTFS_DIR/usr/local/bin/proot
+fi
+
+# Clean-up after installation complete & finish up.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Add DNS Resolver nameservers to resolv.conf.
+    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+    # Wipe the files we downloaded into /tmp previously.
+    rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+    # Create .installed to later check whether Alpine is installed.
+    touch $ROOTFS_DIR/.installed
+fi
+
+# Print some useful information to the terminal before entering PRoot.
+# This is to introduce the user with the various Alpine Linux commands.
+clear && cat << EOF
+Powered by
+ _    __           ______             
+| |  / /___  _____/ ____/_______  ___ 
+| | / / __ \/ ___/ /_  / ___/ _ \/ _ \
+
+| |/ / /_/ (__  ) __/ / /  /  __/  __/
+|___/ .___/____/_/   /_/   \___/\___/ 
+   /_/                                
+______________________________________
+EOF
+
+###########################
+# Start PRoot environment #
+###########################
+# Option to set a password
+echo
+echo "Do you want to set a password for your VM? (type y)"
+read choice
+
+if [ "$choice" = "y" ]; then
+    if [ ! -e $ROOTFS_DIR/.password_set ]; then
+        echo "Enter password for the VM:"
+        read vm_password
+        echo "root:$vm_password" | $ROOTFS_DIR/usr/local/bin/proot --rootfs="$ROOTFS_DIR" -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf chpasswd
+        echo "Password set successfully for the root user."
+        touch $ROOTFS_DIR/.password_set
     else
-      log "WARN" "Download failed with code $?, retrying in $RETRY_WAIT seconds..."
+        echo "Password has already been set for the VM."
     fi
-    
-    rm -f "$destination"
-    sleep $RETRY_WAIT
-    attempt=$((attempt + 1))
-  done
-  
-  log "ERROR" "Failed to download after $MAX_RETRIES attempts"
-  return 1
-}
+fi
 
-# Extract tar with error handling
-extract_tar() {
-  local archive=$1
-  local target=$2
-  
-  log "INFO" "Extracting $(basename "$archive") to $target"
-  
-  if tar -xf "$archive" -C "$target"; then
-    log "INFO" "Extraction completed successfully"
-    return 0
-  else
-    log "ERROR" "Extraction failed with code $?"
-    return 1
-  fi
-}
-
-# Install Ubuntu
-install_ubuntu() {
-  local rootfs_archive="/tmp/rootfs.tar.gz"
-  
-  # Use the correct URL for the detected architecture
-  local download_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-${ARCH_ALT}-azure.vhd.tar.gz"
-  
-  log "INFO" "Starting Ubuntu installation process"
-  
-  # Download Ubuntu rootfs
-  if ! download_file "$download_url" "$rootfs_archive"; then
-    log "ERROR" "Failed to download Ubuntu rootfs"
-    return 1
-  fi
-  
-  # Extract the archive
-  if ! extract_tar "$rootfs_archive" "$ROOTFS_DIR"; then
-    log "ERROR" "Failed to extract Ubuntu rootfs"
-    return 1
-  fi
-  
-  # Clean up archive
-  rm -f "$rootfs_archive"
-  log "INFO" "Ubuntu installation completed"
-  return 0
-}
-
-# Install proot
-install_proot() {
-  local proot_dir="$ROOTFS_DIR/usr/local/bin"
-  local proot_path="$proot_dir/proot"
-  local proot_url="https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
-  
-  # Create directory if it doesn't exist
-  mkdir -p "$proot_dir"
-  
-  log "INFO" "Installing proot binary"
-  
-  # Download proot
-  if ! download_file "$proot_url" "$proot_path"; then
-    log "ERROR" "Failed to download proot"
-    return 1
-  fi
-  
-  # Make executable
-  chmod +x "$proot_path"
-  log "INFO" "Proot installation completed"
-  return 0
-}
-
-# Configure the system
-configure_system() {
-  log "INFO" "Configuring system"
-  
-  # Set DNS
-  printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
-  
-  # Mark as installed
-  touch "$ROOTFS_DIR/.installed"
-  
-  log "INFO" "System configuration completed"
-}
-
-# Display completion message
-display_completion() {
-  local CYAN='\e[0;36m'
-  local WHITE='\e[0;37m'
-  local RESET_COLOR='\e[0m'
-  
-  echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
-  echo -e ""
-  echo -e "           ${CYAN}-----> Mission Completed ! <----${RESET_COLOR}"
-  echo -e ""
-  echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
-}
-
-# Start proot session
-start_proot() {
-  log "INFO" "Starting proot session"
-  
-  "$ROOTFS_DIR/usr/local/bin/proot" \
-    --rootfs="${ROOTFS_DIR}" \
-    -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
-}
-
-# Main execution flow
-main() {
-  clear
-  display_banner
-  determine_architecture
-  
-  # Check if already installed
-  if [ ! -e "$ROOTFS_DIR/.installed" ]; then
-    # Ask for confirmation
-    read -p "Install Ubuntu? (YES/no): " install_ubuntu
-    install_ubuntu=${install_ubuntu:-YES}
-    
-    case $install_ubuntu in
-      [yY][eE][sS])
-        if ! install_ubuntu; then
-          log "ERROR" "Ubuntu installation failed"
-          exit 1
-        fi
-        
-        if ! install_proot; then
-          log "ERROR" "Proot installation failed"
-          exit 1
-        fi
-        
-        configure_system
-        ;;
-      *)
-        log "INFO" "Skipping Ubuntu installation."
-        ;;
-    esac
-  else
-    log "INFO" "System already installed, proceeding to start"
-  fi
-  
-  clear
-  display_completion
-  start_proot
-}
-
-# Run the script
-main
+# This command starts PRoot and binds several important directories
+# from the host file system to our special root file system.
+$ROOTFS_DIR/usr/local/bin/proot \
+--rootfs="${ROOTFS_DIR}" \
+-0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
