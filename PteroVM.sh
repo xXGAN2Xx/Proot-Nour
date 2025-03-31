@@ -46,8 +46,8 @@ case $install_ubuntu in
   [yY][eE][sS])
     echo "Downloading Ubuntu rootfs..."
     wget --tries=$max_retries --timeout=$timeout --no-hsts -O /tmp/rootfs.tar.gz \
-      "http://cdimage.ubuntu.com/ubuntu-base/releases/${UBUNTU_VERSION}/release/ubuntu-base-${UBUNTU_VERSION}-base-${ARCH_ALT}.tar.gz"
-    
+      "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64-azure.vhd.tar.gz"
+      
     if [ $? -eq 0 ] && [ -s "/tmp/rootfs.tar.gz" ]; then
       echo "Extracting rootfs..."
       mkdir -p "$ROOTFS_DIR"
