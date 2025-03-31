@@ -31,7 +31,7 @@ fi
 case $install_ubuntu in
   [yY][eE][sS])
     curl -sSLo rootfs.tar.xz https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-x86_64-pd-v4.17.3.tar.xz
-    apt download xz-utils
+    apt install xz-utils
     tar -xJf rootfs.tar.xz
     ;;
   *)
