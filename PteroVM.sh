@@ -30,12 +30,13 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    curl -sSLo rootfs.tar.xz https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-x86_64-pd-v4.17.3.tar.xz
-    apt download xz-utils
-    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
-    dpkg -x $deb_file ~/.local/
-    rm "$deb_file"
-    tar -xJf rootfs.tar.xz -C $ROOTFS_DIR
+curl -sSLo rootfs.tar.xz https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-x86_64-pd-v4.17.3.tar.xz
+apt download xz-utils
+deb_file=$(ls xz-utils_*.deb)
+dpkg -x "$deb_file" ~/.local/
+rm "$deb_file"
+export PATH=~/.local/usr/bin:$PATH
+tar -xJf rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
     ;;
   *)
     echo "Skipping Ubuntu installation."
