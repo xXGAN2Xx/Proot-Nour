@@ -65,7 +65,7 @@ fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
-  rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+  rm -rf rootfs.tar.xz sbin
   touch $ROOTFS_DIR/.installed
 fi
 
