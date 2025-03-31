@@ -30,7 +30,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://cdimage.debian.org/cdimage/cloud/bookworm/20250316-2053/debian-12-generic-amd64-20250316-2053.tar.xz
+curl -sSLo rootfs.tar.xz https://github.com/AndronixApp/AndronixOrigin/raw/refs/heads/master/Rootfs/Debian/amd64/debian-rootfs-amd64.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
