@@ -29,7 +29,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://images.linuxcontainers.org/images/ubuntu/jammy/${ARCH_ALT}/default/20250330_07:42/
+curl -sSLo rootfs.tar.xz https://images.linuxcontainers.org/images/ubuntu/jammy/${ARCH_ALT}/default/20250330_07:42/rootfs.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
