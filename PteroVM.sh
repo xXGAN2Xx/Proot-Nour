@@ -29,7 +29,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/amd64/ubuntu-rootfs-amd64.tar.xz
+curl -sSLo rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Debian/${ARCH_ALT}/debian-rootfs-amd64.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
