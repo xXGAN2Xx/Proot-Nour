@@ -1,35 +1,110 @@
 #!/bin/bash
 
-# 1. Check for proot
-if ! command -v proot &> /dev/null; then
-  echo "proot is not installed. Attempting to download..."
-  # Download proot statically compiled. You may need to change the download link, if this one is broken.
-  wget https://github.com/proot-me/proot/releases/download/v5.1.1/proot-x86_64 -O proot
-  chmod +x proot
-  if [ $? -ne 0 ]; then
-    echo "Failed to download proot. Please install it manually or find a working download link."
-    exit 1
-  fi
-fi
+# --- Configuration ---
+UBUNTU_VERSION="jammy" # Ubuntu version codename (e.g., jammy, focal)
+ARCH="amd64"           # Architecture (amd64, arm64)
+ROOTFS_DIR="ubuntu-rootfs"
+PROOT_BINARY="proot"
+# Use Termux proot static builds - adjust ARCH if needed
+PROOT_URL="https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot" # v5.4.0 is latest as of now, check for updates if needed
+# URL for Ubuntu Base Rootfs
+ROOTFS_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/${UBUNTU_VERSION}/release/ubuntu-base-${UBUNTU_VERSION}-base-${ARCH}.tar.gz"
+# --- End Configuration ---
 
-# 2. Check for debootstrap or a rootfs
-if ! command -v debootstrap &> /dev/null; then
-  echo "debootstrap is not installed. Attempting to download ubuntu rootfs..."
-  # Download a pre-built minimal Ubuntu rootfs.
-  wget https://cloud-images.ubuntu.com/minimal/daily/current/focal-minimal-cloudimg-amd64-rootfs.tar.xz -O ubuntu_rootfs.tar.xz
-  if [ $? -ne 0 ]; then
-    echo "Failed to download ubuntu rootfs. Please install debootstrap manually or find a working download link for a rootfs."
+# Function to print messages
+log() {
+    echo "[INFO] $1"
+}
+
+# Function to print errors and exit
+error_exit() {
+    echo "[ERROR] $1" >&2
     exit 1
-  fi
-  mkdir ubuntu_rootfs
-  tar -xvf ubuntu_rootfs.tar.xz -C ubuntu_rootfs
+}
+
+# --- Check Dependencies ---
+log "Checking for necessary tools..."
+command -v curl >/dev/null 2>&1 || error_exit "curl is required but not installed."
+command -v tar >/dev/null 2>&1 || error_exit "tar is required but not installed."
+command -v mkdir >/dev/null 2>&1 || error_exit "mkdir is required."
+command -v chmod >/dev/null 2>&1 || error_exit "chmod is required."
+log "Dependencies found."
+
+# --- Environment Setup ---
+INSTALL_DIR="/home/container" # Standard Pterodactyl directory
+cd "$INSTALL_DIR" || error_exit "Cannot change to directory $INSTALL_DIR"
+log "Working directory: $(pwd)"
+
+# --- Download proot ---
+if [ -f "$PROOT_BINARY" ]; then
+    log "Proot binary already exists. Skipping download."
 else
-  echo "debootstrap found, creating minimal ubuntu rootfs"
-  mkdir ubuntu_rootfs
-  debootstrap focal ubuntu_rootfs
+    log "Downloading proot for ${ARCH}..."
+    curl -L "$PROOT_URL" -o "$PROOT_BINARY" || error_exit "Failed to download proot."
+    log "Proot downloaded."
 fi
 
-# 3. Run proot with the Ubuntu rootfs
-./proot -q qemu-x86_64 -b /dev -b /proc -b /sys -w /root -r ubuntu_rootfs /bin/bash
+# --- Make proot executable ---
+log "Setting execute permissions for proot..."
+chmod +x "$PROOT_BINARY" || error_exit "Failed to set execute permissions for proot."
+log "Proot is now executable."
 
-echo "Exiting proot."
+# --- Download Ubuntu Rootfs ---
+# Check if rootfs directory exists and has content; skip download/extract if so
+if [ -d "$ROOTFS_DIR" ] && [ "$(ls -A $ROOTFS_DIR)" ]; then
+    log "Rootfs directory '$ROOTFS_DIR' already exists and is not empty. Skipping download and extraction."
+else
+    log "Creating rootfs directory: $ROOTFS_DIR"
+    mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create rootfs directory."
+
+    ROOTFS_TARBALL="ubuntu-base-${UBUNTU_VERSION}-base-${ARCH}.tar.gz"
+    log "Downloading Ubuntu ${UBUNTU_VERSION} (${ARCH}) rootfs..."
+    curl -L "$ROOTFS_URL" -o "$ROOTFS_TARBALL" || error_exit "Failed to download Ubuntu rootfs."
+    log "Ubuntu rootfs downloaded."
+
+    # --- Extract Ubuntu Rootfs ---
+    log "Extracting Ubuntu rootfs into ${ROOTFS_DIR}..."
+    # Use --no-same-owner because we are likely running as non-root
+    tar --no-same-owner -xzf "$ROOTFS_TARBALL" -C "$ROOTFS_DIR" || error_exit "Failed to extract Ubuntu rootfs."
+    log "Rootfs extracted."
+
+    # --- Cleanup Tarball ---
+    log "Removing rootfs tarball..."
+    rm "$ROOTFS_TARBALL"
+    log "Tarball removed."
+fi
+
+# --- Prepare proot Command ---
+log "Preparing to launch Ubuntu environment with proot..."
+
+# Basic necessary bindings for a functional environment
+# You might need to add more -b options depending on what you run inside
+PROOT_CMD="./${PROOT_BINARY} \
+    -S ${ROOTFS_DIR} \
+    -b /dev \
+    -b /sys \
+    -b /proc \
+    -b /etc/resolv.conf:/etc/resolv.conf \
+    -b /etc/hosts:/etc/hosts \
+    -b /tmp \
+    -w /root \
+    /usr/bin/env -i \
+    HOME=/root \
+    PATH=/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin \
+    TERM=$TERM \
+    LANG=C.UTF-8 \
+    /bin/bash --login"
+
+log "--------------------------------------------------"
+log "Starting Ubuntu ${UBUNTU_VERSION} environment..."
+log "Run 'exit' or press Ctrl+D to leave the proot environment."
+log "--------------------------------------------------"
+
+# --- Execute proot ---
+eval "$PROOT_CMD"
+
+log "--------------------------------------------------"
+log "Exited proot environment."
+log "--------------------------------------------------"
+
+exit 0
