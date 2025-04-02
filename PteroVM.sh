@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ROOTFS_DIR=./nour
 export PATH=$PATH:~/.local/usr/bin
@@ -32,7 +32,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-    wget --tries=$max_retries --timeout=$timeout -O rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/amd64/ubuntu-rootfs-amd64.tar.xz
+    wget --tries=$max_retries --timeout=$timeout -O rootfs.tar.xz "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/master/Rootfs/Ubuntu/${ARCH_ALT}/ubuntu-rootfs-${ARCH_ALT}.tar.xz"
     apt download xz-utils
     deb_file=$(ls xz-utils_*.deb)
     dpkg -x "$deb_file" ~/.local/
@@ -49,30 +49,33 @@ esac
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   mkdir -p $ROOTFS_DIR/usr/local/bin
-  wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+  wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/proot"
 
-  while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
-    rm -rf $ROOTFS_DIR/usr/local/bin/proot
-    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
-
-    if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
-      chmod +x $ROOTFS_DIR/usr/local/bin/proot
-      break
-    fi
-
-    chmod +x $ROOTFS_DIR/usr/local/bin/proot
-    sleep 1
-  done
+  # Check if proot was downloaded successfully
+  if [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+    for i in $(seq 1 $max_retries); do
+      rm -f $ROOTFS_DIR/usr/local/bin/proot
+      wget --tries=1 --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/proot"
+      
+      if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+        break
+      fi
+      
+      sleep 1
+    done
+  fi
+  
+  # Make proot executable
   chmod +x $ROOTFS_DIR/usr/local/bin/proot
 fi
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
-  rm -rf rootfs.tar.xz
+  rm -f rootfs.tar.xz
   touch $ROOTFS_DIR/.installed
 fi
 
-# Make all files in nour directory executable
-chmod -R +x $ROOTFS_DIR
+# Make necessary files in nour directory executable (not all files)
+find $ROOTFS_DIR/bin $ROOTFS_DIR/usr/bin $ROOTFS_DIR/usr/local/bin -type f -exec chmod +x {} \; 2>/dev/null || true
 
 CYAN='\e[0;36m'
 WHITE='\e[0;37m'
@@ -115,7 +118,7 @@ fun_header() {
 # Fun system resources display
 fun_resources() {
   # Get CPU info
-  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g')
+  CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g' || echo "Unknown CPU")
   CPU_CORES=$(grep -c 'processor' /proc/cpuinfo)
 
   # Get RAM info (in MB)
@@ -148,5 +151,8 @@ display_gg
   --rootfs="${ROOTFS_DIR}" \
   -0 \
   -w /root \
-  -b /:/ \
+  -b /:/host-rootfs \
+  -b /dev:/dev \
+  -b /proc:/proc \
+  -b /sys:/sys \
   --kill-on-exit
