@@ -1,30 +1,35 @@
 #!/bin/bash
 
-# Download a minimal Ubuntu root filesystem (e.g., from Ubuntu base)
-wget http://cdimage.ubuntu.com/ubuntu-base/releases/22.04/release/ubuntu-base-22.04.4-base-amd64.tar.gz
+# 1. Check for proot
+if ! command -v proot &> /dev/null; then
+  echo "proot is not installed. Attempting to download..."
+  # Download proot statically compiled. You may need to change the download link, if this one is broken.
+  wget https://github.com/proot-me/proot/releases/download/v5.1.1/proot-x86_64 -O proot
+  chmod +x proot
+  if [ $? -ne 0 ]; then
+    echo "Failed to download proot. Please install it manually or find a working download link."
+    exit 1
+  fi
+fi
 
-# Extract the root filesystem
-tar -xzf ubuntu-base-22.04.4-base-amd64.tar.gz
+# 2. Check for debootstrap or a rootfs
+if ! command -v debootstrap &> /dev/null; then
+  echo "debootstrap is not installed. Attempting to download ubuntu rootfs..."
+  # Download a pre-built minimal Ubuntu rootfs.
+  wget https://cloud-images.ubuntu.com/minimal/daily/current/focal-minimal-cloudimg-amd64-rootfs.tar.xz -O ubuntu_rootfs.tar.xz
+  if [ $? -ne 0 ]; then
+    echo "Failed to download ubuntu rootfs. Please install debootstrap manually or find a working download link for a rootfs."
+    exit 1
+  fi
+  mkdir ubuntu_rootfs
+  tar -xvf ubuntu_rootfs.tar.xz -C ubuntu_rootfs
+else
+  echo "debootstrap found, creating minimal ubuntu rootfs"
+  mkdir ubuntu_rootfs
+  debootstrap focal ubuntu_rootfs
+fi
 
-# Create necessary directories
-sudo mkdir -p ubuntu/dev ubuntu/proc ubuntu/sys ubuntu/run
+# 3. Run proot with the Ubuntu rootfs
+./proot -q qemu-x86_64 -b /dev -b /proc -b /sys -w /root -r ubuntu_rootfs /bin/bash
 
-# Mount necessary filesystems
-sudo mount --bind /dev ubuntu/dev
-sudo mount --bind /proc ubuntu/proc
-sudo mount --bind /sys ubuntu/sys
-sudo mount --bind /run ubuntu/run
-
-# Chroot into the Ubuntu environment
-sudo chroot ubuntu /bin/bash
-
-# Inside the chroot, you can perform basic setup (e.g., install packages)
-# Example: apt update && apt install -y vim
-
-# To exit the chroot, type 'exit'
-
-# Unmount the filesystems when done
-sudo umount ubuntu/dev
-sudo umount ubuntu/proc
-sudo umount ubuntu/sys
-sudo umount ubuntu/run
+echo "Exiting proot."
