@@ -1,11 +1,12 @@
 #!/bin/sh
 
-ROOTFS_DIR=/home/container
+ROOTFS_DIR=nour
 export PATH=$PATH:~/.local/usr/bin
 max_retries=50
 timeout=1
 ARCH=$(uname -m)
 
+# Detect architecture
 if [ "$ARCH" = "x86_64" ]; then
   ARCH_ALT=amd64
 elif [ "$ARCH" = "aarch64" ]; then
@@ -17,7 +18,11 @@ else
   exit 1
 fi
 
-if [ ! -e $ROOTFS_DIR/.installed ]; then
+# Create nour directory if not exists
+mkdir -p "$ROOTFS_DIR"
+
+# Check if already installed
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
   echo "#######################################################################################"
   echo "#"
   echo "#                                      NOUR INSTALLER"
@@ -27,50 +32,58 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
   install_ubuntu=YES
 fi
 
+# Download and extract Ubuntu rootfs
 case $install_ubuntu in
   [yY][eE][sS])
-wget --tries=$max_retries --timeout=$timeout -O rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/amd64/ubuntu-rootfs-amd64.tar.xz
-apt download xz-utils
-deb_file=$(ls xz-utils_*.deb)
-dpkg -x "$deb_file" ~/.local/
-rm "$deb_file"
-export PATH=~/.local/usr/bin:$PATH
-tar -xJf rootfs.tar.xz
+    echo "[*] Downloading Ubuntu rootfs..."
+    wget --tries=$max_retries --timeout=$timeout -O rootfs.tar.xz "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/${ARCH_ALT}/ubuntu-rootfs-${ARCH_ALT}.tar.xz"
+
+    echo "[*] Installing xz-utils locally..."
+    apt download xz-utils
+    deb_file=$(ls xz-utils_*.deb)
+    dpkg -x "$deb_file" ~/.local/
+    rm "$deb_file"
+    export PATH=~/.local/usr/bin:$PATH
+
+    echo "[*] Extracting rootfs to $ROOTFS_DIR..."
+    tar -xJf rootfs.tar.xz -C "$ROOTFS_DIR"
     ;;
   *)
     echo "Skipping Ubuntu installation."
     ;;
 esac
 
-if [ ! -e $ROOTFS_DIR/.installed ]; then
-  mkdir $ROOTFS_DIR/usr/local/bin -p
-  wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+# Download proot binary
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+  mkdir -p "$ROOTFS_DIR/usr/local/bin"
+  echo "[*] Downloading proot binary..."
+  wget --tries=$max_retries --timeout=$timeout -O "$ROOTFS_DIR/usr/local/bin/proot" "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
   while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
-    rm $ROOTFS_DIR/usr/local/bin/proot -rf
-    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
-
-    if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
-      chmod +x $ROOTFS_DIR/usr/local/bin/proot
-      break
-    fi
-
-    chmod +x $ROOTFS_DIR/usr/local/bin/proot
+    echo "[!] proot download failed, retrying..."
+    rm -f "$ROOTFS_DIR/usr/local/bin/proot"
+    wget --tries=$max_retries --timeout=$timeout -O "$ROOTFS_DIR/usr/local/bin/proot" "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
     sleep 1
   done
-  chmod +x $ROOTFS_DIR/usr/local/bin/proot
+
+  chmod +x "$ROOTFS_DIR/usr/local/bin/proot"
 fi
 
-if [ ! -e $ROOTFS_DIR/.installed ]; then
-  rm -rf rootfs.tar.xz
-  touch $ROOTFS_DIR/.installed
+# Mark as installed
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+  rm -f rootfs.tar.xz
+  touch "$ROOTFS_DIR/.installed"
 fi
 
+# Set permissions
+chmod -R +x "$ROOTFS_DIR"
+
+# Colors
 CYAN='\e[0;36m'
 WHITE='\e[0;37m'
-
 RESET_COLOR='\e[0m'
 
+# Display success message
 display_gg() {
   echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
   echo -e ""
@@ -78,7 +91,6 @@ display_gg() {
   echo -e ""
   echo -e "${WHITE}___________________________________________________${RESET_COLOR}"
 }
-
 
 # Fun header
 fun_header() {
@@ -97,19 +109,12 @@ fun_header() {
 
 # Fun system resources display
 fun_resources() {
-  # Get CPU info
   CPU_MODEL=$(grep -m1 'model name' /proc/cpuinfo | cut -d ':' -f 2 | sed 's/^ //g')
   CPU_CORES=$(grep -c 'processor' /proc/cpuinfo)
-
-  # Get RAM info (in MB)
   TOTAL_RAM=$(free -m | awk '/Mem:/ {print $2}')
   USED_RAM=$(free -m | awk '/Mem:/ {print $3}')
   FREE_RAM=$(free -m | awk '/Mem:/ {print $4}')
-
-  # Get disk usage (in human-readable form)
   DISK_USAGE=$(df -h / | awk 'NR==2 {print $3 " used out of " $2}')
-
-  # Get system uptime (replacing 'uptime -p' for compatibility)
   UPTIME=$(awk '{print int($1/3600)" hours, "int($1%3600/60)" minutes"}' /proc/uptime)
 
   echo -e "${BOLD_MAGENTA} CPU Model -> ${YELLOW}$CPU_MODEL${RESET_COLOR}"
@@ -121,13 +126,16 @@ fun_resources() {
   echo -e "${BOLD_YELLOW} Uptime -> ${BOLD_GREEN}$UPTIME${RESET_COLOR}"
 }
 
+# Run display
 clear
 fun_header
 fun_resources
 display_gg
 
-"${ROOTFS_DIR}/usr/local/bin/proot" \
-  --rootfs="${ROOTFS_DIR}" \
+# Start proot
+echo "[*] Starting proot in $ROOTFS_DIR..."
+"$ROOTFS_DIR/usr/local/bin/proot" \
+  --rootfs="$ROOTFS_DIR" \
   -0 \
   -w /root \
   -b /:/ \
