@@ -29,7 +29,7 @@ fi
 
 case $install_ubuntu in
   [yY][eE][sS])
-curl -sSLo rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Void/amd64/void-amd64-ROOTFS-20240314.tar.xz
+wget --tries=$max_retries --timeout=$timeout -O rootfs.tar.xz https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/amd64/ubuntu-rootfs-amd64.tar.xz
 apt download xz-utils
 deb_file=$(ls xz-utils_*.deb)
 dpkg -x "$deb_file" ~/.local/
@@ -44,11 +44,11 @@ esac
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
   mkdir $ROOTFS_DIR/usr/local/bin -p
-  wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+  wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
   while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
     rm $ROOTFS_DIR/usr/local/bin/proot -rf
-    wget --tries=$max_retries --timeout=$timeout --no-hsts -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
     if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
       chmod +x $ROOTFS_DIR/usr/local/bin/proot
@@ -130,8 +130,5 @@ display_gg
   --rootfs="${ROOTFS_DIR}" \
   -0 \
   -w /root \
-  -b /dev \
-  -b /sys \
-  -b /proc \
-  -b /etc/resolv.conf \
+  -b /:/ \
   --kill-on-exit
