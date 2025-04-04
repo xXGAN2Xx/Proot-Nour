@@ -46,10 +46,9 @@ read -p "Enter OS (0-1): " input
 case $input in
 
     0)
-    mkdir $ROOTFS_DIR/nour/
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
-    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR/nour/ --strip-components=1;;
+    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
