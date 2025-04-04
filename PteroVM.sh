@@ -37,7 +37,7 @@ echo "#                                  Nour PteroVM"
 echo "#"
 echo "#######################################################################################"
 echo ""
-echo "* [0] Ubuntu noble"
+echo "* [0] Ubuntu"
 echo "* [1] Alpine"
 
 read -p "Enter OS (0-1): " input
@@ -94,7 +94,7 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
   done
   
   chmod +x $ROOTFS_DIR/usr/local/bin/proot
-
+  chmod +x $ROOTFS_DIR
 fi
 
 # Clean-up after installation complete & finish up.
