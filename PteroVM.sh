@@ -174,4 +174,4 @@ display_footer
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-$ROOTFS_DIR/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" -b /etc/resolv.conf /bin/bash --kill-on-exit
+$ROOTFS_DIR/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" -b /etc/resolv.conf /bin/sh --kill-on-exit
