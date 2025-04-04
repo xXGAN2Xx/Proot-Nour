@@ -162,7 +162,6 @@ display_footer() {
 }
 
 # Main script execution
-clear
 
 display_header
 display_resources
