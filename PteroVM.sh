@@ -47,8 +47,13 @@ case $input in
 
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
-    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-x86_64-pd-v4.18.0.tar.xz"
+    apt download xz-utils
+    deb_file=$(ls xz-utils_*.deb)
+    dpkg -x "$deb_file" ~/.local/
+    rm "$deb_file"
+    export PATH=~/.local/usr/bin:$PATH
+    tar -xJf rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
