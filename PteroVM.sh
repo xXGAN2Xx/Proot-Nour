@@ -48,12 +48,12 @@ case $input in
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
-    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
-    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
 esac
 
@@ -169,4 +169,4 @@ display_footer
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-$ROOTFS_DIR/usr/local/bin/proot -S $ROOTFS_DIR
+$ROOTFS_DIR/usr/local/bin/proot --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
