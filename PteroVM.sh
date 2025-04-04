@@ -1,7 +1,4 @@
 #!/bin/sh
-#############################
-# Linux Installation #
-#############################
 
 # Define the root directory to /home/container.
 # We can only write in /home/container and /tmp in the container.
