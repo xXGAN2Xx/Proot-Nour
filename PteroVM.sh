@@ -1,110 +1,177 @@
-#!/bin/bash
+#!/bin/sh
 
-# --- Configuration ---
-UBUNTU_VERSION="jammy" # Ubuntu version codename (e.g., jammy, focal)
-ARCH="amd64"           # Architecture (amd64, arm64)
-ROOTFS_DIR="ubuntu-rootfs"
-PROOT_BINARY="proot"
-# Use Termux proot static builds - adjust ARCH if needed
-PROOT_URL="https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot" # v5.4.0 is latest as of now, check for updates if needed
-# URL for Ubuntu Base Rootfs
-ROOTFS_URL="http://cdimage.ubuntu.com/ubuntu-base/releases/${UBUNTU_VERSION}/release/ubuntu-base-${UBUNTU_VERSION}-base-${ARCH}.tar.gz"
-# --- End Configuration ---
+#############################
+# Linux Installation #
+#############################
 
-# Function to print messages
-log() {
-    echo "[INFO] $1"
-}
+# Define the root directory to /home/container.
+# We can only write in /home/container and /tmp in the container.
+ROOTFS_DIR=/home/container
 
-# Function to print errors and exit
-error_exit() {
-    echo "[ERROR] $1" >&2
-    exit 1
-}
+export PATH=$PATH:~/.local/usr/bin
 
-# --- Check Dependencies ---
-log "Checking for necessary tools..."
-command -v curl >/dev/null 2>&1 || error_exit "curl is required but not installed."
-command -v tar >/dev/null 2>&1 || error_exit "tar is required but not installed."
-command -v mkdir >/dev/null 2>&1 || error_exit "mkdir is required."
-command -v chmod >/dev/null 2>&1 || error_exit "chmod is required."
-log "Dependencies found."
 
-# --- Environment Setup ---
-INSTALL_DIR="/home/container" # Standard Pterodactyl directory
-cd "$INSTALL_DIR" || error_exit "Cannot change to directory $INSTALL_DIR"
-log "Working directory: $(pwd)"
+max_retries=50
+timeout=3
 
-# --- Download proot ---
-if [ -f "$PROOT_BINARY" ]; then
-    log "Proot binary already exists. Skipping download."
+
+# Detect the machine architecture.
+ARCH=$(uname -m)
+
+# Check machine architecture to make sure it is supported.
+# If not, we exit with a non-zero status code.
+if [ "$ARCH" = "x86_64" ]; then
+  ARCH_ALT="amd64"
+elif [ "$ARCH" = "aarch64" ]; then
+  ARCH_ALT="arm64"
 else
-    log "Downloading proot for ${ARCH}..."
-    curl -L "$PROOT_URL" -o "$PROOT_BINARY" || error_exit "Failed to download proot."
-    log "Proot downloaded."
+  printf "Unsupported CPU architecture: ${ARCH}"
+  exit 1
 fi
 
-# --- Make proot executable ---
-log "Setting execute permissions for proot..."
-chmod +x "$PROOT_BINARY" || error_exit "Failed to set execute permissions for proot."
-log "Proot is now executable."
+# Download & decompress the Linux root file system if not already installed.
 
-# --- Download Ubuntu Rootfs ---
-# Check if rootfs directory exists and has content; skip download/extract if so
-if [ -d "$ROOTFS_DIR" ] && [ "$(ls -A $ROOTFS_DIR)" ]; then
-    log "Rootfs directory '$ROOTFS_DIR' already exists and is not empty. Skipping download and extraction."
-else
-    log "Creating rootfs directory: $ROOTFS_DIR"
-    mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create rootfs directory."
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+echo "#######################################################################################"
+echo "#"
+echo "#                                  Nour PteroVM"
+echo "#"
+echo "#######################################################################################"
+echo ""
+echo "* [0] Ubuntu"
+echo "* [1] Alpine"
 
-    ROOTFS_TARBALL="ubuntu-base-${UBUNTU_VERSION}-base-${ARCH}.tar.gz"
-    log "Downloading Ubuntu ${UBUNTU_VERSION} (${ARCH}) rootfs..."
-    curl -L "$ROOTFS_URL" -o "$ROOTFS_TARBALL" || error_exit "Failed to download Ubuntu rootfs."
-    log "Ubuntu rootfs downloaded."
+read -p "Enter OS (0-1): " input
 
-    # --- Extract Ubuntu Rootfs ---
-    log "Extracting Ubuntu rootfs into ${ROOTFS_DIR}..."
-    # Use --no-same-owner because we are likely running as non-root
-    tar --no-same-owner -xzf "$ROOTFS_TARBALL" -C "$ROOTFS_DIR" || error_exit "Failed to extract Ubuntu rootfs."
-    log "Rootfs extracted."
+case $input in
 
-    # --- Cleanup Tarball ---
-    log "Removing rootfs tarball..."
-    rm "$ROOTFS_TARBALL"
-    log "Tarball removed."
+    0)
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+    "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/${ARCH_ALT}/ubuntu-rootfs-amd64.tar.xz"
+    apt download xz-utils
+    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
+    dpkg -x $deb_file ~/.local/
+    rm "$deb_file"
+    
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+
+    1)
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+    "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
+    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+
+esac
+
 fi
 
-# --- Prepare proot Command ---
-log "Preparing to launch Ubuntu environment with proot..."
+################################
+# Package Installation & Setup #
+################################
 
-# Basic necessary bindings for a functional environment
-# You might need to add more -b options depending on what you run inside
-PROOT_CMD="./${PROOT_BINARY} \
-    -S ${ROOTFS_DIR} \
-    -b /dev \
-    -b /sys \
-    -b /proc \
-    -b /etc/resolv.conf:/etc/resolv.conf \
-    -b /etc/hosts:/etc/hosts \
-    -b /tmp \
-    -w /root \
-    /usr/bin/env -i \
-    HOME=/root \
-    PATH=/usr/local/sbin:/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin \
-    TERM=$TERM \
-    LANG=C.UTF-8 \
-    /bin/bash --login"
+# Download static APK-Tools temporarily because minirootfs does not come with APK pre-installed.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Download the packages from their sources
+    mkdir $ROOTFS_DIR/usr/local/bin -p
 
-log "--------------------------------------------------"
-log "Starting Ubuntu ${UBUNTU_VERSION} environment..."
-log "Run 'exit' or press Ctrl+D to leave the proot environment."
-log "--------------------------------------------------"
+    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
 
-# --- Execute proot ---
-eval "$PROOT_CMD"
+  while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
+      rm $ROOTFS_DIR/usr/local/bin/proot -rf
+      wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+  
+      if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+          # Make PRoot executable.
+          chmod +x $ROOTFS_DIR/usr/local/bin/proot
+          break  # Exit the loop since the file is not empty
+      fi
+      
+      chmod +x $ROOTFS_DIR/usr/local/bin/proot
+      sleep 1  # Add a delay before retrying to avoid hammering the server
+  done
+  
+  chmod +x $ROOTFS_DIR/usr/local/bin/proot
 
-log "--------------------------------------------------"
-log "Exited proot environment."
-log "--------------------------------------------------"
+fi
 
-exit 0
+# Clean-up after installation complete & finish up.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Add DNS Resolver nameservers to resolv.conf.
+    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+    # Wipe the files we downloaded into /tmp previously.
+    rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+    # Create .installed to later check whether Alpine is installed.
+    touch $ROOTFS_DIR/.installed
+fi
+
+# Print some useful information to the terminal before entering PRoot.
+# This is to introduce the user with the various Alpine Linux commands.
+# Define color variables
+BLACK='\e[0;30m'
+BOLD_BLACK='\e[1;30m'
+RED='\e[0;31m'
+BOLD_RED='\e[1;31m'
+GREEN='\e[0;32m'
+BOLD_GREEN='\e[1;32m'
+YELLOW='\e[0;33m'
+BOLD_YELLOW='\e[1;33m'
+BLUE='\e[0;34m'
+BOLD_BLUE='\e[1;34m'
+MAGENTA='\e[0;35m'
+BOLD_MAGENTA='\e[1;35m'
+CYAN='\e[0;36m'
+BOLD_CYAN='\e[1;36m'
+WHITE='\e[0;37m'
+BOLD_WHITE='\e[1;37m'
+
+# Reset text color
+RESET_COLOR='\e[0m'
+
+
+# Function to display the header
+display_header() {
+    echo -e "${BOLD_MAGENTA} __      __        ______"
+    echo -e "${BOLD_MAGENTA} \ \    / /       |  ____|"
+    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___| |__ _ __ ___  ___   ___  ___"
+    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __|  __| '__/ _ \/ _ \ / _ \/ __|"
+    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \ |  | | |  __/  __/|  __/\__ \\"
+    echo -e "${BOLD_MAGENTA}     \/ | .__/|___/_|  |_|  \___|\___(_)___||___/"
+    echo -e "${BOLD_MAGENTA}        | |"
+    echo -e "${BOLD_MAGENTA}        |_|"
+    echo -e "${BOLD_MAGENTA}___________________________________________________"
+    echo -e "           ${YELLOW}-----> System Resources <----${RESET_COLOR}"
+    echo -e ""
+}
+
+# Function to display system resources
+display_resources() {
+	echo -e " INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
+	echo -e ""
+    echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
+    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
+    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
+    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
+    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID}${RESET_COLOR}"
+    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
+}
+
+display_footer() {
+	echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
+	echo -e ""
+    echo -e "           ${YELLOW}-----> VPS HAS STARTED <----${RESET_COLOR}"
+}
+
+# Main script execution
+clear
+
+display_header
+display_resources
+display_footer
+
+
+###########################
+# Start PRoot environment #
+###########################
+
+# This command starts PRoot and binds several important directories
+# from the host file system to our special root file system.
+$ROOTFS_DIR/usr/local/bin/proot --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
