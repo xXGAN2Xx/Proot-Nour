@@ -46,19 +46,14 @@ read -p "Enter OS (0-1): " input
 case $input in
 
     0)
-    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-    "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Ubuntu/${ARCH_ALT}/ubuntu-rootfs-amd64.tar.xz"
-    apt download xz-utils
-    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
-    dpkg -x $deb_file ~/.local/
-    rm "$deb_file"
-    
-    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+    "https://partner-images.canonical.com/core/jammy/current/ubuntu-jammy-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
-    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
 esac
 
