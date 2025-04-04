@@ -39,7 +39,7 @@ echo "#                                  Nour PteroVM"
 echo "#"
 echo "#######################################################################################"
 echo ""
-echo "* [0] Ubuntu"
+echo "* [0] Ubuntu noble 24.10"
 echo "* [1] Alpine"
 
 read -p "Enter OS (0-1): " input
