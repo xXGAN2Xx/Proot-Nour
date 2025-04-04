@@ -44,7 +44,7 @@ case $input in
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
     "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
-    curl -O https://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/xz-utils_5.6.1+really5.4.5-1ubuntu0.2_${ARCH_ALT}.deb
+    apt-get download xz-utils
     deb_file=$(ls xz-utils_*.deb)
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
