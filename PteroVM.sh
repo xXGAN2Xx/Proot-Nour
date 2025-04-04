@@ -52,7 +52,7 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xvJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
@@ -62,7 +62,7 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xvJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
 esac
 
@@ -178,4 +178,4 @@ display_footer
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-$ROOTFS_DIR/usr/local/bin/proot -S "${ROOTFS_DIR}" -0 -w "/root" -b /etc/resolv.conf --kill-on-exit
+$ROOTFS_DIR/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" -b /etc/resolv.conf --kill-on-exit
