@@ -53,12 +53,17 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJvf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
-    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
-    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+    "https://github.com/termux/proot-distro/releases/download/v4.21.0/alpine-${ARCH}-pd-v4.21.0.tar.xz"
+    apt download xz-utils
+    deb_file=$(ls xz-utils_*.deb)
+    dpkg -x "$deb_file" ~/.local/
+    rm "$deb_file"
+    export PATH=~/.local/usr/bin:$PATH
+    tar -xJvf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
 esac
 
