@@ -48,12 +48,12 @@ case $input in
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://partner-images.canonical.com/core/jammy/current/ubuntu-jammy-core-cloudimg-${ARCH_ALT}-root.tar.gz"
-    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
-    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
 esac
 
