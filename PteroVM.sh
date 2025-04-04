@@ -46,9 +46,10 @@ read -p "Enter OS (0-1): " input
 case $input in
 
     0)
+    mkdir $ROOTFS_DIR/nour/
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
     "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
-    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR/nour/ --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
@@ -169,4 +170,4 @@ display_footer
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-$ROOTFS_DIR/usr/local/bin/proot --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
+$ROOTFS_DIR/usr/local/bin/proot -S $ROOTFS_DIR/nour/ /bin/bash --kill-on-exit
