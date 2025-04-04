@@ -82,7 +82,7 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
 
     echo "Extracting RootFS..."
     # Extract rootfs
-    tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR" --strip-components=1
+    tar -xvf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR" --strip-components=1
 
     # FIX: Add check after tar
     if [ $? -ne 0 ]; then
