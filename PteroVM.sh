@@ -47,7 +47,7 @@ case $input in
 
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://partner-images.canonical.com/core/jammy/current/ubuntu-jammy-core-cloudimg-${ARCH_ALT}-root.tar.gz"
+    "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
     tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
