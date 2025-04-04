@@ -8,179 +8,127 @@
 # We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 
-# Add ~/.local/usr/bin to PATH if needed (though proot usually handles its own environment)
 export PATH=$PATH:~/.local/usr/bin
 
-# Network settings for wget
+
 max_retries=50
-timeout=3 # Increased timeout slightly for potentially larger downloads
+timeout=3
 
 
-# --- Detect Architecture ---
+# Detect the machine architecture.
 ARCH=$(uname -m)
-echo "Detected architecture: $ARCH" # Added for clarity
 
-# Check machine architecture
+# Check machine architecture to make sure it is supported.
+# If not, we exit with a non-zero status code.
 if [ "$ARCH" = "x86_64" ]; then
   ARCH_ALT="amd64"
 elif [ "$ARCH" = "aarch64" ]; then
   ARCH_ALT="arm64"
 else
-  printf "Unsupported CPU architecture: ${ARCH}\n"
+  printf "Unsupported CPU architecture: ${ARCH}"
   exit 1
 fi
-echo "Using alternative architecture name: $ARCH_ALT" # Added for clarity
 
-# --- Download & Decompress Root File System ---
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then
-    echo "#######################################################################################"
-    echo "#"
-    echo "#                                 Nour PteroVM"
-    echo "#"
-    echo "#######################################################################################"
-    echo ""
-    echo "* [0] Ubuntu (Jammy 22.04)"
-    echo "* [1] Alpine (Edge - Check URL if issues arise)"
-    echo ""
+# Download & decompress the Linux root file system if not already installed.
 
-    # Ensure input is read correctly
-    input=""
-    while [ "$input" != "0" ] && [ "$input" != "1" ]; do
-        read -p "Enter OS choice (0 for Ubuntu, 1 for Alpine): " input
-        case "$input" in
-            0|1) break;;
-            *) echo "Invalid input. Please enter 0 or 1.";;
-        esac
-    done
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+echo "#######################################################################################"
+echo "#"
+echo "#                                  Nour PteroVM"
+echo "#"
+echo "#######################################################################################"
+echo ""
+echo "* [0] Ubuntu"
+echo "* [1] Alpine"
 
-    echo "Selected OS: $input" # Added for clarity
+read -p "Enter OS (0-1): " input
 
-    # Define URLs based on selection
-    if [ "$input" = "0" ]; then
-        # Ubuntu URL
-        ROOTFS_URL="https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
-    else
-        # FIX: Corrected Alpine URL to use ${ARCH_ALT} in the filename
-        # NOTE: This specific Anlinux URL/version might change or become outdated. Check repository if download fails.
-        # Using a slightly different source which might be more reliably structured:
-        # Check https://alpinelinux.org/downloads/ for official mini rootfs if needed.
-        # Using the original source structure but correcting the filename:
-        ROOTFS_URL="https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-latest-${ARCH_ALT}.tar.gz"
-        # Fallback / Alternative example (might need version adjustment):
-        # ROOTFS_URL="https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/${ARCH}/alpine-minirootfs-3.19.1-${ARCH}.tar.gz"
-    fi
+case $input in
 
-    echo "Downloading RootFS from: $ROOTFS_URL"
-    # Download rootfs
-    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz "$ROOTFS_URL"
+    0)
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+    "https://cdimage.ubuntu.com/ubuntu-base/releases/jammy/release/ubuntu-base-22.04.5-base-${ARCH_ALT}.tar.gz"
+    tar -xvzf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
-    # FIX: Add check after wget
-    if [ $? -ne 0 ]; then
-        echo "Error downloading rootfs. Please check the URL and network connection."
-        exit 1
-    fi
+    1)
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+    "https://raw.githubusercontent.com/EXALAB/Anlinux-Resources/refs/heads/master/Rootfs/Alpine/${ARCH_ALT}/alpine-minirootfs-3.21.2-amd64.tar.gz"
+    tar -xvf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
-    echo "Extracting RootFS..."
-    # Extract rootfs
-    tar -xvf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR" --strip-components=1
+esac
 
-    # FIX: Add check after tar
-    if [ $? -ne 0 ]; then
-        echo "Error extracting rootfs. The archive might be corrupted or incomplete."
-        rm -f /tmp/rootfs.tar.gz # Clean up failed download
-        exit 1
-    fi
-
-    echo "RootFS downloaded and extracted."
-
-    # --- Download proot ---
-    echo "Downloading proot..."
-    # Create directory for proot
-    mkdir -p "$ROOTFS_DIR/usr/local/bin"
-
-    PROOT_URL="https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
-    PROOT_DEST="$ROOTFS_DIR/usr/local/bin/proot"
-
-    # Download proot with retry loop
-    download_attempts=0
-    while [ ! -s "$PROOT_DEST" ]; do
-        if [ $download_attempts -gt 0 ]; then
-            echo "Retrying proot download (attempt $((download_attempts + 1)))..."
-            sleep 1 # Wait before retrying
-        fi
-        # Remove potentially empty/corrupt file before retrying
-        rm -f "$PROOT_DEST"
-        wget --tries=3 --timeout=$timeout -O "$PROOT_DEST" "$PROOT_URL" # Reduced tries per loop iteration
-
-        # Check if download succeeded in this attempt (wget exit code)
-        if [ $? -ne 0 ]; then
-            echo "Warning: wget failed to download proot on this attempt."
-        fi
-
-        download_attempts=$((download_attempts + 1))
-        if [ $download_attempts -ge $max_retries ]; then
-             echo "Error: Failed to download proot after $max_retries attempts."
-             exit 1
-        fi
-
-        # Check if file exists and has size > 0 AFTER trying to download
-         if [ -s "$PROOT_DEST" ]; then
-             echo "Proot downloaded successfully."
-             break # Exit the loop since the file exists and is not empty
-         fi
-    done
-
-    # FIX: Moved chmod +x AFTER the loop confirms successful download
-    echo "Making proot executable..."
-    chmod +x "$PROOT_DEST"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to make proot executable."
-        exit 1
-    fi
-
-    # --- Final Setup Steps ---
-    echo "Configuring DNS..."
-    # Add DNS Resolver nameservers to resolv.conf.
-    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "${ROOTFS_DIR}/etc/resolv.conf"
-
-    echo "Cleaning up temporary files..."
-    # FIX: Corrected cleanup command for the downloaded tarball
-    rm -f /tmp/rootfs.tar.gz
-
-    echo "Marking installation as complete..."
-    # Create .installed to later check whether the OS is installed.
-    touch "$ROOTFS_DIR/.installed"
-
-    echo "Installation complete."
-
-else
-    echo "Linux environment already installed. Skipping installation."
 fi
 
 ################################
-# Display Information          #
+# Package Installation & Setup #
 ################################
 
+# Download static APK-Tools temporarily because minirootfs does not come with APK pre-installed.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Download the packages from their sources
+    mkdir $ROOTFS_DIR/usr/local/bin -p
+
+    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+
+  while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
+      rm $ROOTFS_DIR/usr/local/bin/proot -rf
+      wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/proot"
+  
+      if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+          # Make PRoot executable.
+          chmod +x $ROOTFS_DIR/usr/local/bin/proot
+          break  # Exit the loop since the file is not empty
+      fi
+      
+      chmod +x $ROOTFS_DIR/usr/local/bin/proot
+      sleep 1  # Add a delay before retrying to avoid hammering the server
+  done
+  
+  chmod +x $ROOTFS_DIR/usr/local/bin/proot
+
+fi
+
+# Clean-up after installation complete & finish up.
+if [ ! -e $ROOTFS_DIR/.installed ]; then
+    # Add DNS Resolver nameservers to resolv.conf.
+    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+    # Wipe the files we downloaded into /tmp previously.
+    rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+    # Create .installed to later check whether Alpine is installed.
+    touch $ROOTFS_DIR/.installed
+fi
+
+# Print some useful information to the terminal before entering PRoot.
+# This is to introduce the user with the various Alpine Linux commands.
 # Define color variables
-# (Color definitions remain the same)
 BLACK='\e[0;30m'
 BOLD_BLACK='\e[1;30m'
-# ... (rest of color codes) ...
+RED='\e[0;31m'
+BOLD_RED='\e[1;31m'
+GREEN='\e[0;32m'
+BOLD_GREEN='\e[1;32m'
+YELLOW='\e[0;33m'
+BOLD_YELLOW='\e[1;33m'
+BLUE='\e[0;34m'
+BOLD_BLUE='\e[1;34m'
 MAGENTA='\e[0;35m'
 BOLD_MAGENTA='\e[1;35m'
-YELLOW='\e[0;33m'
-BOLD_GREEN='\e[1;32m'
-RED='\e[0;31m'
+CYAN='\e[0;36m'
+BOLD_CYAN='\e[1;36m'
+WHITE='\e[0;37m'
+BOLD_WHITE='\e[1;37m'
+
+# Reset text color
 RESET_COLOR='\e[0m'
 
 
 # Function to display the header
 display_header() {
-    echo -e "${BOLD_MAGENTA} __      __         ______"
-    echo -e "${BOLD_MAGENTA} \ \    / /        |  ____|"
-    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___ | |__ _ __ ___  ___    ___  ___"
-    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __||  __| '__/ _ \/ _ \ / _ \/ __|"
-    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \| |  | | |  __/  __/|  __/\__ \\"
+    echo -e "${BOLD_MAGENTA} __      __        ______"
+    echo -e "${BOLD_MAGENTA} \ \    / /       |  ____|"
+    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___| |__ _ __ ___  ___   ___  ___"
+    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __|  __| '__/ _ \/ _ \ / _ \/ __|"
+    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \ |  | | |  __/  __/|  __/\__ \\"
     echo -e "${BOLD_MAGENTA}     \/ | .__/|___/_|  |_|  \___|\___(_)___||___/"
     echo -e "${BOLD_MAGENTA}        | |"
     echo -e "${BOLD_MAGENTA}        |_|"
@@ -191,77 +139,34 @@ display_header() {
 
 # Function to display system resources
 display_resources() {
-    # Attempt to get host OS info if possible (might not work in all containers)
-    if [ -f /etc/os-release ]; then
-        echo -e " HOST OS -> ${RED}$(grep "PRETTY_NAME" /etc/os-release | cut -d'"' -f2)${RESET_COLOR}"
-    fi
-    # Check if proot environment OS info is available (if already installed)
-    if [ -f "$ROOTFS_DIR/etc/os-release" ]; then
-        echo -e " GUEST OS -> ${BOLD_GREEN}$(grep "PRETTY_NAME" "$ROOTFS_DIR/etc/os-release" | cut -d'"' -f2)${RESET_COLOR}"
-    fi
-    echo -e ""
-    # Display CPU info (best effort)
-    if [ -f /proc/cpuinfo ]; then
-        echo -e " CPU -> ${YELLOW}$(grep 'model name' /proc/cpuinfo | head -n 1 | cut -d':' -f2- | sed 's/^ *//')${RESET_COLOR}"
-    fi
-    # Use Pterodactyl environment variables if available
-    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY:-N/A}MB${RESET_COLOR}"
-    echo -e " DISK -> ${BOLD_GREEN}${SERVER_DISK:-N/A}MB${RESET_COLOR}" # Added Disk
-    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT:-N/A}${RESET_COLOR}"
-    # Correct variable for allocation limits (usually P_ALLOCATION_LIMIT)
-    echo -e " EXTRA PORTS COUNT -> ${BOLD_GREEN}${P_ALLOCATION_LIMIT:-N/A}${RESET_COLOR}"
-    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID:-N/A}${RESET_COLOR}"
-    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION:-N/A}${RESET_COLOR}"
+	echo -e " INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
+	echo -e ""
+    echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
+    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
+    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
+    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
+    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID}${RESET_COLOR}"
+    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
 }
 
-# Function for the footer
 display_footer() {
-    echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
-    echo -e ""
-    echo -e "           ${YELLOW}-----> STARTING VIRTUAL ENVIRONMENT <----${RESET_COLOR}"
-    echo -e ""
+	echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
+	echo -e ""
+    echo -e "           ${YELLOW}-----> VPS HAS STARTED <----${RESET_COLOR}"
 }
 
-# --- Main script execution ---
+# Main script execution
 clear
+
 display_header
 display_resources
 display_footer
+
 
 ###########################
 # Start PRoot environment #
 ###########################
 
-PROOT_BINARY="$ROOTFS_DIR/usr/local/bin/proot"
-
-# Check if proot binary exists before trying to execute
-if [ ! -x "$PROOT_BINARY" ]; then
-    echo "Error: proot binary not found or not executable at $PROOT_BINARY"
-    # Attempt to re-run installation steps (optional, could just exit)
-    # echo "Attempting to reinstall..."
-    # rm -f "$ROOTFS_DIR/.installed"
-    # exec "$0" "$@" # Re-run the script
-    exit 1
-fi
-
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-echo "Launching PRoot environment..."
-exec "$PROOT_BINARY" \
-    --rootfs="${ROOTFS_DIR}" \
-    -0 \
-    -w "/root" \
-    -b /dev \
-    -b /sys \
-    -b /proc \
-    -b /etc/resolv.conf:/etc/resolv.conf \
-    -b /etc/hosts:/etc/hosts \
-    -b /tmp \
-    -b /home/container:/host \
-    --kill-on-exit \
-    /bin/sh -c "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && /bin/sh"
-
-# Note: The exec command replaces the current shell process with proot.
-# Commands after exec will not run unless proot fails immediately.
-echo "Proot finished or failed to start."
-exit 1 # Exit with error if exec fails
+$ROOTFS_DIR/usr/local/bin/proot --rootfs="${ROOTFS_DIR}" -0 -w "/root" -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
