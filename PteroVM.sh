@@ -50,7 +50,7 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xJf rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf rootfs.tar.xz --strip-components=1;;
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /rootfs.tar.xz \
@@ -60,7 +60,7 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xJf /rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf /rootfs.tar.xz --strip-components=1;;
 
     2)
     wget --tries=$max_retries --timeout=$timeout -O /rootfs.tar.xz \
@@ -70,7 +70,7 @@ case $input in
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-    tar -xJf /rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf /rootfs.tar.xz --strip-components=1;;
 esac
 
 fi
