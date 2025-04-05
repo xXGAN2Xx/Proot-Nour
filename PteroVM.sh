@@ -36,8 +36,9 @@ echo "##########################################################################
 echo ""
 echo "* [0] Ubuntu Noble"
 echo "* [1] Alpine"
+echo "* [2] void"
 
-read -p "Enter OS (0-1): " input
+read -p "Enter OS (0-2): " input
 
 case $input in
 
@@ -61,6 +62,15 @@ case $input in
     export PATH=~/.local/usr/bin:$PATH
     tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
+    2)
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+    "https://github.com/termux/proot-distro/releases/download/v4.22.1/void-${ARCH}-pd-v4.22.1.tar.xz"
+    curl -O https://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/xz-utils_5.6.1+really5.4.5-1ubuntu0.2_${ARCH_ALT}.deb
+    deb_file=$(ls xz-utils_*.deb)
+    dpkg -x "$deb_file" ~/.local/
+    rm "$deb_file"
+    export PATH=~/.local/usr/bin:$PATH
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 esac
 
 fi
