@@ -1,62 +1,47 @@
-import java.io.File
-import java.io.IOException
-import java.net.URL
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+const fs = require('fs');
+const https = require('https');
+const { exec } = require('child_process');
 
-fun main() {
-    val scriptUrl = "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/PteroVM.sh"
-    val scriptFile = File("PteroVM.sh")
-    val deleteAfterRun = true
+function main() {
+    const url = "https://raw.githubusercontent.com/dxomg/vpsfreepterovm/main/PteroVM.sh";
+    const destination = "PteroVM.sh";
 
-    try {
-        println("📥 Downloading script from: $scriptUrl")
-        downloadFile(URL(scriptUrl), scriptFile)
-        println("✅ Downloaded to: ${scriptFile.absolutePath}")
-
-        if (!scriptFile.setExecutable(true)) {
-            println("⚠️ Failed to set executable permission via File API. Trying chmod...")
-            if (isUnix()) {
-                runCommand("chmod", "+x", scriptFile.name)
-            } else {
-                println("⚠️ Skipping chmod: Not a Unix-like OS.")
-            }
-        }
-
-        println("🚀 Running script...")
-        runCommand("sh", scriptFile.name)
-
-        if (deleteAfterRun) {
-            if (scriptFile.delete()) {
-                println("🧹 Script deleted after execution.")
-            } else {
-                println("⚠️ Failed to delete script.")
-            }
-        }
-
-    } catch (e: Exception) {
-        System.err.println("❌ Error: ${e.message}")
-        e.printStackTrace()
-    }
+    downloadFile(url, destination)
+        .then(() => {
+            // Set executable permission on downloaded file
+            fs.chmodSync(destination, '755');
+            
+            // Run the downloaded file
+            exec(`sh ./${destination}`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Error running script: ${error}`);
+                    return;
+                }
+                console.log(stdout);
+                
+                // Remove the downloaded script after running
+                fs.unlinkSync(destination);
+            });
+        })
+        .catch((error) => {
+            console.error(`Error downloading script: ${error}`);
+        });
 }
 
-fun downloadFile(url: URL, destination: File) {
-    url.openStream().use { input ->
-        Files.copy(input, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
-    }
+function downloadFile(url, destination) {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(destination);
+        https.get(url, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close();
+                resolve();
+            });
+        }).on('error', (error) => {
+            fs.unlinkSync(destination);
+            reject(error);
+        });
+    });
 }
 
-fun runCommand(vararg command: String) {
-    val process = ProcessBuilder(*command)
-        .inheritIO()
-        .start()
-    val exitCode = process.waitFor()
-    if (exitCode != 0) {
-        throw IOException("Command '${command.joinToString(" ")}' failed with exit code $exitCode")
-    }
-}
-
-fun isUnix(): Boolean {
-    val os = System.getProperty("os.name").lowercase()
-    return os.contains("nix") || os.contains("nux") || os.contains("mac")
-}
+main();
