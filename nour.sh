@@ -196,14 +196,14 @@ install_custom() {
     _file_name=$(basename "${_url}")
 
     log "INFO" "Downloading $_file_name..." "YELLOW"
-    if ! curl -Ls "${_url}" -o "/tmp/$_file_name"; then
+    if ! curl -Ls "${_url}" -o "$ROOTFS_DIR/$_file_name"; then
         error_exit "Failed to download $_pretty_name rootfs from $_url"
     fi
 
     log "INFO" "Extracting $_file_name..." "YELLOW"
-    if ! tar -xf "/tmp/$_file_name" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "$ROOTFS_DIR/$_file_name" -C "$ROOTFS_DIR"; then
         # Attempt cleanup even on failure
-        rm -f "/tmp/$_file_name"
+        rm -f "$ROOTFS_DIR/$_file_name"
         error_exit "Failed to extract $_pretty_name rootfs"
     fi
 
@@ -211,7 +211,7 @@ install_custom() {
 
     # Cleanup downloaded archive
     log "INFO" "Cleaning up downloaded archive..." "YELLOW"
-    rm -f "/tmp/$_file_name"
+    rm -f "$ROOTFS_DIR/$_file_name"
 }
 
 # Function to get Chimera Linux URL
@@ -272,14 +272,14 @@ download_and_extract_rootfs() {
     log "INFO" "Downloading rootfs from $_download_url..." "GREEN"
     mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create $ROOTFS_DIR"
 
-    if ! curl -Ls "$_download_url" -o "$/tmp/rootfs.tar.xz"; then
+    if ! curl -Ls "$_download_url" -o "$$ROOTFS_DIR/rootfs.tar.xz"; then
         error_exit "Failed to download rootfs"
     fi
 
     log "INFO" "Extracting rootfs..." "GREEN"
-    if ! tar -xf "/tmp/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
         # Attempt cleanup even on extraction failure
-        rm -f "$/tmp/rootfs.tar.xz"
+        rm -f "$$ROOTFS_DIR/rootfs.tar.xz"
         error_exit "Failed to extract rootfs"
     fi
 
