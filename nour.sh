@@ -453,7 +453,7 @@ fi
 # make run code #
 ###########################
 # Create the script file
-if [ ! -e $ROOTFS_DIR/.run.sh ]; then
+if [ ! -e $ROOTFS_DIR/run.sh ]; then
 cat > run.sh << 'EOF'
 #!/bin/sh
 
@@ -674,16 +674,16 @@ print_banner() {
     printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┃                           ${PURPLE} Pterodactyl VPS nour ${GREEN}                             ┃${NC}\n"
-    printf "${GREEN}┃                                                                             ┃${NC}\n"
+    printf "${GREEN}┃                                                                            ┃${NC}\n"
     printf "${GREEN}┃                          ${RED}© 2025 - $(date +%Y) ${PURPLE}@xXGAN2Xx${GREEN}                            ┃${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
-    echo -e " INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
-	echo -e ""
-    echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
-    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
-    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
-    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
-    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
+    printf "${GREEN}┃ INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}┃${NC}\n"
+    printf "${GREEN}┃┃${NC}\n"
+    printf "${GREEN}┃ CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}┃${NC}\n"
+    printf "${GREEN}┃RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}┃${NC}\n"
+    printf "${GREEN}┃PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}┃${NC}\n"
+    printf "${GREEN}┃EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}┃${NC}\n"
+    printf "${GREEN}┃LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}┃${NC}\n"
     printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
 }
 
