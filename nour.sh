@@ -804,8 +804,8 @@ rm -rf $ROOTFS_DIR/rootfs.tar.xz /tmp/*
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
     $ROOTFS_DIR/usr/local/bin/proot \
-    --rootfs="/" \
+    --rootfs="${ROOTFS_DIR}" \
     -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf \
     --kill-on-exit \
-    /bin/sh "$ROOTFS_DIR/run.sh"
+    /bin/bash "$ROOTFS_DIR/run.sh"
