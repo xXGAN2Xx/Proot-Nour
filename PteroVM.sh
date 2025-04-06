@@ -35,7 +35,7 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
     export PATH=~/.local/usr/bin:$PATH
-fi
+
 ################################
 # installing script            #
 ################################
@@ -408,7 +408,7 @@ case "$selection" in
     20) install "alt" "Alt Linux" ;;
      *) error_exit "Invalid selection. Please enter a number between 1 and $num_distros." ;;
 esac
-
+fi
 ################################
 # Package Installation & Setup #
 ################################
@@ -518,4 +518,15 @@ display_footer
 
 # This command starts PRoot and binds several important directories
 # from the host file system to our special root file system.
-$ROOTFS_DIR/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" -b /etc/resolv.conf --kill-on-exit
+cd /home/container
+MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
+
+# Make internal Docker IP address available to processes.
+export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
+
+    $ROOTFS_DIR/usr/local/bin/proot \
+    --rootfs="/" \
+    -0 -w "/root" \
+    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
+    --kill-on-exit \
+    /bin/sh "$ROOTFS_DIR/run.sh"
