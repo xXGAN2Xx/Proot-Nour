@@ -3,8 +3,8 @@ import os
 import subprocess
 
 def main():
-    url = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh"
-    destination = "PteroVM.sh"
+    url = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh"
+    destination = "nour.sh"
     
     try:
         download_file(url, destination)
