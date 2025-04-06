@@ -808,4 +808,4 @@ export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
     -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf \
     --kill-on-exit \
-    /bin/bash "$ROOTFS_DIR/run.sh"
+    /bin/sh "/run.sh"
