@@ -1,6 +1,5 @@
 name: Build and Package
 on: [pull_request, push, workflow_dispatch]
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,25 +18,18 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-
       - name: Compile Kotlin Wrapper and Rename JAR
         run: |
           cd wrappers/Kotlin
           chmod +x gradlew
           ./gradlew shadowJar
-
           # Define expected original artifact name
           ORIGINAL_JAR="build/libs/PteroVM-1.0.0-all.jar"
           RENAMED_JAR="server.jar"
-
           # Check if the original artifact exists
           if [ -f "$ORIGINAL_JAR" ]; then
             echo "Moving $ORIGINAL_JAR to current directory..."
-            mv "$ORIGINAL_JAR" .
-            # Get the base name of the original JAR after moving
-            MOVED_JAR_BASENAME=$(basename "$ORIGINAL_JAR")
-            echo "Renaming $MOVED_JAR_BASENAME to $RENAMED_JAR..."
-            mv "$MOVED_JAR_BASENAME" "$RENAMED_JAR" # Rename the file here
+            cp "$ORIGINAL_JAR" "$RENAMED_JAR"
             echo "JAR successfully renamed to $RENAMED_JAR"
           else
             echo "Error: Expected artifact $ORIGINAL_JAR not found after build!"
@@ -46,7 +38,6 @@ jobs:
             ls -l build/libs/
             exit 1
           fi
-
       - uses: actions/upload-artifact@v4
         with:
           name: Artifacts
@@ -54,4 +45,4 @@ jobs:
             wrappers/Javascript/PteroVM.js
             wrappers/Python/PteroVM.py
             wrappers/Kotlin/server.jar
-            PteroVM.sh
+            ./PteroVM.sh
