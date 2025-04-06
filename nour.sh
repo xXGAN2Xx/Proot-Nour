@@ -515,6 +515,7 @@ display_footer
 # make run code #
 ###########################
 # Create the script file
+if [ ! -e $ROOTFS_DIR/.run.sh ]; then
 cat > run.sh << 'EOF'
 #!/bin/sh
 
@@ -830,7 +831,7 @@ EOF
 chmod +x run.sh
 
 echo "The run.sh file has been created successfully!"
-
+fi
 ###########################
 # Start PRoot environment #
 ###########################
