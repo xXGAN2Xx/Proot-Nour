@@ -1,47 +1,39 @@
-const fs = require('fs');
-const https = require('https');
-const { exec } = require('child_process');
+import java.io.File
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
-function main() {
-    const url = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/PteroVM.sh";
-    const destination = "PteroVM.sh";
-
-    downloadFile(url, destination)
-        .then(() => {
-            // Set executable permission on downloaded file
-            fs.chmodSync(destination, '755');
-            
-            // Run the downloaded file
-            exec(`sh ./${destination}`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Error running script: ${error}`);
-                    return;
-                }
-                console.log(stdout);
+fun main() {
+    val url = URL("https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh")
+    val destination = File("nour.sh")
+    
+    try {
+        // Check if the file already exists
+        if (!destination.exists()) {
+            println("File does not exist. Downloading...")
+            downloadFile(url, destination)
+            println("Download completed.")
+        } else {
+            println("File already exists. Skipping download.")
+        }
+        
+        // Set executable permission on the file
+        val chmod = ProcessBuilder("chmod", "+x", destination.name)
+        chmod.inheritIO()
+        chmod.start().waitFor()
+        
+        // Run the file
+        val harbor = ProcessBuilder("sh", destination.name)
+        harbor.inheritIO()
+        harbor.start().waitFor()
                 
-                // Remove the downloaded script after running
-                fs.unlinkSync(destination);
-            });
-        })
-        .catch((error) => {
-            console.error(`Error downloading script: ${error}`);
-        });
+    } catch (e: Exception) {
+        println("Error downloading or running script: ${e.message}")
+        e.printStackTrace()
+    }
 }
 
-function downloadFile(url, destination) {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(destination);
-        https.get(url, (response) => {
-            response.pipe(file);
-            file.on('finish', () => {
-                file.close();
-                resolve();
-            });
-        }).on('error', (error) => {
-            fs.unlinkSync(destination);
-            reject(error);
-        });
-    });
+fun downloadFile(url: URL, destination: File) {
+    Files.copy(url.openStream(), Paths.get(destination.toURI()), StandardCopyOption.REPLACE_EXISTING)
 }
-
-main();
