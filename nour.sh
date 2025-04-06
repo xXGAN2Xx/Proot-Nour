@@ -39,7 +39,6 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
 ################################
 # installing script            #
 ################################
-# Define color codes (using standard variables)
 CLR_PURPLE='\033[0;35m'
 CLR_RED='\033[0;31m'
 CLR_GREEN='\033[0;32m'
@@ -272,14 +271,14 @@ download_and_extract_rootfs() {
     log "INFO" "Downloading rootfs from $_download_url..." "GREEN"
     mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create $ROOTFS_DIR"
 
-    if ! curl -Ls "$_download_url" -o "$$ROOTFS_DIR/rootfs.tar.xz"; then
+    if ! curl -Ls "$_download_url" -o "$ROOTFS_DIR/rootfs.tar.xz"; then
         error_exit "Failed to download rootfs"
     fi
 
     log "INFO" "Extracting rootfs..." "GREEN"
     if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
         # Attempt cleanup even on extraction failure
-        rm -f "$$ROOTFS_DIR/rootfs.tar.xz"
+        rm -f "$ROOTFS_DIR/rootfs.tar.xz"
         error_exit "Failed to extract rootfs"
     fi
 
@@ -325,7 +324,7 @@ display_menu() {
     printf "${CLR_GREEN}┃                                                                             ┃${CLR_NC}\n"
     # Use portable date command format
     _current_year=$(date +%Y)
-    printf "${CLR_GREEN}┃                 ${CLR_RED}© 2025 - %s ${CLR_PURPLE}@xXGAN2Xx${CLR_GREEN}                 ┃${CLR_NC}\n" "$_current_year"
+    printf "${CLR_GREEN}┃                 ${CLR_RED}© 2021 - %s ${CLR_PURPLE}@xXGAN2Xx${CLR_GREEN}                 ┃${CLR_NC}\n" "$_current_year"
     printf "${CLR_GREEN}┃                                                                             ┃${CLR_NC}\n"
     printf "${CLR_GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${CLR_NC}\n"
     printf "\n${CLR_YELLOW}Please choose your favorite distro:${CLR_NC}\n\n"
@@ -408,6 +407,8 @@ case "$selection" in
     20) install "alt" "Alt Linux" ;;
      *) error_exit "Invalid selection. Please enter a number between 1 and $num_distros." ;;
 esac
+log "INFO" "Installation process completed successfully." "GREEN"
+
 fi
 ################################
 # Package Installation & Setup #
@@ -448,69 +449,6 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     touch $ROOTFS_DIR/.installed
 fi
 
-# Print some useful information to the terminal before entering PRoot.
-# This is to introduce the user with the various Alpine Linux commands.
-# Define color variables
-BLACK='\e[0;30m'
-BOLD_BLACK='\e[1;30m'
-RED='\e[0;31m'
-BOLD_RED='\e[1;31m'
-GREEN='\e[0;32m'
-BOLD_GREEN='\e[1;32m'
-YELLOW='\e[0;33m'
-BOLD_YELLOW='\e[1;33m'
-BLUE='\e[0;34m'
-BOLD_BLUE='\e[1;34m'
-MAGENTA='\e[0;35m'
-BOLD_MAGENTA='\e[1;35m'
-CYAN='\e[0;36m'
-BOLD_CYAN='\e[1;36m'
-WHITE='\e[0;37m'
-BOLD_WHITE='\e[1;37m'
-
-# Reset text color
-RESET_COLOR='\e[0m'
-
-
-# Function to display the header
-display_header() {
-    echo -e "${BOLD_MAGENTA} __      __        ______"
-    echo -e "${BOLD_MAGENTA} \ \    / /       |  ____|"
-    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___| |__ _ __ ___  ___   ___  ___"
-    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __|  __| '__/ _ \/ _ \ / _ \/ __|"
-    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \ |  | | |  __/  __/|  __/\__ \\"
-    echo -e "${BOLD_MAGENTA}     \/ | .__/|___/_|  |_|  \___|\___(_)___||___/"
-    echo -e "${BOLD_MAGENTA}        | |"
-    echo -e "${BOLD_MAGENTA}        |_|"
-    echo -e "${BOLD_MAGENTA}___________________________________________________"
-    echo -e "           ${YELLOW}-----> System Resources <----${RESET_COLOR}"
-    echo -e ""
-}
-
-# Function to display system resources
-display_resources() {
-	echo -e " INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
-	echo -e ""
-    echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
-    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
-    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
-    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
-    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID}${RESET_COLOR}"
-    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
-}
-
-display_footer() {
-	echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
-	echo -e ""
-    echo -e "           ${YELLOW}-----> VPS HAS STARTED <----${RESET_COLOR}"
-}
-
-# Main script execution
-
-display_header
-display_resources
-display_footer
-
 ###########################
 # make run code #
 ###########################
@@ -520,6 +458,20 @@ cat > run.sh << 'EOF'
 #!/bin/sh
 
 # Color definitions
+BLACK='\e[0;30m'
+BOLD_BLACK='\e[1;30m'
+BOLD_RED='\e[1;31m'
+BOLD_GREEN='\e[1;32m'
+BOLD_YELLOW='\e[1;33m'
+BLUE='\e[0;34m'
+BOLD_BLUE='\e[1;34m'
+MAGENTA='\e[0;35m'
+BOLD_MAGENTA='\e[1;35m'
+CYAN='\e[0;36m'
+BOLD_CYAN='\e[1;36m'
+WHITE='\e[0;37m'
+BOLD_WHITE='\e[1;37m'
+RESET_COLOR='\e[0m'
 PURPLE='\033[0;35m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -725,6 +677,13 @@ print_banner() {
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┃                          ${RED}© 2025 - $(date +%Y) ${PURPLE}@xXGAN2Xx${GREEN}                            ┃${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
+    echo -e " INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
+	echo -e ""
+    echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
+    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
+    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
+    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${RESET_COLOR}"
+    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${RESET_COLOR}"
     printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
 }
 
@@ -841,6 +800,7 @@ fi
 cd /home/container
 MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
 
+rm -rf $ROOTFS_DIR/rootfs.tar.xz /tmp/*
 # Make internal Docker IP address available to processes.
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
