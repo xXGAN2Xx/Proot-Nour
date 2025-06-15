@@ -480,6 +480,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
+
+
 # Configuration
 HOSTNAME="MyVPS"
 HISTORY_FILE="${HOME}/.custom_shell_history"
@@ -501,6 +503,12 @@ if [ ! -e "/.installed" ]; then
     
     # Mark as installed.
     touch "/.installed"
+fi
+
+# Check if the autorun script exists
+if [ ! -e "/autorun.sh" ]; then
+    touch /autorun.sh
+    chmod +x /autorun.sh
 fi
 
 printf "\033c"
@@ -589,7 +597,15 @@ save_to_history() {
 reinstall() {
     # Source the /etc/os-release file to get OS information
     . /etc/os-release
+
+    printf "${YELLOW}Are you sure you want to reinstall the OS? This will wipe all data. (yes/no): ${NC}"
+    read -r confirmation
+    if [ "$confirmation" != "yes" ]; then
+        log "INFO" "Reinstallation cancelled." "$YELLOW"
+        return
+    fi
     
+    log "INFO" "Proceeding with reinstallation..." "$GREEN"
     if [ "$ID" = "alpine" ] || [ "$ID" = "chimera" ]; then
         rm -rf / > /dev/null 2>&1
     else
@@ -670,40 +686,6 @@ install_ssh() {
     log "SUCCESS" "SSH installed successfully." "$GREEN"
 }
 
-# Function to print initial banner
-print_banner() {
-    printf "\033c"
-    printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
-    printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃                           ${PURPLE} Pterodactyl VPS nour ${GREEN}                            ┃${NC}\n"
-    printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃                          ${RED}© 2025 - $(date +%Y) ${PURPLE}@xXGAN2Xx${GREEN}                            ┃${NC}\n"
-    printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃ INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2)${NC}\n"
-    printf "${GREEN}┃ CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1)${NC}\n"
-    printf "${GREEN}┃ RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${NC}\n"
-    printf "${GREEN}┃ PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${NC}\n"
-    printf "${GREEN}┃ EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${NC}\n"
-    printf "${GREEN}┃ LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${NC}\n"
-    printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
-}
-
-# Function to print a beautiful help message
-print_help_message() {
-    printf "${PURPLE}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
-    printf "${PURPLE}┃                                                                             ┃${NC}\n"
-    printf "${PURPLE}┃                          ${GREEN}✦ Available Commands ✦${PURPLE}                             ┃${NC}\n"
-    printf "${PURPLE}┃                                                                             ┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}clear, cls${GREEN}         ❯  Clear the screen                                  ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}exit${GREEN}               ❯  Shutdown the server                               ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}history${GREEN}            ❯  Show command history                              ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}reinstall${GREEN}          ❯  Reinstall the server                              ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}install-ssh${GREEN}        ❯  Install our custom SSH server                     ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃     ${YELLOW}help${GREEN}               ❯  Display this help message                         ${PURPLE}┃${NC}\n"
-    printf "${PURPLE}┃                                                                             ┃${NC}\n"
-    printf "${PURPLE}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
-}
-
 # Function to handle command execution
 execute_command() {
     cmd="$1"
@@ -781,10 +763,49 @@ print_instructions
 # Print initial command
 printf "${GREEN}root@${HOSTNAME}${NC}:${RED}$(get_formatted_dir)${NC}#\n"
 
+# Execute autorun.sh
+sh "/autorun.sh"
+
 # Main command loop
 while true; do
     run_prompt "user"
 done
+
+
+# Function to print initial banner
+print_banner() {
+    printf "\033c"
+    printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
+    printf "${GREEN}┃                                                                             ┃${NC}\n"
+    printf "${GREEN}┃                           ${PURPLE} Pterodactyl VPS nour ${GREEN}                            ┃${NC}\n"
+    printf "${GREEN}┃                                                                             ┃${NC}\n"
+    printf "${GREEN}┃                          ${RED}© 2025 - $(date +%Y) ${PURPLE}@xXGAN2Xx${GREEN}                            ┃${NC}\n"
+    printf "${GREEN}┃                                                                             ┃${NC}\n"
+    printf "${GREEN}┃ INSTALLER OS -> ${RED} $(cat /etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2)${NC}\n"
+    printf "${GREEN}┃ CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1)${NC}\n"
+    printf "${GREEN}┃ RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${NC}\n"
+    printf "${GREEN}┃ PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${NC}\n"
+    printf "${GREEN}┃ EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${NC}\n"
+    printf "${GREEN}┃ LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${NC}\n"
+    printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
+}
+
+# Function to print a beautiful help message
+print_help_message() {
+    printf "${PURPLE}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
+    printf "${PURPLE}┃                                                                             ┃${NC}\n"
+    printf "${PURPLE}┃                          ${GREEN}✦ Available Commands ✦${PURPLE}                             ┃${NC}\n"
+    printf "${PURPLE}┃                                                                             ┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}clear, cls${GREEN}         ❯  Clear the screen                                  ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}exit${GREEN}               ❯  Shutdown the server                               ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}history${GREEN}            ❯  Show command history                              ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}reinstall${GREEN}          ❯  Reinstall the server                              ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}install-ssh${GREEN}        ❯  Install our custom SSH server                     ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃     ${YELLOW}help${GREEN}               ❯  Display this help message                         ${PURPLE}┃${NC}\n"
+    printf "${PURPLE}┃                                                                             ┃${NC}\n"
+    printf "${PURPLE}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
+}
+
 EOF
 
 # Make the file executable
