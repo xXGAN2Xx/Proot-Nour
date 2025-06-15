@@ -421,18 +421,11 @@ fi
 # Clean-up after installation complete & finish up.
 if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Add DNS Resolver nameservers to resolv.conf.
-    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+    mkdir -p "${ROOTFS_DIR}/etc" && printf '%s\n' "nameserver 1.1.1.1" "nameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
     # Wipe the files we downloaded into /tmp previously.
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y update"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y upgrade"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install curl"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install wget"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install neofetch"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "curl -o /bin/systemctl https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "chmod +x /bin/systemctl"
 fi
 
 ###########################
