@@ -425,7 +425,7 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
 	# Add DNS Resolver nameservers to resolv.conf.
-	printf '%s\n' "nameserver 1.1.1.1" "nameserver 1.0.0.1" > /tmp/my_resolv.conf
+	printf '%s\n' "nameserver 1.1.1.1" "nameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
 fi
 
 ###########################
@@ -801,4 +801,4 @@ rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 # Make internal Docker IP address available to processes.
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
-${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" --kill-on-exit -b /tmp/my_resolv.conf:/etc/resolv.conf /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
+${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" --kill-on-exit /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
