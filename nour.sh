@@ -120,7 +120,7 @@ check_network() {
 # Function to cleanup temporary files
 cleanup() {
     log "INFO" "Cleaning up temporary files..." "YELLOW"
-    rm -f "$ROOTFS_DIR/rootfs.tar.xz"
+    rm -f "${ROOTFS_DIR}/rootfs.tar.xz"
     rm -rf /tmp/sbin
 }
 
@@ -193,22 +193,22 @@ install_custom() {
 
     log "INFO" "Installing $pretty_name..." "GREEN"
 
-    mkdir -p "$ROOTFS_DIR"
+    mkdir -p "${ROOTFS_DIR}"
 
     file_name=$(basename "${url}")
 
-    if ! curl -Ls "${url}" -o "$ROOTFS_DIR/$file_name"; then
+    if ! curl -Ls "${url}" -o "${ROOTFS_DIR}/$file_name"; then
         error_exit "Failed to download $pretty_name rootfs"
     fi
 
-    if ! tar -xf "$ROOTFS_DIR/$file_name" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/$file_name" -C "${ROOTFS_DIR}"; then
         error_exit "Failed to extract $pretty_name rootfs"
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/"
+    mkdir -p "${ROOTFS_DIR}/home/container/"
 
     # Cleanup downloaded archive
-    rm -f "$ROOTFS_DIR/$file_name"
+    rm -f "${ROOTFS_DIR}/$file_name"
 }
 
 # Function to get Chimera Linux URL
@@ -301,18 +301,18 @@ download_and_extract_rootfs() {
     error_exit "Failed to determine latest version"
 
     log "INFO" "Downloading rootfs..." "GREEN"
-    mkdir -p "$ROOTFS_DIR"
+    mkdir -p "${ROOTFS_DIR}"
 
-    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "$ROOTFS_DIR/rootfs.tar.xz"; then
+    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "${ROOTFS_DIR}/rootfs.tar.xz"; then
         error_exit "Failed to download rootfs"
     fi
 
     log "INFO" "Extracting rootfs..." "GREEN"
-    if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/rootfs.tar.xz" -C "${ROOTFS_DIR}"; then
         error_exit "Failed to extract rootfs"
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/"
+    mkdir -p "${ROOTFS_DIR}/home/container/"
 }
 
 # Function to handle post-install configuration for specific distros
@@ -322,9 +322,9 @@ post_install_config() {
     case "$distro" in
         "archlinux")
             log "INFO" "Configuring Arch Linux specific settings..." "GREEN"
-            sed -i '/^#RootDir/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
-            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "$ROOTFS_DIR/etc/pacman.conf"
-            sed -i '/^#DBPath/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
+            sed -i '/^#RootDir/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
+            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "${ROOTFS_DIR}/etc/pacman.conf"
+            sed -i '/^#DBPath/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
         ;;
     esac
 }
@@ -445,8 +445,8 @@ case "$selection" in
 esac
 
 # Copy run.sh script to ROOTFS_DIR and make it executable
-cp /run.sh "$ROOTFS_DIR/run.sh"
-chmod +x "$ROOTFS_DIR/run.sh"
+cp /run.sh "${ROOTFS_DIR}/run.sh"
+chmod +x "${ROOTFS_DIR}/run.sh"
 
 # Trap for cleanup on script exit
 trap cleanup EXIT
