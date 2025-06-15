@@ -29,7 +29,7 @@ fi
 
 # Download & decompress the Linux root file system if not already installed.
 
-if [ ! -e $ROOTFS_DIR/.installed ]; then
+if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     curl -O https://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/xz-utils_5.6.1+really5.4.5-1ubuntu0.2_${ARCH_ALT}.deb
     deb_file=$(ls xz-utils_*.deb)
     dpkg -x "$deb_file" ~/.local/
@@ -106,7 +106,7 @@ check_network() {
 # Function to cleanup temporary files
 cleanup() {
     log "INFO" "Cleaning up temporary files..." "YELLOW"
-    rm -f "$ROOTFS_DIR/rootfs.tar.xz"
+    rm -f "${ROOTFS_DIR}/rootfs.tar.xz"
     rm -rf /tmp/sbin # Ensure this directory is expected/safe to remove
 }
 
@@ -189,28 +189,28 @@ install_custom() {
 
     log "INFO" "Installing $_pretty_name..." "GREEN"
 
-    mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create $ROOTFS_DIR"
+    mkdir -p "${ROOTFS_DIR}" || error_exit "Failed to create ${ROOTFS_DIR}"
 
     # Use portable basename
     _file_name=$(basename "${_url}")
 
     log "INFO" "Downloading $_file_name..." "YELLOW"
-    if ! curl -Ls "${_url}" -o "$ROOTFS_DIR/$_file_name"; then
+    if ! curl -Ls "${_url}" -o "${ROOTFS_DIR}/$_file_name"; then
         error_exit "Failed to download $_pretty_name rootfs from $_url"
     fi
 
     log "INFO" "Extracting $_file_name..." "YELLOW"
-    if ! tar -xf "$ROOTFS_DIR/$_file_name" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/$_file_name" -C "${ROOTFS_DIR}"; then
         # Attempt cleanup even on failure
-        rm -f "$ROOTFS_DIR/$_file_name"
+        rm -f "${ROOTFS_DIR}/$_file_name"
         error_exit "Failed to extract $_pretty_name rootfs"
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/" || log "WARN" "Could not create $ROOTFS_DIR/home/container/" "YELLOW" # Log warning instead of erroring
+    mkdir -p "${ROOTFS_DIR}/home/container/" || log "WARN" "Could not create ${ROOTFS_DIR}/home/container/" "YELLOW" # Log warning instead of erroring
 
     # Cleanup downloaded archive
     log "INFO" "Cleaning up downloaded archive..." "YELLOW"
-    rm -f "$ROOTFS_DIR/$_file_name"
+    rm -f "${ROOTFS_DIR}/$_file_name"
 }
 
 # Function to get Chimera Linux URL
@@ -269,23 +269,23 @@ download_and_extract_rootfs() {
     _download_url="${_download_base_url}${_latest_build}rootfs.tar.xz"
 
     log "INFO" "Downloading rootfs from $_download_url..." "GREEN"
-    mkdir -p "$ROOTFS_DIR" || error_exit "Failed to create $ROOTFS_DIR"
+    mkdir -p "${ROOTFS_DIR}" || error_exit "Failed to create ${ROOTFS_DIR}"
 
-    if ! curl -Ls "$_download_url" -o "$ROOTFS_DIR/rootfs.tar.xz"; then
+    if ! curl -Ls "$_download_url" -o "${ROOTFS_DIR}/rootfs.tar.xz"; then
         error_exit "Failed to download rootfs"
     fi
 
     log "INFO" "Extracting rootfs..." "GREEN"
-    if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/rootfs.tar.xz" -C "${ROOTFS_DIR}"; then
         # Attempt cleanup even on extraction failure
-        rm -f "$ROOTFS_DIR/rootfs.tar.xz"
+        rm -f "${ROOTFS_DIR}/rootfs.tar.xz"
         error_exit "Failed to extract rootfs"
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/" || log "WARN" "Could not create $ROOTFS_DIR/home/container/" "YELLOW" # Log warning
+    mkdir -p "${ROOTFS_DIR}/home/container/" || log "WARN" "Could not create ${ROOTFS_DIR}/home/container/" "YELLOW" # Log warning
 
     # Cleanup handled by trap or can be done explicitly here if needed before success
-    # rm -f "$ROOTFS_DIR/rootfs.tar.xz" # Can move cleanup here or rely on trap
+    # rm -f "${ROOTFS_DIR}/rootfs.tar.xz" # Can move cleanup here or rely on trap
 }
 
 # Function to handle post-install configuration for specific distros
@@ -297,13 +297,13 @@ post_install_config() {
         "archlinux")
             log "INFO" "Configuring Arch Linux specific settings..." "GREEN"
             # Check if files exist before modifying
-            if [ -f "$ROOTFS_DIR/etc/pacman.conf" ]; then
+            if [ -f "${ROOTFS_DIR}/etc/pacman.conf" ]; then
                  # Using simple sed commands, should be portable
                  sed -i -e '/^#RootDir/s/^#//' \
                         -e 's|/var/lib/pacman/|/var/lib/pacman|' \
-                        -e '/^#DBPath/s/^#//' "$ROOTFS_DIR/etc/pacman.conf" || log "WARN" "Failed to modify pacman.conf" "YELLOW"
+                        -e '/^#DBPath/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf" || log "WARN" "Failed to modify pacman.conf" "YELLOW"
             else
-                 log "WARN" "$ROOTFS_DIR/etc/pacman.conf not found for post-install config." "YELLOW"
+                 log "WARN" "${ROOTFS_DIR}/etc/pacman.conf not found for post-install config." "YELLOW"
             fi
             ;;
          # Add other distro-specific configs here if needed
@@ -415,45 +415,47 @@ fi
 ################################
 
 # Download static APK-Tools temporarily because minirootfs does not come with APK pre-installed.
-if [ ! -e $ROOTFS_DIR/.installed ]; then
+if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Download the packages from their sources
-    mkdir $ROOTFS_DIR/usr/local/bin -p
+    mkdir ${ROOTFS_DIR}/usr/local/bin -p
 
-      curl -L --retry "$max_retries" --max-time "$timeout" -o "$ROOTFS_DIR/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
+      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
 
-  while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
-      rm $ROOTFS_DIR/usr/local/bin/proot -rf
-      curl -L --retry "$max_retries" --max-time "$timeout" -o "$ROOTFS_DIR/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
+  while [ ! -s "${ROOTFS_DIR}/usr/local/bin/proot" ]; do
+      rm ${ROOTFS_DIR}/usr/local/bin/proot -rf
+      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
   
-      if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
+      if [ -s "${ROOTFS_DIR}/usr/local/bin/proot" ]; then
           # Make PRoot executable.
-          chmod +x $ROOTFS_DIR/usr/local/bin/proot
+          chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
           break  # Exit the loop since the file is not empty
       fi
       
-      chmod +x $ROOTFS_DIR/usr/local/bin/proot
+      chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
       sleep 1  # Add a delay before retrying to avoid hammering the server
   done
   
-  chmod +x $ROOTFS_DIR/usr/local/bin/proot
-  chmod +x $ROOTFS_DIR
+  chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
+  chmod +x ${ROOTFS_DIR}
 fi
 
 # Clean-up after installation complete & finish up.
-if [ ! -e $ROOTFS_DIR/.installed ]; then
+if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Add DNS Resolver nameservers to resolv.conf.
     printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
     # Wipe the files we downloaded into /tmp previously.
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
-    touch $ROOTFS_DIR/.installed
+    touch ${ROOTFS_DIR}/.installed
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -c "curl -o /bin/systemctl https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -c "chmod +x /bin/systemctl"
 fi
 
 ###########################
 # make run code #
 ###########################
 # Create the script file
-if [ ! -e $ROOTFS_DIR/run.sh ]; then
+if [ ! -e ${ROOTFS_DIR}/run.sh ]; then
 cat > run.sh << 'EOF'
 #!/bin/sh
 
@@ -799,13 +801,12 @@ fi
 cd /home/container
 MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
 
-rm -rf $ROOTFS_DIR/rootfs.tar.xz /tmp/*
+rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 # Make internal Docker IP address available to processes.
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
-    $ROOTFS_DIR/usr/local/bin/proot \
-    -R "${ROOTFS_DIR}" \
-    -0 -w "/root" \
-    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
+    ${ROOTFS_DIR}/usr/local/bin/proot \
+    -S "${ROOTFS_DIR}/" \
+    -w "/root" \
     --kill-on-exit \
-    /bin/sh "/run.sh"
+    /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
