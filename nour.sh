@@ -40,100 +40,93 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
 # installing script            #
 ################################
 
-
-
 #!/bin/sh
 
-# Define color codes
-PURPLE='\033[0;35m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# --- Color Codes ---
+# Using readonly to prevent accidental changes.
+readonly PURPLE='\033[0;35m'
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
 
-# Configuration variables
+# --- Configuration ---
 readonly ROOTFS_DIR="/home/container"
 readonly BASE_URL="https://images.linuxcontainers.org/images"
+readonly SCRIPT_NAME="$0"
 
 # Add to PATH
 export PATH="$PATH:/root/.local/usr/bin"
 
 # Define the number of distributions
-num_distros=20
+readonly num_distros=20
+
+# --- Functions ---
 
 # Error handling function
 error_exit() {
-    printf "${RED}Error: %s${NC}\n" "$1" 1>&2
+    printf "${RED}Error:${NC} %s\n" "$1" 1>&2
     exit 1
 }
 
 # Logger function
 log() {
-    level="$1"
-    message="$2"
-    color_name="$3"
-    color=""
+    local level="$1"
+    local message="$2"
+    local color_name="$3"
+    local color="$NC"
 
     case "$color_name" in
-        "PURPLE") color="$PURPLE";;
-        "RED") color="$RED";;
-        "GREEN") color="$GREEN";;
-        "YELLOW") color="$YELLOW";;
-        *) color="$NC";;
+        "PURPLE") color="$PURPLE" ;;
+        "RED") color="$RED" ;;
+        "GREEN") color="$GREEN" ;;
+        "YELLOW") color="$YELLOW" ;;
+        "BLUE") color="$BLUE" ;;
     esac
 
-    if [ -z "$color" ]; then
-        color="$NC"
-    fi
-
-    printf "%s[%s]%s %s\n" "$color" "$level" "$NC" "$message"
+    printf "%s[%s]${NC} %s\n" "$color" "$level" "$message"
 }
 
 # Detect the machine architecture.
-ARCH=$(uname -m)
-
-# Detect architecture
 detect_architecture() {
-    case "$ARCH" in
-        x86_64)
-            echo "amd64"
-        ;;
-        aarch64)
-            echo "arm64"
-        ;;
-        riscv64)
-            echo "riscv64"
-        ;;
-        *)
-            error_exit "Unsupported CPU architecture: $ARCH"
-        ;;
+    local arch
+    arch=$(uname -m)
+    case "$arch" in
+        x86_64) echo "amd64" ;;
+        aarch64) echo "arm64" ;;
+        riscv64) echo "riscv64" ;;
+        *) error_exit "Unsupported CPU architecture: $arch" ;;
     esac
 }
 
 # Verify network connectivity
 check_network() {
     if ! curl -s --head "$BASE_URL" >/dev/null; then
-        error_exit "Unable to connect to $BASE_URL. Please check your internet connection."
+        error_exit "Unable to connect to '$BASE_URL'. Please check your internet connection."
     fi
 }
 
 # Function to cleanup temporary files
 cleanup() {
-    log "INFO" "Cleaning up temporary files..." "YELLOW"
-    rm -f "${ROOTFS_DIR}/rootfs.tar.xz"
+    log "INFO" "Cleaning up temporary files..." "BLUE"
+    rm -f "$ROOTFS_DIR/rootfs.tar.xz"
     rm -rf /tmp/sbin
 }
 
-# Function to install a specific distro
+# Function to install a specific distro from linuxcontainers.org
 install() {
-    distro_name="$1"
-    pretty_name="$2"
-    is_custom="${3:-false}"
+    local distro_name="$1"
+    local pretty_name="$2"
+    local is_custom="${3:-false}"
+    local url_path=""
+    local image_names=""
+    local count=1
+    local num_versions
+    local version
+    local selected_version
 
     log "INFO" "Preparing to install $pretty_name..." "GREEN"
-
-    url_path=""
-    image_names=""
 
     if [ "$is_custom" = "true" ]; then
         url_path="$BASE_URL/$distro_name/current/$ARCH_ALT/"
@@ -141,145 +134,134 @@ install() {
         url_path="$BASE_URL/$distro_name/"
     fi
 
-    # Fetch available versions with error handling
     image_names=$(curl -s "$url_path" | grep 'href="' | grep -o '"[^/"]*/"' | tr -d '"/' | grep -v '^\.\.$') ||
-    error_exit "Failed to fetch available versions for $pretty_name"
+        error_exit "Failed to fetch available versions for $pretty_name."
 
     # Display available versions
-    count=1
     echo "$image_names" | while read -r line; do
         if [ -n "$line" ]; then
-            printf "* [%d] %s (%s)\n" "$count" "$pretty_name" "$line"
+            printf "* [${GREEN}%d${NC}] %s (%s)\n" "$count" "$pretty_name" "$line"
             count=$((count + 1))
         fi
     done
-    printf "* [0] Go Back\n"
+    printf "* [${YELLOW}0${NC}] Go Back\n\n"
 
     num_versions=$(echo "$image_names" | wc -l)
 
     # Version selection with validation
-    version=""
     while true; do
-        printf "${YELLOW}Enter the desired version (0-%d): ${NC}\n" "$num_versions"
+        printf "${YELLOW}Enter the desired version (0-%d): ${NC}" "$num_versions"
         read -r version
+        echo # Add a newline for better formatting
+
         case "$version" in
-            0)
-                exec "$0"
-            ;;
-            ''|*[!0-9]*)
-                log "ERROR" "Invalid selection. Please try again." "RED"
+            0) exec "$SCRIPT_NAME" ;;
+            '' | *[!0-9]*)
+                log "ERROR" "Invalid input. Please enter a number." "RED"
                 continue
-            ;;
+                ;;
         esac
 
         if [ "$version" -ge 1 ] && [ "$version" -le "$num_versions" ]; then
             break
         else
-            log "ERROR" "Invalid selection. Please try again." "RED"
+            log "ERROR" "Invalid selection. Please choose a number between 0 and $num_versions." "RED"
         fi
     done
 
     selected_version=$(echo "$image_names" | sed -n "${version}p")
     log "INFO" "Selected version: $selected_version" "GREEN"
 
-    # Download and extract rootfs
     download_and_extract_rootfs "$distro_name" "$selected_version" "$is_custom"
 }
 
-# Function to install custom distribution from URL
+# Function to install custom distribution from a direct URL
 install_custom() {
-    pretty_name="$1"
-    url="$2"
+    local pretty_name="$1"
+    local url="$2"
+    local file_name
 
-    log "INFO" "Installing $pretty_name..." "GREEN"
-
-    mkdir -p "${ROOTFS_DIR}"
-
+    log "INFO" "Installing $pretty_name from custom URL..." "GREEN"
+    mkdir -p "$ROOTFS_DIR"
     file_name=$(basename "${url}")
 
-    if ! curl -Ls "${url}" -o "${ROOTFS_DIR}/$file_name"; then
-        error_exit "Failed to download $pretty_name rootfs"
+    log "INFO" "Downloading $pretty_name rootfs..." "BLUE"
+    if ! curl -Ls "${url}" -o "$ROOTFS_DIR/$file_name"; then
+        error_exit "Failed to download $pretty_name rootfs."
     fi
 
-    if ! tar -xf "${ROOTFS_DIR}/$file_name" -C "${ROOTFS_DIR}"; then
-        error_exit "Failed to extract $pretty_name rootfs"
+    log "INFO" "Extracting $pretty_name rootfs..." "BLUE"
+    if ! tar -xf "$ROOTFS_DIR/$file_name" -C "$ROOTFS_DIR"; then
+        error_exit "Failed to extract $pretty_name rootfs."
     fi
 
-    mkdir -p "${ROOTFS_DIR}/home/container/"
-
-    # Cleanup downloaded archive
-    rm -f "${ROOTFS_DIR}/$file_name"
+    mkdir -p "$ROOTFS_DIR/home/container/"
+    rm -f "$ROOTFS_DIR/$file_name" # Cleanup downloaded archive
 }
 
-# Function to get Chimera Linux URL
+# Function to get the latest Chimera Linux URL
 get_chimera_linux() {
-    base_url="https://repo.chimera-linux.org/live/latest/"
-    latest_file=""
+    local base_url="https://repo.chimera-linux.org/live/latest/"
+    local latest_file
 
     latest_file=$(curl -s "$base_url" | grep -o "chimera-linux-$ARCH-ROOTFS-[0-9]\{8\}-bootstrap\.tar\.gz" | sort -V | tail -n 1) ||
-    error_exit "Failed to fetch Chimera Linux version"
+        error_exit "Failed to fetch Chimera Linux version list."
 
     if [ -n "$latest_file" ]; then
-        date=$(echo "$latest_file" | grep -o '[0-9]\{8\}')
-        echo "${base_url}chimera-linux-$ARCH-ROOTFS-$date-bootstrap.tar.gz"
+        echo "${base_url}${latest_file}"
     else
-        error_exit "No suitable Chimera Linux version found"
+        error_exit "No suitable Chimera Linux version found for architecture '$ARCH'."
     fi
 }
 
 # Function to install openSUSE Linux based on version
 install_opensuse_linux() {
-    printf "Select openSUSE version:\n"
-    printf "* [1] openSUSE Leap\n"
-    printf "* [2] openSUSE Tumbleweed\n"
-    printf "* [0] Go Back\n"
+    local opensuse_version url
 
-    opensuse_version=""
+    printf "Select openSUSE version:\n"
+    printf "* [${GREEN}1${NC}] openSUSE Leap\n"
+    printf "* [${GREEN}2${NC}] openSUSE Tumbleweed\n"
+    printf "* [${YELLOW}0${NC}] Go Back\n\n"
+
     while true; do
-        printf "${YELLOW}Enter your choice (0-2): ${NC}\n"
+        printf "${YELLOW}Enter your choice (0-2): ${NC}"
         read -r opensuse_version
+        echo
+
         case "$opensuse_version" in
-            0)
-                exec "$0"
-            ;;
+            0) exec "$SCRIPT_NAME" ;;
             1)
                 log "INFO" "Selected version: openSUSE Leap" "GREEN"
-                url=""
                 case "$ARCH" in
-                    aarch64|x86_64)
+                    aarch64 | x86_64)
                         url="https://download.opensuse.org/distribution/openSUSE-current/appliances/opensuse-leap-dnf-image.${ARCH}-lxc-dnf.tar.xz"
                         install_custom "openSUSE Leap" "$url"
-                    ;;
-                    *)
-                        error_exit "openSUSE Leap is not available for ${ARCH} architecture"
-                    ;;
+                        ;;
+                    *) error_exit "openSUSE Leap is not available for the '$ARCH' architecture." ;;
                 esac
                 break
-            ;;
+                ;;
             2)
                 log "INFO" "Selected version: openSUSE Tumbleweed" "GREEN"
                 if [ "$ARCH" = "x86_64" ]; then
                     install_custom "openSUSE Tumbleweed" "https://download.opensuse.org/tumbleweed/appliances/opensuse-tumbleweed-dnf-image.x86_64-lxc-dnf.tar.xz"
                 else
-                    error_exit "openSUSE Tumbleweed is not available for ${ARCH} architecture"
+                    error_exit "openSUSE Tumbleweed is currently only available for the 'x86_64' architecture."
                 fi
                 break
-            ;;
-            *)
-                log "ERROR" "Invalid selection. Please try again." "RED"
-            ;;
+                ;;
+            *) log "ERROR" "Invalid selection. Please try again." "RED" ;;
         esac
     done
 }
 
-# Function to download and extract rootfs
+# Function to download and extract rootfs from linuxcontainers.org
 download_and_extract_rootfs() {
-    distro_name="$1"
-    version="$2"
-    is_custom="$3"
+    local distro_name="$1"
+    local version="$2"
+    local is_custom="$3"
+    local arch_url url latest_version
 
-    arch_url=""
-    url=""
     if [ "$is_custom" = "true" ]; then
         arch_url="${BASE_URL}/${distro_name}/current/"
         url="${BASE_URL}/${distro_name}/current/${ARCH_ALT}/${version}/"
@@ -288,176 +270,124 @@ download_and_extract_rootfs() {
         url="${BASE_URL}/${distro_name}/${version}/${ARCH_ALT}/default/"
     fi
 
-    # Check if the distro support $ARCH_ALT
+    # Check if the distro supports $ARCH_ALT
     if ! curl -s "$arch_url" | grep -q "$ARCH_ALT"; then
-        error_exit "This distro doesn't support $ARCH_ALT. Exiting...."
-        cleanup
-        exit 1
+        error_exit "This distribution does not support the '$ARCH_ALT' architecture."
     fi
 
-    # Get latest version
-    latest_version=""
     latest_version=$(curl -s "$url" | grep 'href="' | grep -o '"[^/"]*/"' | tr -d '"' | sort -r | head -n 1) ||
-    error_exit "Failed to determine latest version"
+        error_exit "Failed to determine the latest available image version."
 
-    log "INFO" "Downloading rootfs..." "GREEN"
-    mkdir -p "${ROOTFS_DIR}"
-
-    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "${ROOTFS_DIR}/rootfs.tar.xz"; then
-        error_exit "Failed to download rootfs"
+    log "INFO" "Downloading rootfs..." "BLUE"
+    mkdir -p "$ROOTFS_DIR"
+    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "$ROOTFS_DIR/rootfs.tar.xz"; then
+        error_exit "Failed to download rootfs."
     fi
 
-    log "INFO" "Extracting rootfs..." "GREEN"
-    if ! tar -xf "${ROOTFS_DIR}/rootfs.tar.xz" -C "${ROOTFS_DIR}"; then
-        error_exit "Failed to extract rootfs"
+    log "INFO" "Extracting rootfs..." "BLUE"
+    if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
+        error_exit "Failed to extract rootfs."
     fi
 
-    mkdir -p "${ROOTFS_DIR}/home/container/"
+    mkdir -p "$ROOTFS_DIR/home/container/"
 }
 
 # Function to handle post-install configuration for specific distros
 post_install_config() {
-    distro="$1"
+    local distro="$1"
 
     case "$distro" in
         "archlinux")
-            log "INFO" "Configuring Arch Linux specific settings..." "GREEN"
-            sed -i '/^#RootDir/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
-            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "${ROOTFS_DIR}/etc/pacman.conf"
-            sed -i '/^#DBPath/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
-        ;;
+            log "INFO" "Applying Arch Linux specific configurations..." "BLUE"
+            sed -i '/^#RootDir/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
+            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "$ROOTFS_DIR/etc/pacman.conf"
+            sed -i '/^#DBPath/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
+            ;;
     esac
 }
 
 # Main menu display
 display_menu() {
-    printf "\033c"
+    printf "\033c" # Clear screen
     printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃                           ${PURPLE} Pterodactyl VPS EGG ${GREEN}                             ┃${NC}\n"
+    printf "${GREEN}┃%27s${PURPLE}%s${GREEN}%27s┃${NC}\n" "" "Pterodactyl VPS EGG" ""
     printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃                          ${RED}© 2021 - %s ${PURPLE}@ysdragon${GREEN}                            ┃${NC}\n" "$(date +%Y)"
+    printf "${GREEN}┃%26s${RED}%s${BLUE}%s${GREEN}%25s┃${NC}\n" "" "© 2021-$(date +%Y) " "@ysdragon" ""
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
     printf "\n${YELLOW}Please choose your favorite distro:${NC}\n\n"
 
-    # Display all distributions
-    printf "* [1] Debian\n"
-    printf "* [2] Ubuntu\n"
-    printf "* [3] Void Linux\n"
-    printf "* [4] Alpine Linux\n"
-    printf "* [5] CentOS\n"
-    printf "* [6] Rocky Linux\n"
-    printf "* [7] Fedora\n"
-    printf "* [8] AlmaLinux\n"
-    printf "* [9] Slackware Linux\n"
-    printf "* [10] Kali Linux\n"
-    printf "* [11] openSUSE\n"
-    printf "* [12] Gentoo Linux\n"
-    printf "* [13] Arch Linux\n"
-    printf "* [14] Devuan Linux\n"
-    printf "* [15] Chimera Linux\n"
-    printf "* [16] Oracle Linux\n"
-    printf "* [17] Amazon Linux\n"
-    printf "* [18] Plamo Linux\n"
-    printf "* [19] Linux Mint\n"
-    printf "* [20] Alt Linux\n"
+    printf " * [${GREEN}1${NC}] Debian\n"
+    printf " * [${GREEN}2${NC}] Ubuntu\n"
+    printf " * [${GREEN}3${NC}] Void Linux\n"
+    printf " * [${GREEN}4${NC}] Alpine Linux\n"
+    printf " * [${GREEN}5${NC}] CentOS\n"
+    printf " * [${GREEN}6${NC}] Rocky Linux\n"
+    printf " * [${GREEN}7${NC}] Fedora\n"
+    printf " * [${GREEN}8${NC}] AlmaLinux\n"
+    printf " * [${GREEN}9${NC}] Slackware\n"
+    printf " * [${GREEN}10${NC}] Kali Linux\n"
+    printf " * [${GREEN}11${NC}] openSUSE\n"
+    printf " * [${GREEN}12${NC}] Gentoo\n"
+    printf " * [${GREEN}13${NC}] Arch Linux\n"
+    printf " * [${GREEN}14${NC}] Devuan\n"
+    printf " * [${GREEN}15${NC}] Chimera Linux\n"
+    printf " * [${GREEN}16${NC}] Oracle Linux\n"
+    printf " * [${GREEN}17${NC}] Amazon Linux\n"
+    printf " * [${GREEN}18${NC}] Plamo Linux\n"
+    printf " * [${GREEN}19${NC}] Linux Mint\n"
+    printf " * [${GREEN}20${NC}] Alt Linux\n"
 
-    printf "\n${YELLOW}Enter the desired distro (1-%d): ${NC}\n" "$num_distros"
+    printf "\n${YELLOW}Enter the desired distro number (1-%d): ${NC}" "$num_distros"
 }
 
-# Initial setup
-ARCH_ALT=$(detect_architecture)
-check_network
-
-# Display menu and get selection
-display_menu
-
-# Handle user selection and installation
-read -r selection
-
-case "$selection" in
-    1)
-        install "debian" "Debian"
-    ;;
-    2)
-        install "ubuntu" "Ubuntu"
-    ;;
-    3)
-        install "voidlinux" "Void Linux" "true"
-    ;;
-    4)
-        install "alpine" "Alpine Linux"
-    ;;
-    5)
-        install "centos" "CentOS"
-    ;;
-    6)
-        install "rockylinux" "Rocky Linux"
-    ;;
-    7)
-        install "fedora" "Fedora"
-    ;;
-    8)
-        install "almalinux" "Alma Linux"
-    ;;
-    9)
-        install "slackware" "Slackware"
-    ;;
-    10)
-        install "kali" "Kali Linux"
-    ;;
-    11)
-        install_opensuse_linux
-    ;;
-    12)
-        install "gentoo" "Gentoo Linux" "true"
-    ;;
-    13)
-        install "archlinux" "Arch Linux"
-        post_install_config "archlinux"
-    ;;
-    14)
-        install "devuan" "Devuan Linux"
-    ;;
-    15)
-        chimera_url=$(get_chimera_linux)
-        install_custom "Chimera Linux" "$chimera_url"
-    ;;
-    16)
-        install "oracle" "Oracle Linux"
-    ;;
-    17)
-        install "amazonlinux" "Amazon Linux"
-    ;;
-    18)
-        install "plamo" "Plamo Linux"
-    ;;
-    19)
-        install "mint" "Linux Mint"
-    ;;
-    20)
-        install "alt" "Alt Linux"
-    ;;
-    *)
-        error_exit "Invalid selection (1-${num_distros})"
-    ;;
-esac
-
-# Copy run.sh script to ROOTFS_DIR and make it executable
-cp /run.sh "${ROOTFS_DIR}/run.sh"
-chmod +x "${ROOTFS_DIR}/run.sh"
+# --- Main Script Execution ---
 
 # Trap for cleanup on script exit
 trap cleanup EXIT
 
+# Initial setup
+readonly ARCH=$(uname -m)
+readonly ARCH_ALT=$(detect_architecture)
+check_network
 
+# Display menu and get selection
+display_menu
+read -r selection
+echo
 
-
-
-trap cleanup EXIT
-log "INFO" "Installation process completed successfully." "GREEN"
-
+# Handle user selection and installation
+case "$selection" in
+    1) install "debian" "Debian" ;;
+    2) install "ubuntu" "Ubuntu" ;;
+    3) install "voidlinux" "Void Linux" "true" ;;
+    4) install "alpine" "Alpine Linux" ;;
+    5) install "centos" "CentOS" ;;
+    6) install "rockylinux" "Rocky Linux" ;;
+    7) install "fedora" "Fedora" ;;
+    8) install "almalinux" "AlmaLinux" ;;
+    9) install "slackware" "Slackware" ;;
+    10) install "kali" "Kali Linux" ;;
+    11) install_opensuse_linux ;;
+    12) install "gentoo" "Gentoo" "true" ;;
+    13)
+        install "archlinux" "Arch Linux"
+        post_install_config "archlinux"
+        ;;
+    14) install "devuan" "Devuan" ;;
+    15)
+        chimera_url=$(get_chimera_linux)
+        install_custom "Chimera Linux" "$chimera_url"
+        ;;
+    16) install "oracle" "Oracle Linux" ;;
+    17) install "amazonlinux" "Amazon Linux" ;;
+    18) install "plamo" "Plamo Linux" ;;
+    19) install "mint" "Linux Mint" ;;
+    20) install "alt" "Alt Linux" ;;
+    *) error_exit "Invalid selection. Please run the script again and choose a number between 1 and ${num_distros}." ;;
+esac
+log "SUCCESS" "Installation complete! The temporary rootfs archive has been removed." "GREEN"
 fi
 ################################
 # Package Installation & Setup #
@@ -496,8 +426,13 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -c "curl -o /bin/systemctl https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -c "chmod +x /bin/systemctl"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y update"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y upgrade"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install curl"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install wget"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "apt -y install neofetch"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "curl -o /bin/systemctl https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+    ${ROOTFS_DIR}/usr/local/bin/proot -R "${ROOTFS_DIR}" -q "chmod +x /bin/systemctl"
 fi
 
 ###########################
@@ -872,8 +807,4 @@ rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 # Make internal Docker IP address available to processes.
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
-    ${ROOTFS_DIR}/usr/local/bin/proot \
-    -S "${ROOTFS_DIR}" \
-    -w "/root" \
-    --kill-on-exit \
-    /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
+${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" --kill-on-exit /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
