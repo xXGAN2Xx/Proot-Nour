@@ -824,7 +824,7 @@ rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
     ${ROOTFS_DIR}/usr/local/bin/proot \
-    -S "${ROOTFS_DIR}/" \
+    -S "${ROOTFS_DIR}" \
     -w "/root" \
     --kill-on-exit \
     /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
