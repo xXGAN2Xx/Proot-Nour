@@ -422,8 +422,6 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
-	# Add DNS Resolver nameservers to resolv.conf.
-	echo "nameserver 1.1.1.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 fi
 
 ###########################
@@ -791,12 +789,8 @@ fi
 ###########################
 
 # This command starts PRoot and binds several important directories
-# from the host file system to our special root file system.
 cd /home/container
-MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
-
+# Add DNS Resolver nameservers to resolv.conf.
+echo "nameserver 1.1.1.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
-# Make internal Docker IP address available to processes.
-export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
-
 ${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}/." -w "/root" --kill-on-exit /bin/bash "${ROOTFS_DIR}/run.sh" || exit 1
