@@ -423,7 +423,7 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
 	# Add DNS Resolver nameservers to resolv.conf.
-	printf '%s\n' "nameserver 1.1.1.1" "nameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
+	echo "nameserver 1.1.1.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 fi
 
 ###########################
