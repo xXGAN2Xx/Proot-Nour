@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Define the root directory to /home/container.
 # We can only write in /home/container and /tmp in the container.
@@ -432,7 +432,7 @@ fi
 # Create the script file
 if [ ! -e ${ROOTFS_DIR}/run.sh ]; then
 cat > run.sh << 'EOF'
-#!/bin/sh
+#!/bin/bash
 
 # Color definitions
 BLACK='\e[0;30m'
@@ -799,4 +799,4 @@ rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 # Make internal Docker IP address available to processes.
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 
-${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}" -w "/root" --kill-on-exit /bin/sh "${ROOTFS_DIR}/run.sh" || exit 1
+${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}/." -w "/root" --kill-on-exit /bin/bash "${ROOTFS_DIR}/run.sh" || exit 1
