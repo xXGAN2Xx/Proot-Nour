@@ -108,7 +108,7 @@ check_network() {
 # Function to cleanup temporary files
 cleanup() {
     log "INFO" "Cleaning up temporary files..." "BLUE"
-    rm -f "$ROOTFS_DIR/rootfs.tar.xz"
+    rm -f "${ROOTFS_DIR}/rootfs.tar.xz"
     rm -rf /tmp/sbin
 }
 
@@ -180,21 +180,21 @@ install_custom() {
     local file_name
 
     log "INFO" "Installing $pretty_name from custom URL..." "GREEN"
-    mkdir -p "$ROOTFS_DIR"
+    mkdir -p "${ROOTFS_DIR}"
     file_name=$(basename "${url}")
 
     log "INFO" "Downloading $pretty_name rootfs..." "BLUE"
-    if ! curl -Ls "${url}" -o "$ROOTFS_DIR/$file_name"; then
+    if ! curl -Ls "${url}" -o "${ROOTFS_DIR}/$file_name"; then
         error_exit "Failed to download $pretty_name rootfs."
     fi
 
     log "INFO" "Extracting $pretty_name rootfs..." "BLUE"
-    if ! tar -xf "$ROOTFS_DIR/$file_name" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/$file_name" -C "${ROOTFS_DIR}"; then
         error_exit "Failed to extract $pretty_name rootfs."
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/"
-    rm -f "$ROOTFS_DIR/$file_name" # Cleanup downloaded archive
+    mkdir -p "${ROOTFS_DIR}/home/container/"
+    rm -f "${ROOTFS_DIR}/$file_name" # Cleanup downloaded archive
 }
 
 # Function to get the latest Chimera Linux URL
@@ -277,17 +277,17 @@ download_and_extract_rootfs() {
         error_exit "Failed to determine the latest available image version."
 
     log "INFO" "Downloading rootfs..." "BLUE"
-    mkdir -p "$ROOTFS_DIR"
-    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "$ROOTFS_DIR/rootfs.tar.xz"; then
+    mkdir -p "${ROOTFS_DIR}"
+    if ! curl -Ls "${url}${latest_version}/rootfs.tar.xz" -o "${ROOTFS_DIR}/rootfs.tar.xz"; then
         error_exit "Failed to download rootfs."
     fi
 
     log "INFO" "Extracting rootfs..." "BLUE"
-    if ! tar -xf "$ROOTFS_DIR/rootfs.tar.xz" -C "$ROOTFS_DIR"; then
+    if ! tar -xf "${ROOTFS_DIR}/rootfs.tar.xz" -C "${ROOTFS_DIR}"; then
         error_exit "Failed to extract rootfs."
     fi
 
-    mkdir -p "$ROOTFS_DIR/home/container/"
+    mkdir -p "${ROOTFS_DIR}/home/container/"
 }
 
 # Function to handle post-install configuration for specific distros
@@ -297,9 +297,9 @@ post_install_config() {
     case "$distro" in
         "archlinux")
             log "INFO" "Applying Arch Linux specific configurations..." "BLUE"
-            sed -i '/^#RootDir/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
-            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "$ROOTFS_DIR/etc/pacman.conf"
-            sed -i '/^#DBPath/s/^#//' "$ROOTFS_DIR/etc/pacman.conf"
+            sed -i '/^#RootDir/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
+            sed -i 's|/var/lib/pacman/|/var/lib/pacman|' "${ROOTFS_DIR}/etc/pacman.conf"
+            sed -i '/^#DBPath/s/^#//' "${ROOTFS_DIR}/etc/pacman.conf"
             ;;
     esac
 }
