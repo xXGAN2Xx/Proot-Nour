@@ -793,4 +793,4 @@ cd /home/container
 # Add DNS Resolver nameservers to resolv.conf.
 echo "nameserver 1.1.1.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
-${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}/." -w "/root" --kill-on-exit /bin/bash "${ROOTFS_DIR}/run.sh" || exit 1
+${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}/." -w "/root" --kill-on-exit /bin/bash "${ROOTFS_DIR}/run.sh"
