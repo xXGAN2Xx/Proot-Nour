@@ -30,7 +30,7 @@ fi
 # Download & decompress the Linux root file system if not already installed.
 
 if [ ! -e ${ROOTFS_DIR}/.installed ]; then
-    curl -O https://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/xz-utils_5.6.1+really5.4.5-1ubuntu0.2_${ARCH_ALT}.deb
+    curl -O http://ftp.de.debian.org/debian/pool/main/x/xz-utils/xz-utils_5.4.1-1_${ARCH_ALT}.deb
     deb_file=$(ls xz-utils_*.deb)
     dpkg -x "$deb_file" ~/.local/
     rm "$deb_file"
