@@ -40,8 +40,6 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
 # installing script            #
 ################################
 
-#!/bin/sh
-
 # --- Color Codes ---
 # Using readonly to prevent accidental changes.
 readonly PURPLE='\033[0;35m'
