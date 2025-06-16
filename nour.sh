@@ -396,11 +396,11 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     # Download the packages from their sources
     mkdir ${ROOTFS_DIR}/usr/local/bin -p
 
-      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
+      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
 
   while [ ! -s "${ROOTFS_DIR}/usr/local/bin/proot" ]; do
       rm ${ROOTFS_DIR}/usr/local/bin/proot -rf
-      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/xXGAN2Xx/proot-nour/raw/refs/heads/main/proot-${ARCH}-static"
+      curl -L --retry "$max_retries" --max-time "$timeout" -o "${ROOTFS_DIR}/usr/local/bin/proot" "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
   
       if [ -s "${ROOTFS_DIR}/usr/local/bin/proot" ]; then
           # Make PRoot executable.
