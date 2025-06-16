@@ -789,8 +789,46 @@ fi
 ###########################
 
 # This command starts PRoot and binds several important directories
-cd /home/container
-# Add DNS Resolver nameservers to resolv.conf.
-echo "nameserver 1.1.1.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
-${ROOTFS_DIR}/usr/local/bin/proot -S "${ROOTFS_DIR}/." -w "/root" --kill-on-exit /bin/bash "${ROOTFS_DIR}/run.sh"
+
+# Parse port configuration
+parse_ports() {
+    local config_file="${ROOTFS_DIR}/vps.config"
+    local port_args=""
+    
+    # Check if config file exists
+    if [ ! -f "$config_file" ]; then
+        return
+    fi
+    
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+        
+        key=$(echo "$key" | tr -d '[:space:]')
+        value=$(echo "$value" | tr -d '[:space:]')
+        
+        [ "$key" = "internalip" ] && continue
+        
+        if [[ "$key" =~ ^port[0-9]*$ ]] && [ -n "$value" ]; then
+            if [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -ge 1 ] && [ "$value" -le 65535 ]; then
+                port_args="$port_args -p $value:$value"
+            fi
+        fi
+    done < "$config_file"
+    
+    echo "$port_args"
+}
+
+# Execute PRoot environment
+exec_proot() {
+    local port_args=$(parse_ports)
+    
+    ${ROOTFS_DIR}/usr/local/bin/proot \
+    --rootfs="${ROOTFS_DIR}" \
+    -0 -w "/root" \
+    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
+    $port_args \
+    --kill-on-exit \
+    /bin/bash "/run.sh"
+}
+exec_proot
