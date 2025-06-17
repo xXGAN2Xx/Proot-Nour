@@ -386,7 +386,7 @@ fi
 
 # Clean-up after installation complete & finish up.
 if [ ! -e ${ROOTFS_DIR}/.installed ]; then
-chmod -R +x "${ROOTFS_DIR}/usr/local/bin" "${ROOTFS_DIR}"
+chmod +x "${ROOTFS_DIR}/usr/local/bin/proot"
 rm -rf /tmp/rootfs.tar.xz /tmp/sbin
 touch "${ROOTFS_DIR}/.installed"
 fi
