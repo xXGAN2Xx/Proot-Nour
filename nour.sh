@@ -411,7 +411,6 @@ print_banner() {
 # Start PRoot environment #
 ###########################
 cd /home/container
-MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 print_banner
