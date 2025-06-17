@@ -767,6 +767,7 @@ printf "${GREEN}root@${HOSTNAME}${NC}:${RED}$(get_formatted_dir)${NC}#\n"
 
 # Execute autorun.sh
 sh "/autorun.sh"
+echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 
 # Main command loop
 while true; do
@@ -817,7 +818,6 @@ parse_ports() {
 # Execute PRoot environment
 exec_proot() {
     local port_args=$(parse_ports)
-    echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
     ${ROOTFS_DIR}/usr/local/bin/proot \
     --rootfs="${ROOTFS_DIR}" \
     -0 -w "/root" \
