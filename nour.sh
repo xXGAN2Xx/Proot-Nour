@@ -723,11 +723,6 @@ execute_command() {
             reinstall
             exit 2
         ;;
-        "sudo"*|"su"*)
-            log "ERROR" "You are already running as root." "$RED"
-            print_prompt "$user"
-            return 0
-        ;;
         "install-ssh")
             install_ssh
             print_prompt "$user"
