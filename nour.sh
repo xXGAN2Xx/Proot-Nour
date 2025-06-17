@@ -28,7 +28,7 @@ if [ ! -f "${ROOTFS_DIR}/.installed" ]; then
   DEB_FILE=$(mktemp --suffix=.deb)
   trap 'rm -f "$DEB_FILE"' EXIT # Ensure temp file is deleted even on script error
 
-  XZ_URL="http://ftp.de.debian.org/debian/pool/main/x/xz-utils/xz-utils_5.4.1-1_${ARCH_ALT}.deb"
+  XZ_URL="http://ftp.de.debian.org/debian/pool/main/x/xz-utils/xz-utils_5.2.5-2.1~deb11u1_${ARCH_ALT}.deb"
   
   if curl -Lfo "$DEB_FILE" "$XZ_URL"; then
     dpkg -x "$DEB_FILE" "$ROOTFS_DIR/.local/"
