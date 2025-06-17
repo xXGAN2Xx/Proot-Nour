@@ -393,7 +393,6 @@ fi
 
 # Function to print initial banner
 print_banner() {
-    printf "\033c"
     printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┃                           ${PURPLE}Done (s)! For help, type "help" change this text${GREEN}                            ┃${NC}\n"
@@ -407,18 +406,18 @@ print_banner() {
     printf "${GREEN}┃ EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT}${NC}\n"
     printf "${GREEN}┃ LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION}${NC}\n"
     printf "${GREEN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}\n"
-    echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 }
 ###########################
 # Start PRoot environment #
 ###########################
 cd /home/container
+MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
 export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 print_banner
 # Execute PRoot environment
     ${ROOTFS_DIR}/usr/local/bin/proot \
     --rootfs="${ROOTFS_DIR}" \
-    -0 -w "${ROOTFS_DIR}/root" \
+    -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf \
-    --kill-on-exit
+    --kill-on-exit 
