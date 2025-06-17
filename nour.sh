@@ -458,7 +458,7 @@ print_banner() {
     printf "\033c"
     printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
-    printf "${GREEN}┃                           ${PURPLE}Done (s)! For help, type "help"${GREEN}                            ┃${NC}\n"
+    printf "${GREEN}┃                           ${PURPLE}Done (s)! For help, type "help" change this text${GREEN}                            ┃${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┃                          ${RED}© 2025 - $(date +%Y) ${PURPLE}@xXGAN2Xx${GREEN}                            ┃${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
