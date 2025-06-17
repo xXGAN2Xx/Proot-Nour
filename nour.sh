@@ -422,7 +422,6 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
-    echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 fi
 
 ###########################
@@ -818,7 +817,7 @@ parse_ports() {
 # Execute PRoot environment
 exec_proot() {
     local port_args=$(parse_ports)
-    
+    echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
     ${ROOTFS_DIR}/usr/local/bin/proot \
     --rootfs="${ROOTFS_DIR}" \
     -0 -w "/root" \
