@@ -455,7 +455,6 @@ NC='\033[0m'
 
 # Function to print initial banner
 print_banner() {
-    printf "\033c"
     printf "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}\n"
     printf "${GREEN}┃                                                                             ┃${NC}\n"
     printf "${GREEN}┃                           ${PURPLE}Done (s)! For help, type "help" change this text${GREEN}                            ┃${NC}\n"
@@ -783,47 +782,15 @@ fi
 ###########################
 # Start PRoot environment #
 ###########################
-
-# This command starts PRoot and binds several important directories
+cd /home/container
+MODIFIED_STARTUP=$(eval echo $(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g'))
+export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 
-# Parse port configuration
-parse_ports() {
-    local config_file="${ROOTFS_DIR}/vps.config"
-    local port_args=""
-    
-    # Check if config file exists
-    if [ ! -f "$config_file" ]; then
-        return
-    fi
-    
-    while IFS='=' read -r key value; do
-        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
-        
-        key=$(echo "$key" | tr -d '[:space:]')
-        value=$(echo "$value" | tr -d '[:space:]')
-        
-        [ "$key" = "internalip" ] && continue
-        
-        if [[ "$key" =~ ^port[0-9]*$ ]] && [ -n "$value" ]; then
-            if [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -ge 1 ] && [ "$value" -le 65535 ]; then
-                port_args="$port_args -p $value:$value"
-            fi
-        fi
-    done < "$config_file"
-    
-    echo "$port_args"
-}
-
 # Execute PRoot environment
-exec_proot() {
-    local port_args=$(parse_ports)
     ${ROOTFS_DIR}/usr/local/bin/proot \
     --rootfs="${ROOTFS_DIR}" \
-    -0 -w "/root" \
-    -b /dev -b /sys -b /proc -b etc/resolv.conf \
-    $port_args \
+    -0 -w "${ROOTFS_DIR}/root" \
+    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
     --kill-on-exit \
-    /bin/bash "/run.sh"
-}
-exec_proot
+    /bin/bash "run.sh" || exit 1
