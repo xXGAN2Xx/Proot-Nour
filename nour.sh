@@ -404,16 +404,16 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
   
       if [ -s "${ROOTFS_DIR}/usr/local/bin/proot" ]; then
           # Make PRoot executable.
-          chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
+          chmod -R +x ${ROOTFS_DIR}/usr/local/bin
           break  # Exit the loop since the file is not empty
       fi
       
-      chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
+      chmod -R +x ${ROOTFS_DIR}/usr/local/bin
       sleep 1  # Add a delay before retrying to avoid hammering the server
   done
   
-  chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
-  chmod +x ${ROOTFS_DIR}
+  chmod -R +x ${ROOTFS_DIR}/usr/local/bin
+  chmod -R +x ${ROOTFS_DIR}
 fi
 
 # Clean-up after installation complete & finish up.
