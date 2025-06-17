@@ -821,7 +821,7 @@ exec_proot() {
     ${ROOTFS_DIR}/usr/local/bin/proot \
     --rootfs="${ROOTFS_DIR}" \
     -0 -w "/root" \
-    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
+    -b /dev -b /sys -b /proc -b etc/resolv.conf \
     $port_args \
     --kill-on-exit \
     /bin/bash "/run.sh"
