@@ -30,7 +30,6 @@ fi
 # Download & decompress the Linux root file system if not already installed.
 
 if [ ! -e ${ROOTFS_DIR}/.installed ]; then
-echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
     curl -O http://ftp.de.debian.org/debian/pool/main/x/xz-utils/xz-utils_5.4.1-1_${ARCH_ALT}.deb
     deb_file=$(ls xz-utils_*.deb)
     dpkg -x "$deb_file" ~/.local/
@@ -423,6 +422,7 @@ if [ ! -e ${ROOTFS_DIR}/.installed ]; then
     rm -rf /tmp/rootfs.tar.xz /tmp/sbin
     # Create .installed to later check whether Alpine is installed.
     touch ${ROOTFS_DIR}/.installed
+    echo "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
 fi
 
 ###########################
