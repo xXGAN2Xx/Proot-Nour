@@ -538,6 +538,7 @@ log() {
 # Function to handle cleanup on exit
 cleanup() {
     log "INFO" "Session ended. Goodbye!" "$GREEN"
+    shutdown -h now || poweroff
     exit 0
 }
 
@@ -707,7 +708,7 @@ execute_command() {
             print_prompt "$user"
             return 0
         ;;
-        "exit")
+        "exit"|"stop")
             cleanup
         ;;
         "history")
@@ -776,7 +777,6 @@ sh "/autorun.sh"
 while true; do
     run_prompt "user"
 done
-
 EOF
 
 # Make the file executable
