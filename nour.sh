@@ -411,9 +411,6 @@ print_banner() {
 ###########################
 # Start PRoot environment #
 ###########################
-cd /home/container
-export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
-rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 print_banner
 # Execute PRoot environment
 exec "${ROOTFS_DIR}/usr/local/bin/proot" \
