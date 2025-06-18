@@ -417,5 +417,6 @@ exec "${ROOTFS_DIR}/usr/local/bin/proot" \
   -0 \
   -w /root \
   -l \
+  -n \
   --kill-on-exit \
   /bin/bash --login
