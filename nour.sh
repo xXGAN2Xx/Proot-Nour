@@ -412,9 +412,9 @@ print_banner() {
 # Start PRoot environment #
 ###########################
 print_banner
-# Execute PRoot environment
 exec "${ROOTFS_DIR}/usr/local/bin/proot" \
-  -S . \
+  -R . \
+  -0 \
   -w /root \
   -l \
   --kill-on-exit \
