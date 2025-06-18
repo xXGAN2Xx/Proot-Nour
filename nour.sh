@@ -417,8 +417,8 @@ rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 print_banner
 # Execute PRoot environment
 exec "${ROOTFS_DIR}/usr/local/bin/proot" \
-  -S ${ROOTFS_DIR}" \
-  -w /root \
+  -S "${ROOTFS_DIR}" \
+  -w "/root" \
   -l \
   --kill-on-exit \
   /bin/bash -il
