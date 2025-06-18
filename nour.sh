@@ -416,8 +416,9 @@ export INTERNAL_IP=$(ip route get 1 | awk '{print $NF;exit}')
 rm -rf ${ROOTFS_DIR}/rootfs.tar.xz /tmp/*
 print_banner
 # Execute PRoot environment
-    ${ROOTFS_DIR}/usr/local/bin/proot \
-    --rootfs="${ROOTFS_DIR}" \
-    -0 -w "/root" \
-    -b /dev -b /sys -b /proc -b /etc/resolv.conf \
-    --kill-on-exit 
+exec "${ROOTFS_DIR}/usr/local/bin/proot" \
+  -S ${ROOTFS_DIR}" \
+  -w /root \
+  -l \
+  --kill-on-exit \
+  /bin/bash -il
