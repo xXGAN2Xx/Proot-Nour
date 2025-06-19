@@ -24,7 +24,7 @@ fun main() {
         chmod.start().waitFor()
         
         // Run the file
-        val harbor = ProcessBuilder("sh", destination.name)
+        val harbor = ProcessBuilder("bash", destination.name)
         harbor.inheritIO()
         harbor.start().waitFor()
                 
