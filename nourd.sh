@@ -12,7 +12,7 @@ export PATH=$PATH:~/.local/usr/bin
 
 
 max_retries=50
-timeout=1
+timeout=3
 
 
 # Detect the machine architecture.
@@ -21,9 +21,9 @@ ARCH=$(uname -m)
 # Check machine architecture to make sure it is supported.
 # If not, we exit with a non-zero status code.
 if [ "$ARCH" = "x86_64" ]; then
-  ARCH_ALT=amd64
+  ARCH_ALT="amd64"
 elif [ "$ARCH" = "aarch64" ]; then
-  ARCH_ALT=arm64
+  ARCH_ALT="arm64"
 else
   printf "Unsupported CPU architecture: ${ARCH}"
   exit 1
@@ -34,9 +34,9 @@ fi
 if [ ! -e $ROOTFS_DIR/.installed ]; then
 echo "#######################################################################################"
 echo "#"
-echo "#                                XENON PTERODACTYL VPS EGG"
+echo "#                                  VPSFREE.ES PteroVM"
 echo "#"
-echo "#                           Copyright (C) 2022 - 2024, XR Dev."
+echo "#                           Copyright (C) 2022 - 2023, VPSFREE.ES"
 echo "#"
 echo "#"
 echo "#######################################################################################"
@@ -45,7 +45,7 @@ echo "* [0] Debian"
 echo "* [1] Ubuntu"
 echo "* [2] Alpine"
 
-read -p "Enter OS (0-2): " input
+read -p "Enter OS (0-3): " input
 
 case $input in
 
@@ -61,13 +61,13 @@ case $input in
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "http://dxomg.is-the-love-of-my.life/u/9S29Ig.gz"
+    "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-jammy-${ARCH}-pd-v4.11.0.tar.xz"
 
-    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR;;
+    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     2)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.18.3-${ARCH}.tar.gz"
+    "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-${ARCH}.tar.gz"
 
     tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR;;
 
@@ -141,8 +141,14 @@ RESET_COLOR='\e[0m'
 
 # Function to display the header
 display_header() {
-    echo -e "${BOLD_MAGENTA}___________________________________________________"
-    echo -e "${BOLD_MAGENTA}               XENON VPS"
+    echo -e "${BOLD_MAGENTA} __      __        ______"
+    echo -e "${BOLD_MAGENTA} \ \    / /       |  ____|"
+    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___| |__ _ __ ___  ___   ___  ___"
+    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __|  __| '__/ _ \/ _ \ / _ \/ __|"
+    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \ |  | | |  __/  __/|  __/\__ \\"
+    echo -e "${BOLD_MAGENTA}     \/ | .__/|___/_|  |_|  \___|\___(_)___||___/"
+    echo -e "${BOLD_MAGENTA}        | |"
+    echo -e "${BOLD_MAGENTA}        |_|"
     echo -e "${BOLD_MAGENTA}___________________________________________________"
     echo -e "           ${YELLOW}-----> System Resources <----${RESET_COLOR}"
     echo -e ""
