@@ -51,7 +51,7 @@ case $input in
 
     0)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-    "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
+    "https://github.com/termux/proot-distro/releases/download/v4.17.3/debian-bookworm-${ARCH}-pd-v4.17.3.tar.xz"
     apt download xz-utils
     deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
     dpkg -x $deb_file ~/.local/
@@ -61,13 +61,16 @@ case $input in
 
     1)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://github.com/termux/proot-distro/releases/download/v4.11.0/ubuntu-jammy-${ARCH}-pd-v4.11.0.tar.xz"
-
-    tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
+    apt download xz-utils
+    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
+    dpkg -x $deb_file ~/.local/
+    rm "$deb_file"
+    tar -xJf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
 
     2)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-    "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-minirootfs-3.19.1-${ARCH}.tar.gz"
+    "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/${ARCH}/alpine-minirootfs-3.22.0-${ARCH}.tar.gz"
 
     tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR;;
 
@@ -154,7 +157,7 @@ display_header() {
     echo -e "${BOLD_MAGENTA}        |_|"
     echo -e "${BOLD_MAGENTA}___________________________________________________"
     echo -e "           ${YELLOW}-----> System Resources <----${RESET_COLOR}"
-    echo -e ""
+    echo -e "Done (s)! For help, type "help" change this text"
 }
 
 # Function to display system resources
