@@ -4,76 +4,92 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
+const val NOUR_SCRIPT_NAME = "nour.sh"
+const val NOURD_SCRIPT_NAME = "nourd.sh"
+const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh"
+const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nourd.sh"
+
 fun main() {
+    val nourFile = File(NOUR_SCRIPT_NAME)
+    val nourdFile = File(NOURD_SCRIPT_NAME)
+
+    try {
+        if (nourFile.exists()) {
+            println("Found '${nourFile.name}'. Preparing to run...")
+            runScript(nourFile) // Permissions are assumed to be set
+        } else if (nourdFile.exists()) {
+            println("Found '${nourdFile.name}'. Preparing to run...")
+            runScript(nourdFile) // Permissions are assumed to be set
+        } else {
+            println("Neither '${nourFile.name}' nor '${nourdFile.name}' found. Please choose a script to download.")
+            handleDownloadChoiceSetPermsAndRun()
+        }
+    } catch (e: Exception) {
+        println("An error occurred: ${e.message}")
+        e.printStackTrace()
+    }
+}
+
+fun handleDownloadChoiceSetPermsAndRun() {
     println("Choose an option to download:")
-    println("0: Download nour.sh")
-    println("1: Download nourd.sh")
+    println("0: Download $NOUR_SCRIPT_NAME ($NOUR_URL)")
+    println("1: Download $NOURD_SCRIPT_NAME ($NOURD_URL)")
     print("Enter your choice (0 or 1): ")
 
-    val choice = readlnOrNull() // Use readlnOrNull for safety, it returns null on EOF
+    val choice = readlnOrNull()
 
     val scriptUrlString: String
     val scriptFileName: String
 
     when (choice) {
         "0" -> {
-            scriptUrlString = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh"
-            scriptFileName = "nour.sh"
+            scriptUrlString = NOUR_URL
+            scriptFileName = NOUR_SCRIPT_NAME
         }
         "1" -> {
-            scriptUrlString = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nourd.sh"
-            scriptFileName = "nourd.sh"
+            scriptUrlString = NOURD_URL
+            scriptFileName = NOURD_SCRIPT_NAME
         }
         else -> {
-            println("Invalid choice. Please enter 0 or 1.")
-            return // Exit if choice is invalid
+            println("Invalid choice. Please enter 0 or 1. Exiting.")
+            return
         }
     }
 
     val url = URL(scriptUrlString)
-    val destination = File(scriptFileName)
+    val destinationFile = File(scriptFileName)
 
-    try {
-        // Check if the file already exists
-        if (!destination.exists()) {
-            println("File '$scriptFileName' does not exist. Downloading from $scriptUrlString...")
-            downloadFile(url, destination)
-            println("Download completed.")
-        } else {
-            println("File '$scriptFileName' already exists. Skipping download.")
-        }
+    println("Downloading '$scriptFileName' from $scriptUrlString...")
+    downloadFile(url, destinationFile)
+    println("Download completed.")
 
-        // Set executable permission on the file
-        println("Setting executable permission on '$scriptFileName'...")
-        val chmod = ProcessBuilder("chmod", "+x", destination.name)
-        chmod.inheritIO() // Show output/errors from chmod
-        val chmodProcess = chmod.start()
-        val chmodExitCode = chmodProcess.waitFor() // Still wait for chmod, as this is a quick operation
-        if (chmodExitCode != 0) {
-            println("Error setting executable permission for '$scriptFileName' (exit code: $chmodExitCode).")
-            // Optionally, you might want to stop here if chmod fails
-            return // Stop if chmod fails, as running the script might not work
-        } else {
-            println("Executable permission set for '$scriptFileName'.")
-        }
+    // Set executable permission ONLY after download
+    println("Setting executable permission on '${destinationFile.name}'...")
+    val chmod = ProcessBuilder("chmod", "+x", destinationFile.name)
+    chmod.inheritIO()
+    val chmodProcess = chmod.start()
+    val chmodExitCode = chmodProcess.waitFor() // Wait for chmod to complete
 
-
-        // Run the file
-        println("Starting '$scriptFileName'...") // Changed message
-        val harbor = ProcessBuilder("bash", destination.name)
-        harbor.inheritIO() // Show output/errors from the script
-        harbor.start() // Start the process but don't wait for it
-        // harborProcess.waitFor() has been removed
-        println("Script '$scriptFileName' has been started.") // Changed message
-
-    } catch (e: Exception) {
-        println("Error during script processing: ${e.message}")
-        e.printStackTrace()
+    if (chmodExitCode != 0) {
+        println("Error setting executable permission for '${destinationFile.name}' (exit code: $chmodExitCode). Script will not be run.")
+        return
+    } else {
+        println("Executable permission set for '${destinationFile.name}'.")
     }
+
+    runScript(destinationFile) // Now run the script
+}
+
+fun runScript(scriptFile: File) {
+    // This function now ONLY runs the script, assuming permissions are set.
+    println("Starting '${scriptFile.name}'...")
+    val harbor = ProcessBuilder("bash", scriptFile.name)
+    harbor.inheritIO()
+    harbor.start() // Start the process but don't wait for it
+    println("Script '${scriptFile.name}' has been started.")
 }
 
 fun downloadFile(url: URL, destination: File) {
-    // Using .use ensures the stream is closed automatically
     url.openStream().use { inputStream ->
         Files.copy(inputStream, Paths.get(destination.toURI()), StandardCopyOption.REPLACE_EXISTING)
     }
