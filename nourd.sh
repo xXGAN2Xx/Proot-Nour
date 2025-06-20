@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #############################
-# Linux Installation #
+# Linux Installation ##
 #############################
 
 # Define the root directory to /home/container.
