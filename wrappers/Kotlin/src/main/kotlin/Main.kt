@@ -12,17 +12,14 @@ const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/ref
 
 fun main() {
     try {
-        // Try to find, update, and run nour.sh
         if (handleScript(NOUR_SCRIPT_NAME, NOUR_URL)) {
-            return // Script was handled (found, updated if necessary, and run or attempt to run)
+            return
         }
 
-        // If nour.sh was not handled, try nourd.sh
         if (handleScript(NOURD_SCRIPT_NAME, NOURD_URL)) {
-            return // Script was handled
+            return
         }
 
-        // If neither script was found/handled, prompt for download
         println("Neither '$NOUR_SCRIPT_NAME' nor '$NOURD_SCRIPT_NAME}' found locally, and no update check was performed. Please choose a script to download.")
         handleDownloadChoiceSetPermsAndRun()
 
@@ -32,57 +29,93 @@ fun main() {
     }
 }
 
-/**
- * Handles checking, updating, setting permissions, and running a script.
- * @return true if the script was found and an attempt was made to process/run it, false otherwise (e.g., script file doesn't exist).
- */
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
     var fileToExecute: File? = null
+    var wasSuccessfullyUpdated = false      // True if downloaded AND permissions set successfully by downloadAndSetPermissions
+    var isUpToDateAndSkippingPermSet = false // True if file is up-to-date and we intend to skip explicit chmod
 
     if (scriptFile.exists()) {
         println("Found '${scriptFile.name}'. Checking for updates...")
-        if (isFileChanged(scriptFile, scriptUrl)) {
+        if (isFileChanged(scriptFile, scriptUrl)) { // File changed or error during check
             println("'${scriptFile.name}' has changed or an error occurred during check. Attempting to download the new version...")
-            val updatedFile = downloadAndSetPermissions(scriptUrl, scriptName)
+            val updatedFile = downloadAndSetPermissions(scriptUrl, scriptName) // This function sets perms on success
             if (updatedFile != null) {
                 fileToExecute = updatedFile
+                wasSuccessfullyUpdated = true // Permissions were handled by downloadAndSetPermissions
                 println("Successfully updated '${scriptFile.name}'.")
             } else {
-                println("Failed to update '${scriptFile.name}'. Will attempt to run the existing local version.")
+                println("Failed to update '${scriptFile.name}'. Will attempt to run the existing local version '${scriptFile.name}'.")
                 fileToExecute = scriptFile // Fallback to existing local version
+                // For fallback, wasSuccessfullyUpdated and isUpToDateAndSkippingPermSet remain false,
+                // leading to explicit permission setting later.
             }
-        } else {
+        } else { // File is up to date
             println("'${scriptFile.name}' is up to date.")
             fileToExecute = scriptFile
+            isUpToDateAndSkippingPermSet = true // Mark that we intend to skip explicit chmod for this up-to-date file
         }
     } else {
-        return false // Script does not exist, so not "handled" in terms of finding and running.
+        // Script does not exist locally. Main will handle if both are missing.
+        return false
     }
 
-    // If we have a file to execute (either updated, existing, or fallback)
     if (fileToExecute != null) {
-        // Ensure permissions are set (downloadAndSetPermissions does it, but crucial for "up to date" or "fallback" cases)
-        if (setExecutablePermission(fileToExecute)) {
+        var canRun = false
+
+        if (wasSuccessfullyUpdated) {
+            // Permissions were set by downloadAndSetPermissions. It must be executable.
+            if (fileToExecute.canExecute()) {
+                println("Permissions for updated '${fileToExecute.name}' were set during download.")
+                canRun = true
+            } else {
+                // This should ideally not happen if downloadAndSetPermissions is correct and returns non-null only on full success.
+                println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update and permissioning process. Cannot run.")
+            }
+        } else if (isUpToDateAndSkippingPermSet) {
+            println("Skipping explicit permission setting for up-to-date file '${fileToExecute.name}'.")
+            if (fileToExecute.canExecute()) {
+                println("'${fileToExecute.name}' is already executable.")
+                canRun = true
+            } else {
+                // If it's up-to-date but NOT executable, and we skipped setting perms, then it cannot run.
+                // This is the direct consequence of the request to skip permission setting.
+                println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Permission setting was skipped as requested. Script will not be run.")
+                canRun = false
+            }
+        } else {
+            // This is the fallback case (e.g., scriptFile existed, update failed, fileToExecute is the original scriptFile)
+            // or any other scenario where the file wasn't newly updated or confirmed up-to-date to skip permissioning.
+            // We MUST try to set permissions here.
+            println("Attempting to set/verify permissions for '${fileToExecute.name}' (e.g., fallback or initial run scenario)...")
+            if (setExecutablePermission(fileToExecute)) {
+                // setExecutablePermission returning true means chmod likely succeeded.
+                // We still verify with canExecute() as a final check.
+                if (fileToExecute.canExecute()) {
+                    println("Permissions set successfully for '${fileToExecute.name}'.")
+                    canRun = true
+                } else {
+                     println("Error: Setting permissions for '${fileToExecute.name}' was reported as successful, but the file is still not executable. Cannot run.")
+                }
+            } else {
+                println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
+            }
+        }
+
+        if (canRun) {
             println("Preparing to run '${fileToExecute.name}'...")
             runScript(fileToExecute)
         } else {
-            println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
-            // Even if perms fail, we "handled" the script in the sense that we found it and tried.
+            println("Script '${fileToExecute.name}' will not be run due to permission issues or because it was not made executable.")
         }
-        return true // Script was found and an attempt was made to run it or update it.
+        return true // Script was found and an attempt was made to process it (run or not).
     }
-    return false // Should ideally not be reached if scriptFile.exists() was true.
+    return false // fileToExecute was null (should only happen if scriptFile didn't exist initially)
 }
 
-/**
- * Checks if the local file content differs from the remote file content.
- * Treats network or file errors during comparison as "changed" to be safe.
- */
 fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
     println("Comparing local '${localFile.name}' with remote '$remoteUrl'...")
     try {
-        // Consider adding connect and read timeouts for URL.openStream().readBytes().toString(Charsets.UTF_8)
         val remoteContent = URL(remoteUrl).readText(Charsets.UTF_8)
         val localContent = localFile.readText(Charsets.UTF_8)
         val changed = remoteContent != localContent
@@ -102,17 +135,13 @@ fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
     }
 }
 
-/**
- * Downloads a script from a URL and sets executable permissions.
- * @return The File object if successful, null otherwise.
- */
 fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): File? {
     val url = URL(scriptUrlString)
     val destinationFile = File(scriptFileName)
 
     println("Downloading '$scriptFileName' from $scriptUrlString...")
     try {
-        downloadFile(url, destinationFile) // Uses the improved atomic downloadFile
+        downloadFile(url, destinationFile)
         println("Download completed for '$scriptFileName'.")
     } catch (e: Exception) {
         println("Error downloading '$scriptFileName': ${e.message}")
@@ -120,37 +149,37 @@ fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): 
         return null
     }
 
+    // Crucially, set permissions after download.
     if (!setExecutablePermission(destinationFile)) {
         println("Download of '$scriptFileName' succeeded but setting permissions failed.")
-        // Depending on requirements, you might still return destinationFile here and let caller decide.
-        // For now, if chmod fails, consider the overall operation failed for execution.
+        // If chmod fails, consider the overall operation failed for safe execution.
         return null
     }
-    println("Successfully downloaded and set permissions for '$scriptFileName'.")
+    // If setExecutablePermission was successful, it would have printed its own success message.
+    println("Successfully downloaded and ensured permissions for '$scriptFileName'.")
     return destinationFile
 }
 
-/**
- * Sets executable permission (+x) on the given file.
- * @return true if successful, false otherwise.
- */
 fun setExecutablePermission(file: File): Boolean {
     if (!file.exists()) {
         println("Cannot set permissions: File '${file.name}' does not exist at path '${file.absolutePath}'.")
         return false
     }
+    // No need to check file.canExecute() here if we are explicitly setting it.
+    // If it's already executable, "chmod +x" is harmless.
     println("Setting executable permission on '${file.name}'...")
     try {
         val chmod = ProcessBuilder("chmod", "+x", file.absolutePath)
+        // chmod.inheritIO() // Can make output noisy if not needed, let's capture manually
         val chmodProcess = chmod.start()
         val chmodExitCode = chmodProcess.waitFor()
 
         if (chmodExitCode != 0) {
             val errorOutput = chmodProcess.errorStream.bufferedReader().readText().trim()
             val stdOutput = chmodProcess.inputStream.bufferedReader().readText().trim()
-            println("Error setting executable permission for '${file.name}' (exit code: $chmodExitCode).")
+            println("Error setting executable permission for '${file.name}' (chmod exit code: $chmodExitCode).")
             if (errorOutput.isNotEmpty()) println("chmod stderr: $errorOutput")
-            if (stdOutput.isNotEmpty()) println("chmod stdout: $stdOutput")
+            if (stdOutput.isNotEmpty()) println("chmod stdout: $stdOutput") // Should be empty on error
             return false
         } else {
             println("Executable permission set for '${file.name}'.")
@@ -163,14 +192,11 @@ fun setExecutablePermission(file: File): Boolean {
     } catch (e: InterruptedException) {
         println("Process 'chmod' for '${file.name}' was interrupted: ${e.message}")
         e.printStackTrace()
-        Thread.currentThread().interrupt() // Restore interrupted status
+        Thread.currentThread().interrupt()
         return false
     }
 }
 
-/**
- * Prompts the user to choose a script to download, then downloads, sets permissions, and runs it.
- */
 fun handleDownloadChoiceSetPermsAndRun() {
     println("Choose an option to download:")
     println("0: Download $NOUR_SCRIPT_NAME")
@@ -178,7 +204,6 @@ fun handleDownloadChoiceSetPermsAndRun() {
     print("Enter your choice (0 or 1): ")
 
     val choice = readlnOrNull()
-
     val scriptUrlString: String
     val scriptFileName: String
 
@@ -199,7 +224,7 @@ fun handleDownloadChoiceSetPermsAndRun() {
 
     val downloadedFile = downloadAndSetPermissions(scriptUrlString, scriptFileName)
     if (downloadedFile != null) {
-        // downloadAndSetPermissions already sets permissions.
+        // downloadAndSetPermissions already sets permissions and ensures it's executable.
         println("Preparing to run downloaded '${downloadedFile.name}'...")
         runScript(downloadedFile)
     } else {
@@ -207,14 +232,20 @@ fun handleDownloadChoiceSetPermsAndRun() {
     }
 }
 
-/**
- * Runs the given script file using "bash" and waits for it to complete.
- */
 fun runScript(scriptFile: File) {
+    if (!scriptFile.exists()) {
+        println("Cannot run script: '${scriptFile.name}' does not exist at ${scriptFile.absolutePath}.")
+        return
+    }
+    if (!scriptFile.canExecute()) {
+        println("Cannot run script: '${scriptFile.name}' is not executable. Path: ${scriptFile.absolutePath}")
+        return
+    }
+
     println("Running '${scriptFile.name}' and waiting for it to complete...")
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
-        processBuilder.inheritIO() // Shows script output/errors directly
+        processBuilder.inheritIO()
         val process = processBuilder.start()
         val exitCode = process.waitFor()
         println("'${scriptFile.name}' finished with exit code $exitCode.")
@@ -224,40 +255,38 @@ fun runScript(scriptFile: File) {
     } catch (e: InterruptedException) {
         println("Script execution for '${scriptFile.name}' was interrupted: ${e.message}")
         e.printStackTrace()
-        Thread.currentThread().interrupt() // Restore interrupted status
+        Thread.currentThread().interrupt()
     }
 }
 
-/**
- * Downloads a file from a URL to a destination, atomically.
- * Downloads to a temporary file first, then renames it to the destination on success.
- */
 fun downloadFile(url: URL, destination: File) {
-    // Create temp file in the same directory as the destination to ensure atomic move across same filesystem
     val tempFile = Files.createTempFile(destination.parentFile?.toPath() ?: Paths.get("."), destination.name, ".tmpdownload").toFile()
     try {
         url.openStream().use { inputStream ->
             Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
-        // If download is successful, move temp file to actual destination
         Files.move(tempFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        println("Atomically moved downloaded content to '${destination.name}'.")
+        // println("Atomically moved downloaded content to '${destination.name}'.") // Covered by calling function
     } catch (e: Exception) {
-        // If an error occurs during download or move, try to delete the temporary file
         if (tempFile.exists() && !tempFile.delete()) {
             println("Warning: Failed to delete temporary file: ${tempFile.absolutePath}")
         }
         throw IOException("Failed to download or replace file '${destination.name}' from $url: ${e.message}", e)
     } finally {
-        // Ensure temp file is deleted if it somehow still exists (e.g., move failed after successful download but before exception handling)
-        if (tempFile.exists() && !tempFile.delete()) {
-             // This might happen if the move was successful but an error occurred afterwards in the try block
-             // Or if the move failed and the delete in catch also failed.
-            if (destination.exists() && destination.length() == tempFile.length()) {
-                // If destination exists and has same size, assume move was successful and temp is just a leftover.
-            } else {
-                println("Warning: Temporary file ${tempFile.absolutePath} may still exist after download operation.")
+        if (tempFile.exists() && tempFile.length() > 0 && !destination.exists()) {
+             // If temp file still exists, has content, and destination doesn't, means move likely failed.
+             // The delete in catch should have handled it, but this is a fallback.
+            if (!tempFile.delete()) {
+                 println("Warning: Temporary file ${tempFile.absolutePath} could not be deleted after failed operation.")
             }
+        } else if (tempFile.exists() && (!destination.exists() || destination.length() != tempFile.length())) {
+            // If temp file exists and destination is not what it should be (e.g. move failed or partial)
+            if (!tempFile.delete()) {
+                 println("Warning: Temporary file ${tempFile.absolutePath} may still exist and could not be cleaned up.")
+            }
+        } else if (tempFile.exists()) {
+            // If temp file exists but destination seems okay, try to delete temp as it should have been moved.
+            tempFile.delete() // Best effort
         }
     }
 }
