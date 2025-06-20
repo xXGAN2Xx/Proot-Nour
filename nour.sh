@@ -2,7 +2,6 @@
 # --- Configuration ---
 HOME=/home/container
 DEBIAN_FRONTEND=noninteractive
-PROOT_VERSION=5.4.0
 # --- Colors (Consolidated) ---
 RED='\033[0;31m'; BOLD_RED='\033[1;31m'
 GREEN='\033[0;32m'; BOLD_GREEN='\033[1;32m'
@@ -32,7 +31,7 @@ find "$HOME" -name '*.deb' -type f | while IFS= read -r deb; do
 done
 # Install PRoot
     mkdir -p ${HOME}/usr/local/bin && \
-    proot_url="https://github.com/ysdragon/proot-static/releases/download/v${PROOT_VERSION}/proot-${ARCH}-static" && \
+    proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" && \
     curl -Ls "$proot_url" -o ${HOME}/usr/local/bin/proot && \
     chmod +x ${HOME}/usr/local/bin/proot
     # Install files
@@ -42,7 +41,6 @@ done
   "https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/install.sh"
   "https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/run.sh"
 )
-
 for url in "${urls[@]}"; do
   curl -O "$url"
 done
