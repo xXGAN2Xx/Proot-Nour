@@ -71,7 +71,10 @@ case $input in
 
     tar -xf /tmp/rootfs.tar.gz -C $ROOTFS_DIR;;
 
-
+    *) # Added this default case
+    echo "Invalid option or no input provided. Exiting."
+    exit 1
+    ;;
 esac
 
 fi
@@ -110,7 +113,7 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     # Add DNS Resolver nameservers to resolv.conf.
     printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > ${ROOTFS_DIR}/etc/resolv.conf
     # Wipe the files we downloaded into /tmp previously.
-    rm -rf /tmp/rootfs.tar.xz /tmp/sbin
+    rm -rf /tmp/*
     # Create .installed to later check whether Alpine is installed.
     touch $ROOTFS_DIR/.installed
 fi
