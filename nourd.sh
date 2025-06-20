@@ -91,11 +91,11 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     # Download the packages from their sources
     mkdir $ROOTFS_DIR/usr/local/bin -p
 
-    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/dxomg/vpsfreepterovm/main/proot-${ARCH}"
+    wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
 
   while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
       rm $ROOTFS_DIR/usr/local/bin/proot -rf
-      wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://raw.githubusercontent.com/dxomg/vpsfreepterovm/main/proot-${ARCH}"
+      wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
   
       if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
           # Make PRoot executable.
