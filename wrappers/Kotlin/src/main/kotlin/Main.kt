@@ -28,13 +28,12 @@ fun main() {
         println("An error occurred: ${e.message}")
         e.printStackTrace()
     }
-    println("Kotlin script main function finished.") // Added to show when Kotlin main finishes
 }
 
 fun handleDownloadChoiceSetPermsAndRun() {
     println("Choose an option to download:")
-    println("0: Download $NOUR_SCRIPT_NAME ($NOUR_URL)")
-    println("1: Download $NOURD_SCRIPT_NAME ($NOURD_URL)")
+    println("0: Download $NOUR_SCRIPT_NAME")
+    println("1: Download $NOURD_SCRIPT_NAME")
     print("Enter your choice (0 or 1): ")
 
     val choice = readlnOrNull()
