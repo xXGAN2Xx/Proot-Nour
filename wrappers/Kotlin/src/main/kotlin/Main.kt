@@ -28,6 +28,7 @@ fun main() {
         println("An error occurred: ${e.message}")
         e.printStackTrace()
     }
+    println("Kotlin script main function finished.") // Added to show when Kotlin main finishes
 }
 
 fun handleDownloadChoiceSetPermsAndRun() {
@@ -81,12 +82,12 @@ fun handleDownloadChoiceSetPermsAndRun() {
 }
 
 fun runScript(scriptFile: File) {
-    // This function now ONLY runs the script, assuming permissions are set.
-    println("Starting '${scriptFile.name}'...")
+    println("Running '${scriptFile.name}' and waiting for it to complete...") // Updated message
     val harbor = ProcessBuilder("bash", scriptFile.name)
     harbor.inheritIO()
-    harbor.start() // Start the process but don't wait for it
-    println("Script '${scriptFile.name}' has been started.")
+    val harborProcess = harbor.start() // Assign the process
+    val harborExitCode = harborProcess.waitFor() // Wait for the script to finish
+    println("Script '${scriptFile.name}' finished with exit code $harborExitCode.") // Updated message
 }
 
 fun downloadFile(url: URL, destination: File) {
