@@ -1,7 +1,6 @@
 #!/bin/bash
 # --- Configuration ---
 HOME=/home/container
-ROOTFS_DIR="$HOME"
 DEBIAN_FRONTEND=noninteractive
 PROOT_VERSION=5.4.0
 # --- Colors (Consolidated) ---
@@ -22,20 +21,20 @@ case "$(uname -m)" in
     ;;
 esac
 # --- Dependency Installation ---
-if [ ! -f "${ROOTFS_DIR}/.installed" ]; then
+if [ ! -f "${HOME}/.installed" ]; then
   echo -e "${BOLD_YELLOW}First time setup: Installing pkgs...${NC}"
     apt download xz-utils bash curl ca-certificates iproute2 bzip2 sudo
-find "$ROOTFS_DIR" -name '*.deb' -type f | while IFS= read -r deb; do
+find "$HOME" -name '*.deb' -type f | while IFS= read -r deb; do
   echo "Unpacking $deb → ~/.local/"
   dpkg -x "$deb" ~/.local/
   echo "Removing $deb"
   rm "$deb"
 done
 # Install PRoot
-    mkdir -p ${ROOTFS_DIR}/usr/local/bin && \
+    mkdir -p ${HOME}/usr/local/bin && \
     proot_url="https://github.com/ysdragon/proot-static/releases/download/v${PROOT_VERSION}/proot-${ARCH}-static" && \
-    curl -Ls "$proot_url" -o ${ROOTFS_DIR}/usr/local/bin/proot && \
-    chmod +x ${ROOTFS_DIR}/usr/local/bin/proot
+    curl -Ls "$proot_url" -o ${HOME}/usr/local/bin/proot && \
+    chmod +x ${HOME}/usr/local/bin/proot
     # Install files
     urls=(
   "https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/entrypoint.sh"
