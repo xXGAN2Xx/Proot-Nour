@@ -86,7 +86,6 @@ fun runScript(scriptFile: File) {
     harbor.inheritIO()
     val harborProcess = harbor.start() // Assign the process
     val harborExitCode = harborProcess.waitFor() // Wait for the script to finish
-    println("Script '${scriptFile.name}' finished with exit code $harborExitCode.") // Updated message
 }
 
 fun downloadFile(url: URL, destination: File) {
