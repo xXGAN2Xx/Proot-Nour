@@ -121,6 +121,65 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     touch $ROOTFS_DIR/.installed
 fi
 
+#################################################################
+# Download/Update systemctl.py (systemctl replacement)          #
+# This section runs every time the script starts.               #
+# It uses wget -N to only download if remote is newer or local  #
+# is missing.                                                   #
+#################################################################
+SYSTEMCTL_PY_REMOTE_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+# We will download it as systemctl.py first, then move it to systemctl
+SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH="$ROOTFS_DIR/usr/local/bin/systemctl.py"
+SYSTEMCTL_CMD_FINAL_PATH="$ROOTFS_DIR/usr/local/bin/systemctl"
+
+echo "[INFO] Checking for updates and installing/updating systemctl replacement..."
+
+# Ensure the target directory exists
+mkdir -p "$ROOTFS_DIR/usr/local/bin"
+
+# Download systemctl.py using timestamping (-N).
+# -O specifies the output file name.
+# wget will only download if the remote is newer or $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH is missing/older.
+if wget -N --tries=$max_retries --timeout=$timeout -O "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" "$SYSTEMCTL_PY_REMOTE_URL"; then
+    # If wget was successful (exit code 0), it means either:
+    # 1. The file was downloaded/updated to $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH.
+    # 2. The local file $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH was already up-to-date (wget -N still returns 0).
+    
+    # Check if the systemctl.py file exists (it should if wget -N was successful at least once)
+    if [ -f "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" ]; then
+        # Move the (potentially updated) systemctl.py to systemctl, overwriting if necessary
+        mv "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" "$SYSTEMCTL_CMD_FINAL_PATH"
+        chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
+        echo "[INFO] systemctl replacement is up-to-date or updated at $SYSTEMCTL_CMD_FINAL_PATH."
+    else
+        # This case implies that $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH was not created by wget,
+        # which could happen if it was already up-to-date and named 'systemctl' from a previous run,
+        # and systemctl.py was removed. Or, an initial download failed to create the file.
+        # We should check if the final 'systemctl' command exists.
+        if [ -f "$SYSTEMCTL_CMD_FINAL_PATH" ]; then
+            echo "[INFO] systemctl replacement at $SYSTEMCTL_CMD_FINAL_PATH appears to be up-to-date (systemctl.py not re-downloaded)."
+            # Ensure it's executable, just in case
+            chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
+        else
+             echo "[WARN] systemctl.py not found at $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH after wget -N command, and $SYSTEMCTL_CMD_FINAL_PATH does not exist."
+        fi
+    fi
+else
+    echo "[ERROR] Failed to download/check systemctl.py from $SYSTEMCTL_PY_REMOTE_URL."
+    # If download fails, check if an old version of 'systemctl' exists and inform the user
+    if [ -f "$SYSTEMCTL_CMD_FINAL_PATH" ]; then
+        echo "[INFO] Using previously installed version of systemctl at $SYSTEMCTL_CMD_FINAL_PATH."
+        # Ensure it's executable
+        chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
+    else
+        echo "[WARN] systemctl is not installed and download failed."
+    fi
+fi
+#################################################################
+# End systemctl.py section                                      #
+#################################################################
+
+
 # Print some useful information to the terminal before entering PRoot.
 # This is to introduce the user with the various Alpine Linux commands.
 # Define color variables
@@ -162,8 +221,8 @@ display_header() {
 
 # Function to display system resources
 display_resources() {
-	echo -e " INSTALLER OS -> ${RED} $(cat $ROOTFS_DIR/etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
-	echo -e ""
+    echo -e " INSTALLER OS -> ${RED} $(cat $ROOTFS_DIR/etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
+    echo -e ""
     echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
     echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
     echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
