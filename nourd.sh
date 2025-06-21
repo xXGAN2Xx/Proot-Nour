@@ -60,13 +60,13 @@ case $input in
     tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
-    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
     "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
     apt download xz-utils
     deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
     dpkg -x $deb_file ~/.local/
     rm "$deb_file"
-    tar -xJf /tmp/rootfs.tar.gz -C $ROOTFS_DIR --strip-components=1;;
+    tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     2)
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
@@ -89,12 +89,12 @@ fi
 # Download static APK-Tools temporarily because minirootfs does not come with APK pre-installed.
 if [ ! -e $ROOTFS_DIR/.installed ]; then
     # Download the packages from their sources
-    mkdir $ROOTFS_DIR/usr/local/bin -p
+    mkdir -p $ROOTFS_DIR/usr/local/bin
 
     wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
 
   while [ ! -s "$ROOTFS_DIR/usr/local/bin/proot" ]; do
-      rm $ROOTFS_DIR/usr/local/bin/proot -rf
+      rm -f $ROOTFS_DIR/usr/local/bin/proot
       wget --tries=$max_retries --timeout=$timeout -O $ROOTFS_DIR/usr/local/bin/proot "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
   
       if [ -s "$ROOTFS_DIR/usr/local/bin/proot" ]; then
@@ -102,9 +102,6 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
           chmod 755 $ROOTFS_DIR/usr/local/bin/proot
           break  # Exit the loop since the file is not empty
       fi
-      
-      chmod 755 $ROOTFS_DIR/usr/local/bin/proot
-      sleep 1  # Add a delay before retrying to avoid hammering the server
   done
   
   chmod 755 $ROOTFS_DIR/usr/local/bin/proot
@@ -121,63 +118,75 @@ if [ ! -e $ROOTFS_DIR/.installed ]; then
     touch $ROOTFS_DIR/.installed
 fi
 
-#################################################################
-# Download/Update systemctl.py (systemctl replacement)          #
-# This section runs every time the script starts.               #
-# It uses wget -N to only download if remote is newer or local  #
-# is missing.                                                   #
-#################################################################
-SYSTEMCTL_PY_REMOTE_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-# We will download it as systemctl.py first, then move it to systemctl
-SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH="$ROOTFS_DIR/usr/local/bin/systemctl.py"
-SYSTEMCTL_CMD_FINAL_PATH="$ROOTFS_DIR/usr/local/bin/systemctl"
+###################################################
+# systemctl.py (systemctl replacement) Setup      #
+###################################################
+SYSTEMCTL_PY_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+SYSTEMCTL_PY_INSTALL_DIR="$ROOTFS_DIR/usr/local/bin"
+SYSTEMCTL_PY_INSTALL_PATH="$SYSTEMCTL_PY_INSTALL_DIR/systemctl" # Installs as 'systemctl'
 
-echo "[INFO] Checking for updates and installing/updating systemctl replacement..."
+echo "" # Newline for cleaner output
+echo "INFO: Checking for systemctl.py (systemctl replacement) updates..."
 
-# Ensure the target directory exists
-mkdir -p "$ROOTFS_DIR/usr/local/bin"
+# Ensure target directory exists within the ROOTFS
+mkdir -p "$SYSTEMCTL_PY_INSTALL_DIR"
 
-# Download systemctl.py using timestamping (-N).
-# -O specifies the output file name.
-# wget will only download if the remote is newer or $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH is missing/older.
-if wget -N --tries=$max_retries --timeout=$timeout -O "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" "$SYSTEMCTL_PY_REMOTE_URL"; then
-    # If wget was successful (exit code 0), it means either:
-    # 1. The file was downloaded/updated to $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH.
-    # 2. The local file $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH was already up-to-date (wget -N still returns 0).
-    
-    # Check if the systemctl.py file exists (it should if wget -N was successful at least once)
-    if [ -f "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" ]; then
-        # Move the (potentially updated) systemctl.py to systemctl, overwriting if necessary
-        mv "$SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH" "$SYSTEMCTL_CMD_FINAL_PATH"
-        chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
-        echo "[INFO] systemctl replacement is up-to-date or updated at $SYSTEMCTL_CMD_FINAL_PATH."
-    else
-        # This case implies that $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH was not created by wget,
-        # which could happen if it was already up-to-date and named 'systemctl' from a previous run,
-        # and systemctl.py was removed. Or, an initial download failed to create the file.
-        # We should check if the final 'systemctl' command exists.
-        if [ -f "$SYSTEMCTL_CMD_FINAL_PATH" ]; then
-            echo "[INFO] systemctl replacement at $SYSTEMCTL_CMD_FINAL_PATH appears to be up-to-date (systemctl.py not re-downloaded)."
-            # Ensure it's executable, just in case
-            chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
-        else
-             echo "[WARN] systemctl.py not found at $SYSTEMCTL_PY_TEMP_DOWNLOAD_PATH after wget -N command, and $SYSTEMCTL_CMD_FINAL_PATH does not exist."
-        fi
-    fi
+# Get latest version from remote
+# Suppress wget progress (q) and output to stdout (O-), redirect stderr to /dev/null (2>/dev/null)
+LATEST_VERSION_OUTPUT=$(wget -qO- "$SYSTEMCTL_PY_URL" 2>/dev/null | grep "__version__ =" | head -n1 | cut -d'"' -f2)
+
+if [ -z "$LATEST_VERSION_OUTPUT" ]; then
+    echo "WARN: Could not fetch the latest version of systemctl.py. Skipping update check."
 else
-    echo "[ERROR] Failed to download/check systemctl.py from $SYSTEMCTL_PY_REMOTE_URL."
-    # If download fails, check if an old version of 'systemctl' exists and inform the user
-    if [ -f "$SYSTEMCTL_CMD_FINAL_PATH" ]; then
-        echo "[INFO] Using previously installed version of systemctl at $SYSTEMCTL_CMD_FINAL_PATH."
-        # Ensure it's executable
-        chmod 755 "$SYSTEMCTL_CMD_FINAL_PATH"
+    echo "INFO: Latest available systemctl.py version from remote: $LATEST_VERSION_OUTPUT"
+    CURRENT_VERSION_OUTPUT=""
+    if [ -f "$SYSTEMCTL_PY_INSTALL_PATH" ]; then
+        CURRENT_VERSION_OUTPUT=$(grep "__version__ =" "$SYSTEMCTL_PY_INSTALL_PATH" | head -n1 | cut -d'"' -f2)
+        if [ -z "$CURRENT_VERSION_OUTPUT" ]; then
+             echo "INFO: Installed systemctl.py found, but version could not be determined (possibly corrupted or old version)."
+        else
+             echo "INFO: Currently installed systemctl.py version: $CURRENT_VERSION_OUTPUT"
+        fi
     else
-        echo "[WARN] systemctl is not installed and download failed."
+        echo "INFO: systemctl.py is not currently installed."
+    fi
+
+    if [ "$LATEST_VERSION_OUTPUT" != "$CURRENT_VERSION_OUTPUT" ] || [ ! -f "$SYSTEMCTL_PY_INSTALL_PATH" ]; then
+        if [ ! -f "$SYSTEMCTL_PY_INSTALL_PATH" ]; then
+            echo "INFO: Downloading and installing systemctl.py version $LATEST_VERSION_OUTPUT..."
+        else
+            echo "INFO: Updating systemctl.py from $CURRENT_VERSION_OUTPUT to $LATEST_VERSION_OUTPUT..."
+        fi
+        
+        TEMP_SYSTEMCTL_PY="/tmp/systemctl.py.download" # Use a distinct name in /tmp
+        wget --tries=$max_retries --timeout=$timeout -O "$TEMP_SYSTEMCTL_PY" "$SYSTEMCTL_PY_URL"
+        
+        if [ $? -eq 0 ] && [ -s "$TEMP_SYSTEMCTL_PY" ]; then
+            # Basic sanity check for the downloaded file
+            if grep -q "__version__ =" "$TEMP_SYSTEMCTL_PY"; then
+                mv "$TEMP_SYSTEMCTL_PY" "$SYSTEMCTL_PY_INSTALL_PATH"
+                chmod 755 "$SYSTEMCTL_PY_INSTALL_PATH"
+                echo "INFO: systemctl.py has been successfully installed/updated to version $LATEST_VERSION_OUTPUT."
+                echo "IMPORTANT: To use the 'systemctl' command, 'python3' must be installed in the selected OS."
+                echo "           (e.g., 'apt update && apt install python3' for Debian/Ubuntu, or 'apk add python3' for Alpine)"
+            else
+                echo "ERROR: Downloaded systemctl.py appears to be corrupted. Aborting installation/update."
+                rm -f "$TEMP_SYSTEMCTL_PY"
+            fi
+        else
+            echo "ERROR: Failed to download systemctl.py. Please check your network or the URL: $SYSTEMCTL_PY_URL"
+            if [ -f "$TEMP_SYSTEMCTL_PY" ]; then # Clean up temp file if download failed but file exists
+                rm -f "$TEMP_SYSTEMCTL_PY"
+            fi
+        fi
+    else
+        echo "INFO: systemctl.py is already up to date (version $CURRENT_VERSION_OUTPUT)."
     fi
 fi
-#################################################################
-# End systemctl.py section                                      #
-#################################################################
+echo "" # Newline for cleaner output
+###################################################
+# End systemctl.py Setup                          #
+###################################################
 
 
 # Print some useful information to the terminal before entering PRoot.
@@ -222,7 +231,6 @@ display_header() {
 # Function to display system resources
 display_resources() {
     echo -e " INSTALLER OS -> ${RED} $(cat $ROOTFS_DIR/etc/os-release | grep "PRETTY_NAME" | cut -d'"' -f2) ${RESET_COLOR}"
-    echo -e ""
     echo -e " CPU -> ${YELLOW} $(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1) ${RESET_COLOR}"
     echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY}MB${RESET_COLOR}"
     echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT}${RESET_COLOR}"
