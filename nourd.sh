@@ -8,15 +8,6 @@
 # We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 
-case ":$PATH:" in
-  *":$LOCAL_BIN_PATH:"*)
-    ;; # Already in PATH, do nothing.
-  *)
-    export PATH="$LOCAL_BIN_PATH:$PATH"
-    ;;
-esac
-
-
 max_retries=50
 timeout=3
 
@@ -62,7 +53,7 @@ case $input in
     deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
     dpkg -x $deb_file ~/.local/
     rm "$deb_file"
-    
+    export PATH="$HOME/.local/usr/bin:$PATH"
     tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     1)
@@ -72,6 +63,7 @@ case $input in
     deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
     dpkg -x $deb_file ~/.local/
     rm "$deb_file"
+    export PATH="$HOME/.local/usr/bin:$PATH"
     tar -xJf /tmp/rootfs.tar.xz -C $ROOTFS_DIR --strip-components=1;;
 
     2)
