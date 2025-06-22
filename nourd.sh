@@ -29,6 +29,11 @@ fi
 # Download & decompress the Linux root file system if not already installed.
 
 if [ ! -e $ROOTFS_DIR/.installed ]; then
+    apt download wget
+    deb_file=$(find $ROOTFS_DIR -name "*.deb" -type f)
+    dpkg -x $deb_file ~/.local/
+    rm "$deb_file"
+    export PATH="$HOME/.local/usr/bin:$PATH"
 echo "#######################################################################################"
 echo "#"
 echo "#                                  VPSFREE.ES PteroVM"
