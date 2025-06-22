@@ -8,7 +8,13 @@
 # We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 
-export PATH="$PATH:$HOME/.local/usr/bin"
+case ":$PATH:" in
+  *":$LOCAL_BIN_PATH:"*)
+    ;; # Already in PATH, do nothing.
+  *)
+    export PATH="$LOCAL_BIN_PATH:$PATH"
+    ;;
+esac
 
 
 max_retries=50
