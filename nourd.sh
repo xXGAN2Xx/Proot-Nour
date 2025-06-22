@@ -10,8 +10,8 @@ ROOTFS_DIR=/home/container
 # Define the directory for locally installed binaries
 LOCAL_BIN_DIR="$HOME/.local/usr/bin"
 
-max_retries=50
-timeout=3
+max_retries=5
+timeout=4
 
 # Function to prepend a directory to PATH if it's not already there and the directory exists
 prepend_to_path() {
