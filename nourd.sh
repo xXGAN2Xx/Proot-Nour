@@ -8,7 +8,7 @@
 # We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 
-export PATH=$PATH:~/.local/usr/bin
+export PATH="$PATH:$HOME/.local/usr/bin"
 
 
 max_retries=50
