@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "Done (s)! For help, type"
 HOME=/home/container; DEBIAN_FRONTEND=noninteractive
 R='\033[0;31m'; GR='\033[0;32m'; Y='\033[0;33m'; P='\033[0;35m'; NC='\033[0m' # Standard Colors
 BR='\033[1;31m'; BGR='\033[1;32m'; BY='\033[1;33m' # Bold Colors
@@ -13,7 +14,7 @@ esac
 # Check for the existence of /etc/debian_version file
 if [ -f /etc/debian_version ]; then
     # If the file exists, it's a Debian-based system
-    echo -e "${BR}This is a Debian-based system. Continuing...${NC}"
+    echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
 else
     # If the file does not exist, it's not Debian-based
     echo -e "${BR}This is not a Debian-based system. Exiting.${NC}"
