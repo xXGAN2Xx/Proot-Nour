@@ -10,21 +10,30 @@ case "$ARCH" in
   riscv64) ARCH_ALT="riscv64";;
   *) echo -e "${BR}Unsupported architecture: $ARCH${NC}" >&2; exit 1;;
 esac
+# Check for the existence of /etc/debian_version file
+if [ -f /etc/debian_version ]; then
+    # If the file exists, it's a Debian-based system
+    echo "This is a Debian-based system. Continuing..."
+else
+    # If the file does not exist, it's not Debian-based
+    echo "This is not a Debian-based system. Exiting."
+    exit 1
+fi
 export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}" # Ensure local binaries are in PATH
 
-#DEP_FLAG="${HOME}/.dependencies_installed_v2" # Changed flag name in case python3 was missed before
-#if [ ! -f "$DEP_FLAG" ]; then
-  #echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
-  #mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
-  #apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
-  #echo -e "${Y}Downloading required .deb packages (including python3-minimal)...${NC}"
-  #if ! yum install "${apt_pkgs_to_download[@]}"; then
-  #  echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
-  #fi
-  #
-  #find "$PWD" -maxdepth 1 -name '*.deb' -type f -print0 | while IFS= read -r -d $'\0' deb_file; do
-  #  echo -e "${GR}Unpacking $deb_file → ${HOME}/.local/${NC}" && dpkg -x "$deb_file" "${HOME}/.local/" && rm "$deb_file"
-  #done
+DEP_FLAG="${HOME}/.dependencies_installed_v2" # Changed flag name in case python3 was missed before
+if [ ! -f "$DEP_FLAG" ]; then
+  echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
+  mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
+  apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
+  echo -e "${Y}Downloading required .deb packages (including python3-minimal)...${NC}"
+  if ! apt download "${apt_pkgs_to_download[@]}"; then
+    echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
+  fi
+  
+  find "$PWD" -maxdepth 1 -name '*.deb' -type f -print0 | while IFS= read -r -d $'\0' deb_file; do
+    echo -e "${GR}Unpacking $deb_file → ${HOME}/.local/${NC}" && dpkg -x "$deb_file" "${HOME}/.local/" && rm "$deb_file"
+  done
   
   echo -e "${Y}Installing PRoot...${NC}"
   proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
