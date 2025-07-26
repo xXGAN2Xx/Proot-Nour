@@ -2,11 +2,7 @@
 HOME=/home/container; DEBIAN_FRONTEND=noninteractive
 R='\033[0;31m'; GR='\033[0;32m'; Y='\033[0;33m'; P='\033[0;35m'; NC='\033[0m' # Standard Colors
 BR='\033[1;31m'; BGR='\033[1;32m'; BY='\033[1;33m' # Bold Colors
-########test
-uname -a
-cat /etc/os-release
-lsb_release -a
-############
+
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64) ARCH_ALT="amd64";;
@@ -24,6 +20,7 @@ if [ ! -f "$DEP_FLAG" ]; then
   apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
   echo -e "${Y}Downloading required .deb packages (including python3-minimal)...${NC}"
   if ! apt install --download-only "${apt_pkgs_to_download[@]}"; then
+  yum install "${apt_pkgs_to_download[@]}"
     echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
   fi
   
