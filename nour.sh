@@ -40,10 +40,10 @@ fi
 
 echo -e "${BY}Checking for script and tool updates...${NC}"
 declare -A scripts_to_manage=(
-  ["entrypoint.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/entrypoint.sh"
-  ["helper.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/helper.sh"
-  ["install.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/install.sh"
-  ["run.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/proot-me/refs/heads/main/run.sh"
+  ["entrypoint.sh"]="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/entrypoint.sh"
+  ["helper.sh"]="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/helper.sh"
+  ["install.sh"]="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/install.sh"
+  ["run.sh"]="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/run.sh"
   ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 )
 for dest_path_suffix in "${!scripts_to_manage[@]}"; do
