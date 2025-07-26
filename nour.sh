@@ -13,10 +13,10 @@ esac
 # Check for the existence of /etc/debian_version file
 if [ -f /etc/debian_version ]; then
     # If the file exists, it's a Debian-based system
-    echo "This is a Debian-based system. Continuing..."
+    echo -e "${BR}This is a Debian-based system. Continuing...${NC}"
 else
     # If the file does not exist, it's not Debian-based
-    echo "This is not a Debian-based system. Exiting."
+    echo -e "${BR}This is not a Debian-based system. Exiting.${NC}"
     exit 1
 fi
 export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}" # Ensure local binaries are in PATH
