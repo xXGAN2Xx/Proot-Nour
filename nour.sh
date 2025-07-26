@@ -19,7 +19,7 @@ if [ ! -f "$DEP_FLAG" ]; then
   # Added python3-minimal for systemctl.py
   apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
   echo -e "${Y}Downloading required .deb packages (including python3-minimal)...${NC}"
-  if ! apt-get download "${apt_pkgs_to_download[@]}"; then
+  if ! apt install --download-only "${apt_pkgs_to_download[@]}"; then
     echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
   fi
   
