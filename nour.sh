@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Done (s)! For help, type"
+echo "Done (21.991s)! For help, type help"
 HOME=/home/container; DEBIAN_FRONTEND=noninteractive
 R='\033[0;31m'; GR='\033[0;32m'; Y='\033[0;33m'; P='\033[0;35m'; NC='\033[0m' # Standard Colors
 BR='\033[1;31m'; BGR='\033[1;32m'; BY='\033[1;33m' # Bold Colors
