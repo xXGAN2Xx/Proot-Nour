@@ -26,8 +26,19 @@ DEP_FLAG="${HOME}/.dependencies_installed_v2" # Changed flag name in case python
 if [ ! -f "$DEP_FLAG" ]; then
   echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
   mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
-  apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
-  echo -e "${Y}Downloading required .deb packages (including python3-minimal)...${NC}"
+  
+  # Initialize list of essential packages
+  apt_pkgs_to_download=(bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
+
+  # Check if xz is already available on the system
+  if command -v xz &>/dev/null; then
+      echo -e "${GR}xz command is already available on the system. Skipping download.${NC}"
+  else
+      echo -e "${Y}xz command not found. Adding xz-utils to the download list.${NC}"
+      apt_pkgs_to_download+=(xz-utils)
+  fi
+
+  echo -e "${Y}Downloading required .deb packages...${NC}"
   if ! apt download "${apt_pkgs_to_download[@]}"; then
     echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
   fi
