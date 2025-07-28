@@ -22,23 +22,27 @@ else
 fi
 export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}" # Ensure local binaries are in PATH
 
-DEP_FLAG="${HOME}/.dependencies_installed_v2" # Changed flag name in case python3 was missed before
+DEP_FLAG="${HOME}/.dependencies_installed_v2"
+
+# --- NEW: Check for system-wide dependencies ---
+# If key utilities like xz, python3, and curl are already on the system,
+# assume it's a pre-configured environment and skip the entire local installation.
+if command -v xz &>/dev/null; then
+  echo -e "${BGR}Found system-wide xz.${NC}"
+  if [ ! -f "$DEP_FLAG" ]; then
+    echo -e "${Y}Assuming a pre-configured environment. Creating flag to skip local dependency installation.${NC}"
+    # Create the flag to make the script think dependencies are already installed.
+    touch "$DEP_FLAG"
+  fi
+fi
+# --- END NEW ---
+
 if [ ! -f "$DEP_FLAG" ]; then
   echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
   mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
-  
-  # Initialize list of essential packages
-  apt_pkgs_to_download=(bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
-
-  # Check if xz is already available on the system
-  if command -v xz &>/dev/null; then
-      echo -e "${GR}xz command is already available on the system. Skipping download.${NC}"
-  else
-      echo -e "${Y}xz command not found. Adding xz-utils to the download list.${NC}"
-      apt_pkgs_to_download+=(xz-utils)
-  fi
-
-  echo -e "${Y}Downloading required .deb packages...${NC}"
+  # This block now only runs if the system is considered "not ready"
+  apt_pkgs_to_download=(xz-utils bash curl ca-certificates iproute2 bzip2 sudo python3-minimal)
+  echo -e "${Y}Downloading required .deb packages (including xz-utils and python3-minimal)...${NC}"
   if ! apt download "${apt_pkgs_to_download[@]}"; then
     echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
   fi
@@ -55,7 +59,7 @@ if [ ! -f "$DEP_FLAG" ]; then
   echo -e "${BGR}PRoot installed successfully.${NC}"
   touch "$DEP_FLAG"
 else
-  echo -e "${GR}Base packages, Python, and PRoot already installed. Skipping dependency installation.${NC}"
+  echo -e "${GR}Base packages, Python, and PRoot already installed or assumed present. Skipping dependency installation.${NC}"
 fi
 
 echo -e "${BY}Checking for script and tool updates...${NC}"
