@@ -33,10 +33,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Build (Gradle if present, else kotlinc via apt)
+      - name: Build (Gradle if present, else Kotlin via SDKMAN)
         id: build_step
         shell: bash
         run: |
+          # NOTE: do NOT use `set -u` here because SDKMAN's init may read unset vars.
           set -eo pipefail
 
           list_jars() {
@@ -48,18 +49,39 @@ jobs:
           if [ -x "./gradlew" ]; then
             echo "Detected ./gradlew -> using Gradle to build"
             chmod +x ./gradlew
-            # try assemble, fallback to build
             ./gradlew clean assemble || ./gradlew clean build
             list_jars
             exit 0
           fi
 
-          echo "No gradlew found -> using kotlinc installed from apt"
-          sudo apt-get update
-          sudo apt-get install -y kotlin
+          echo "No gradlew -> installing Kotlin via SDKMAN (latest stable)"
+          # Install SDKMAN non-interactively
+          curl -sS https://get.sdkman.io | bash
 
-          # locate Kotlin files under wrappers
-          KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ')
+          # Source SDKMAN in this shell so `sdk` and `kotlinc` become available.
+          SDKMAN_DIR="$HOME/.sdkman"
+          if [ -f "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+            # source the init script in this shell session
+            # avoid 'set -u' style errors by not using nounset
+            source "$SDKMAN_DIR/bin/sdkman-init.sh"
+          else
+            echo "ERROR: sdkman-init.sh not found at $SDKMAN_DIR/bin/sdkman-init.sh"
+            ls -la "$SDKMAN_DIR" || true
+            exit 1
+          fi
+
+          # Install the latest Kotlin candidate (ignores error if already installed)
+          sdk install kotlin || true
+
+          # Verify kotlinc is available
+          if ! command -v kotlinc >/dev/null 2>&1; then
+            echo "kotlinc not found in PATH after SDKMAN install. Listing SDKMAN dir for debugging:"
+            ls -la "$SDKMAN_DIR" || true
+            exit 1
+          fi
+
+          # find Kotlin source files under wrappers
+          KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ' || true)
           if [ -z "$KT_FILES" ]; then
             echo "No .kt files found under wrappers/ - nothing to compile"
             exit 1
