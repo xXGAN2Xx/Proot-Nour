@@ -1,43 +1,9 @@
-name: Build and upload server.jar
-
-on:
-  push:
-    paths:
-      - 'wrappers/**'
-  pull_request:
-    paths:
-      - 'wrappers/**'
-  workflow_dispatch: {}
-
-permissions:
-  contents: read
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Show wrappers folder contents
-        run: |
-          echo "PWD: $(pwd)"
-          echo "wrappers listing:"
-          ls -la wrappers || true
-
-      - name: Set up JDK (required for Kotlin/Gradle)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Build (Gradle if present, else kotlinc)
+      - name: Build (Gradle if present, else kotlinc via apt)
         id: build_step
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
 
-          # Helper to report jars after build
           list_jars() {
             echo "=== Jar files found ==="
             find . -type f -name "*.jar" -print || true
@@ -45,44 +11,24 @@ jobs:
           }
 
           if [ -x "./gradlew" ]; then
-            echo "Detected ./gradlew -> using Gradle to build"
+            echo "Using ./gradlew to build"
             chmod +x ./gradlew
             ./gradlew clean assemble || ./gradlew clean build
             list_jars
-          else
-            echo "No gradlew found -> using kotlinc to compile .kt under wrappers/"
-            # install sdkman and kotlin non-interactively
-            curl -sS https://get.sdkman.io | bash
-            # source sdkman in same shell
-            source "$HOME/.sdkman/bin/sdkman-init.sh"
-            sdk install kotlin || true
-
-            # find kt files
-            KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ')
-            if [ -z "$KT_FILES" ]; then
-              echo "No .kt files found under wrappers/ - nothing to compile"
-              exit 1
-            fi
-
-            echo "Compiling Kotlin files: $KT_FILES"
-            mkdir -p build
-            kotlinc $KT_FILES -include-runtime -d build/server.jar
-
-            list_jars
+            exit 0
           fi
 
-      - name: Confirm JAR presence (debug)
-        run: |
-          echo "Looking for any server.jar or build/libs jars..."
-          find . -type f \( -name "server.jar" -o -path "*/build/libs/*.jar" -o -name "*.jar" \) -print || true
+          echo "No gradlew -> installing kotlin compiler via apt"
+          sudo apt-get update
+          sudo apt-get install -y kotlin
 
-      - name: Upload server-jar artifact (globs)
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-jar
-          path: |
-            build/server.jar
-            **/build/libs/*.jar
-            **/server.jar
-            **/*.jar
-          retention-days: 7
+          KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ')
+          if [ -z "$KT_FILES" ]; then
+            echo "No .kt files found under wrappers/ - nothing to compile"
+            exit 1
+          fi
+
+          mkdir -p build
+          echo "Compiling: $KT_FILES"
+          kotlinc $KT_FILES -include-runtime -d build/server.jar
+          list_jars
