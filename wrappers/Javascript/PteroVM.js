@@ -8,8 +8,8 @@ const readline = require('readline');
 // --- Constants ---
 const NOUR_SCRIPT_NAME = "nour.sh";
 const NOURD_SCRIPT_NAME = "nourd.sh";
-const NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh";
-const NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nourd.sh";
+const NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh";
+const NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh";
 
 /**
  * Main entry point of the script.
