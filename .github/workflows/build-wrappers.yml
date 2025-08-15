@@ -50,17 +50,17 @@ jobs:
           fi
 
           mkdir -p src
-          cp "$JAR_PATH" src/server.jar
-          echo "server.jar copied to src/server.jar"
+          cp "$JAR_PATH" wrappers/Kotlin/server.jar
+          echo "server.jar copied to wrappers/Kotlin/server.jar"
 
-      - name: Commit and push src/server.jar
+      - name: Commit and push wrappers/Kotlin/server.jar
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/server.jar
+          git add wrappers/Kotlin/server.jar
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update src/server.jar from CI"
+            git commit -m "Update wrappers/Kotlin/server.jar from CI"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
