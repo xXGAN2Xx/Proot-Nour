@@ -1,15 +1,42 @@
 name: Build and Package
-on: [pull_request, push, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
+  # Detect whether files under wrappers/ changed
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      wrappers: ${{ steps.filter.outputs.wrappers }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          # define a single filter named "wrappers" that matches anything under wrappers/
+          filters: |
+            wrappers:
+              - 'wrappers/**'
+
+  # Build & upload artifacts only when wrappers changed
   build:
+    needs: detect
+    if: needs.detect.outputs.wrappers == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: gradle/wrapper-validation-action@v3
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: '21'
+          cache: 'gradle'
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -18,27 +45,40 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
       - name: Compile Kotlin Wrapper and Rename JAR
+        working-directory: wrappers/Kotlin
         run: |
-          cd wrappers/Kotlin
-          chmod +x gradlew
-          ./gradlew shadowJar
-          # Define expected original artifact name
-          ORIGINAL_JAR="build/libs/PteroVM-1.0.0-all.jar"
-          RENAMED_JAR="server.jar"
-          # Check if the original artifact exists
-          if [ -f "$ORIGINAL_JAR" ]; then
-            echo "Moving $ORIGINAL_JAR to current directory..."
-            cp "$ORIGINAL_JAR" "$RENAMED_JAR"
-            echo "JAR successfully renamed to $RENAMED_JAR"
+          set -euo pipefail
+
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew shadowJar
           else
-            echo "Error: Expected artifact $ORIGINAL_JAR not found after build!"
-            # List contents for debugging
-            echo "Contents of build/libs/:"
-            ls -l build/libs/
+            echo "Error: gradlew not found in $(pwd)"
+            ls -la
             exit 1
           fi
-      - uses: actions/upload-artifact@v4
+
+          # Find a sensible jar name
+          JAR=$(ls -1 build/libs/*.jar 2>/dev/null | grep -E '\-all\.jar$|\-shadow\.jar$' || true)
+          if [ -z "$JAR" ]; then
+            JAR=$(ls -1 build/libs/*.jar 2>/dev/null | head -n 1 || true)
+          fi
+
+          if [ -z "$JAR" ]; then
+            echo "Error: no JAR found in build/libs/ after build!"
+            echo "Contents of build/libs/:"
+            ls -l build/libs/ || true
+            exit 1
+          fi
+
+          echo "Found JAR: $JAR"
+          cp "$JAR" server.jar
+          echo "Copied $JAR -> server.jar"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: |
@@ -46,3 +86,4 @@ jobs:
             wrappers/Python/PteroVM.py
             wrappers/Kotlin/server.jar
             ./PteroVM.sh
+          if-no-files-found: warn
