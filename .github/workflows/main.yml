@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Detect whether files under wrappers/ changed
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -16,12 +15,10 @@ jobs:
       - id: filter
         uses: dorny/paths-filter@v2
         with:
-          # define a single filter named "wrappers" that matches anything under wrappers/
           filters: |
             wrappers:
               - 'wrappers/**'
 
-  # Build & upload artifacts only when wrappers changed
   build:
     needs: detect
     if: needs.detect.outputs.wrappers == 'true'
@@ -46,7 +43,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Compile Kotlin Wrapper and Rename JAR
+      - name: Compile Kotlin Wrapper and produce server.kar
         working-directory: wrappers/Kotlin
         run: |
           set -euo pipefail
@@ -60,7 +57,7 @@ jobs:
             exit 1
           fi
 
-          # Find a sensible jar name
+          # Find a sensible jar name (prefer -all or -shadow)
           JAR=$(ls -1 build/libs/*.jar 2>/dev/null | grep -E '\-all\.jar$|\-shadow\.jar$' || true)
           if [ -z "$JAR" ]; then
             JAR=$(ls -1 build/libs/*.jar 2>/dev/null | head -n 1 || true)
@@ -74,16 +71,15 @@ jobs:
           fi
 
           echo "Found JAR: $JAR"
+          # create server.jar and then the requested server.kar
           cp "$JAR" server.jar
-          echo "Copied $JAR -> server.jar"
+          cp server.jar server.kar
+          echo "Produced wrappers/Kotlin/server.kar"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: |
-            wrappers/Javascript/PteroVM.js
-            wrappers/Python/PteroVM.py
-            wrappers/Kotlin/server.jar
-            ./PteroVM.sh
-          if-no-files-found: warn
+            wrappers/Kotlin/server.kar
+          if-no-files-found: error
