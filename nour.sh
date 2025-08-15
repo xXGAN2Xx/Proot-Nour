@@ -38,16 +38,18 @@ if [[ ! -f /etc/debian_version ]]; then
 fi
 echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
 
-# Ensure local binaries are in PATH
-export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}"
-
 DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
-# Check for system-wide dependencies
-if command -v xz >/dev/null 2>&1; then
-    echo -e "${BGR}Found system-wide xz.${NC}"
+# Ensure local binaries are prioritized in PATH (put them first)
+export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}"
+
+# Check if we need to install dependencies
+# Only skip installation if our local xz exists and works
+LOCAL_XZ="${HOME}/.local/bin/xz"
+if [[ -f "$LOCAL_XZ" ]] && [[ -x "$LOCAL_XZ" ]]; then
+    echo -e "${BGR}Found local xz installation.${NC}"
     if [[ ! -f "$DEP_FLAG" ]]; then
-        echo -e "${Y}Assuming a pre-configured environment. Creating flag to skip local dependency installation.${NC}"
+        echo -e "${Y}Local dependencies appear to be installed. Creating flag.${NC}"
         touch "$DEP_FLAG"
     fi
 fi
@@ -90,6 +92,27 @@ if [[ ! -f "$DEP_FLAG" ]]; then
             rm "$deb_file"
         fi
     done
+    
+    # After extraction, update PATH to ensure our local binaries are found first
+    export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
+    
+    # Verify that xz was installed correctly
+    LOCAL_XZ="${HOME}/.local/bin/xz"
+    if [[ ! -f "$LOCAL_XZ" ]]; then
+        # Sometimes xz might be in a different location after extraction
+        if [[ -f "${HOME}/.local/usr/bin/xz" ]]; then
+            LOCAL_XZ="${HOME}/.local/usr/bin/xz"
+            echo -e "${Y}Found xz at ${LOCAL_XZ}${NC}"
+        else
+            echo -e "${BR}Warning: xz not found after package extraction${NC}" >&2
+        fi
+    fi
+    
+    if [[ -f "$LOCAL_XZ" ]]; then
+        echo -e "${BGR}Local xz installed at: $LOCAL_XZ${NC}"
+        # Make sure it's executable
+        chmod +x "$LOCAL_XZ" 2>/dev/null || true
+    fi
     
     # Install PRoot
     echo -e "${Y}Installing PRoot...${NC}"
@@ -162,6 +185,18 @@ done
 ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
 if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     echo -e "${BGR}Executing ${ENTRYPOINT_SCRIPT##*/}...${NC}"
+    
+    # Ensure our local binaries are prioritized before executing
+    export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
+    
+    # Show which xz will be used
+    if command -v xz >/dev/null 2>&1; then
+        XZ_PATH=$(command -v xz)
+        echo -e "${GR}Using xz from: ${XZ_PATH}${NC}"
+    else
+        echo -e "${Y}Warning: xz not found in PATH${NC}"
+    fi
+    
     cd "${HOME}"
     chmod +x "$ENTRYPOINT_SCRIPT"
     exec bash "./${ENTRYPOINT_SCRIPT##*/}"
