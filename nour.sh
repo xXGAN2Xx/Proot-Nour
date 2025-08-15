@@ -65,10 +65,11 @@ fi
 
 echo -e "${BY}Checking for script and tool updates...${NC}"
 declare -A scripts_to_manage=(
-  ["entrypoint.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/entrypoint.sh"
-  ["helper.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/helper.sh"
-  ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/install.sh"
-  ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/run.sh"
+  ["common.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/scripts/common.sh"
+  ["entrypoint.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/scripts/entrypoint.sh"
+  ["helper.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/scripts/helper.sh"
+  ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/scripts/install.sh"
+  ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/refs/heads/main/scripts/run.sh"
   ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 )
 for dest_path_suffix in "${!scripts_to_manage[@]}"; do
