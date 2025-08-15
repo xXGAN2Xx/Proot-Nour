@@ -37,16 +37,16 @@ ARCH=$(uname -m)
 # Check machine architecture to make sure it is supported.
 # If not, we exit with a non-zero status code.
 if [ "$ARCH" = "x86_64" ]; then
-  ARCH_ALT="amd64"
+    ARCH_ALT="amd64"
 elif [ "$ARCH" = "aarch64" ]; then
-  ARCH_ALT="arm64"
+    ARCH_ALT="arm64"
 else
-  printf "Unsupported CPU architecture: ${ARCH}\n" # Added newline for clarity
-  exit 1
+    printf "Unsupported CPU architecture: %s\n" "$ARCH"
+    exit 1
 fi
 
 # Download & decompress the Linux root file system if not already installed.
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     echo "INFO: Attempting to install wget locally..."
     # Assuming 'apt' and 'dpkg' are available in the base environment.
     # 'apt download' typically downloads to the current working directory.
@@ -54,7 +54,6 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
     apt download wget
     
     # Find the downloaded wget .deb file more specifically
-    # (Assumes GNU find for -print -quit; use `... -print | head -n1` for broader compatibility if needed)
     deb_file_wget=$(find "$ROOTFS_DIR" -maxdepth 1 -name "wget_*.deb" -type f -print -quit)
 
     if [ -n "$deb_file_wget" ]; then
@@ -90,72 +89,76 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
     echo "* [1] Ubuntu"
     echo "* [2] Alpine"
 
-    read -p "Enter OS (0-2): " input # Corrected range
+    printf "Enter OS (0-2): "
+    read -r input
 
     case $input in
         0) # Debian
-        wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
-        
-        echo "INFO: Attempting to install xz-utils locally for .tar.xz decompression..."
-        apt download xz-utils
-        deb_file_xz=$(find "$ROOTFS_DIR" -maxdepth 1 -name "xz-utils_*.deb" -type f -print -quit)
-        if [ -n "$deb_file_xz" ]; then
-            echo "INFO: Extracting xz-utils from $deb_file_xz to $HOME/.local/"
-            dpkg -x "$deb_file_xz" "$HOME/.local/"
-            rm "$deb_file_xz"
-            # xz command should now be available from $LOCAL_BIN_DIR for tar.
-             if ! command -v xz >/dev/null 2>&1 && [ -e "$LOCAL_BIN_DIR/xz" ]; then
-                echo "WARN: xz installed to $LOCAL_BIN_DIR but still not found in PATH. Check installation."
+            wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+            "https://github.com/termux/proot-distro/releases/download/v4.7.0/debian-bullseye-${ARCH}-pd-v4.7.0.tar.xz"
+            
+            echo "INFO: Attempting to install xz-utils locally for .tar.xz decompression..."
+            apt download xz-utils
+            deb_file_xz=$(find "$ROOTFS_DIR" -maxdepth 1 -name "xz-utils_*.deb" -type f -print -quit)
+            if [ -n "$deb_file_xz" ]; then
+                echo "INFO: Extracting xz-utils from $deb_file_xz to $HOME/.local/"
+                dpkg -x "$deb_file_xz" "$HOME/.local/"
+                rm "$deb_file_xz"
+                # xz command should now be available from $LOCAL_BIN_DIR for tar.
+                if ! command -v xz >/dev/null 2>&1 && [ -e "$LOCAL_BIN_DIR/xz" ]; then
+                    echo "WARN: xz installed to $LOCAL_BIN_DIR but still not found in PATH. Check installation."
+                else
+                    echo "INFO: Custom xz-utils (for xz) is now available in PATH."
+                fi
             else
-                echo "INFO: Custom xz-utils (for xz) is now available in PATH."
+                echo "WARN: xz-utils .deb file not found after 'apt download'."
+                if ! command -v xz >/dev/null 2>&1; then
+                    echo "WARN: xz command not found. Tar extraction for .xz may fail if tar relies on external xz."
+                else
+                    echo "INFO: Using system-provided xz."
+                fi
             fi
-        else
-            echo "WARN: xz-utils .deb file not found after 'apt download'."
-            if ! command -v xz >/dev/null 2>&1; then
-                 echo "WARN: xz command not found. Tar extraction for .xz may fail if tar relies on external xz."
-            else
-                 echo "INFO: Using system-provided xz."
-            fi
-        fi
-        tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1;;
+            tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
+            ;;
 
         1) # Ubuntu
-        wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-        "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
+            wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+            "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
 
-        echo "INFO: Attempting to install xz-utils locally for .tar.xz decompression..."
-        apt download xz-utils
-        deb_file_xz=$(find "$ROOTFS_DIR" -maxdepth 1 -name "xz-utils_*.deb" -type f -print -quit)
-        if [ -n "$deb_file_xz" ]; then
-            echo "INFO: Extracting xz-utils from $deb_file_xz to $HOME/.local/"
-            dpkg -x "$deb_file_xz" "$HOME/.local/"
-            rm "$deb_file_xz"
-            if ! command -v xz >/dev/null 2>&1 && [ -e "$LOCAL_BIN_DIR/xz" ]; then
-                echo "WARN: xz installed to $LOCAL_BIN_DIR but still not found in PATH. Check installation."
+            echo "INFO: Attempting to install xz-utils locally for .tar.xz decompression..."
+            apt download xz-utils
+            deb_file_xz=$(find "$ROOTFS_DIR" -maxdepth 1 -name "xz-utils_*.deb" -type f -print -quit)
+            if [ -n "$deb_file_xz" ]; then
+                echo "INFO: Extracting xz-utils from $deb_file_xz to $HOME/.local/"
+                dpkg -x "$deb_file_xz" "$HOME/.local/"
+                rm "$deb_file_xz"
+                if ! command -v xz >/dev/null 2>&1 && [ -e "$LOCAL_BIN_DIR/xz" ]; then
+                    echo "WARN: xz installed to $LOCAL_BIN_DIR but still not found in PATH. Check installation."
+                else
+                    echo "INFO: Custom xz-utils (for xz) is now available in PATH."
+                fi
             else
-                echo "INFO: Custom xz-utils (for xz) is now available in PATH."
+                echo "WARN: xz-utils .deb file not found after 'apt download'."
+                if ! command -v xz >/dev/null 2>&1; then
+                    echo "WARN: xz command not found. Tar extraction for .xz may fail if tar relies on external xz."
+                else
+                    echo "INFO: Using system-provided xz."
+                fi
             fi
-        else
-            echo "WARN: xz-utils .deb file not found after 'apt download'."
-            if ! command -v xz >/dev/null 2>&1; then
-                 echo "WARN: xz command not found. Tar extraction for .xz may fail if tar relies on external xz."
-            else
-                 echo "INFO: Using system-provided xz."
-            fi
-        fi
-        tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1;;
+            tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
+            ;;
 
         2) # Alpine
-        wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
-        "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/${ARCH}/alpine-minirootfs-3.22.0-${ARCH}.tar.gz"
-        # System tar should handle .gz; xz-utils not typically needed for this.
-        tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR";;
+            wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.gz \
+            "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/${ARCH}/alpine-minirootfs-3.22.0-${ARCH}.tar.gz"
+            # System tar should handle .gz; xz-utils not typically needed for this.
+            tar -xf /tmp/rootfs.tar.gz -C "$ROOTFS_DIR"
+            ;;
 
         *)
-        echo "Invalid option or no input provided. Exiting."
-        exit 1
-        ;;
+            echo "Invalid option or no input provided. Exiting."
+            exit 1
+            ;;
     esac
 fi
 
@@ -164,18 +167,16 @@ fi
 ################################
 
 # Download static proot
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     mkdir -p "$ROOTFS_DIR/usr/local/bin"
 
     echo "INFO: Downloading proot static binary..."
     # Ensure proot is downloaded successfully and is not empty
-    # Original script had a while loop here, which is good for retrying flaky downloads.
-    # Keeping the while loop logic for proot download.
     proot_path="$ROOTFS_DIR/usr/local/bin/proot"
     proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
     
     current_try=0
-    max_download_retries=3 # Define max retries for proot download specifically if needed
+    max_download_retries=3 # Define max retries for proot download specifically
 
     while [ ! -s "$proot_path" ]; do
         current_try=$((current_try + 1))
@@ -196,17 +197,17 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
         fi
     done
   
-  chmod 755 "$proot_path"
+    chmod 755 "$proot_path"
 fi
 
 # Clean-up after installation complete & finish up.
-if [ ! -e "$ROOTFS_DIR/.installed" ]; then # Quoted variable
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     # Add DNS Resolver nameservers to resolv.conf.
-    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1" > "${ROOTFS_DIR}/etc/resolv.conf"
+    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "${ROOTFS_DIR}/etc/resolv.conf"
     # Wipe the files we downloaded into /tmp previously.
     rm -rf /tmp/*
     # Create .installed to later check whether OS is installed.
-    touch "$ROOTFS_DIR/.installed" # Quoted variable
+    touch "$ROOTFS_DIR/.installed"
 fi
 
 ###################################################
@@ -216,7 +217,7 @@ SYSTEMCTL_PY_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-re
 SYSTEMCTL_PY_INSTALL_DIR="$ROOTFS_DIR/usr/local/bin"
 SYSTEMCTL_PY_INSTALL_PATH="$SYSTEMCTL_PY_INSTALL_DIR/systemctl" # Installs as 'systemctl'
 
-echo "" 
+echo ""
 echo "INFO: Checking for systemctl.py (systemctl replacement) updates..."
 
 mkdir -p "$SYSTEMCTL_PY_INSTALL_DIR"
@@ -231,9 +232,9 @@ else
     if [ -f "$SYSTEMCTL_PY_INSTALL_PATH" ]; then
         CURRENT_VERSION_OUTPUT=$(grep "__version__ =" "$SYSTEMCTL_PY_INSTALL_PATH" | head -n1 | cut -d'"' -f2)
         if [ -z "$CURRENT_VERSION_OUTPUT" ]; then
-             echo "INFO: Installed systemctl.py found, but version could not be determined."
+            echo "INFO: Installed systemctl.py found, but version could not be determined."
         else
-             echo "INFO: Currently installed systemctl.py version: $CURRENT_VERSION_OUTPUT"
+            echo "INFO: Currently installed systemctl.py version: $CURRENT_VERSION_OUTPUT"
         fi
     else
         echo "INFO: systemctl.py is not currently installed."
@@ -267,11 +268,10 @@ else
         echo "INFO: systemctl.py is already up to date (version $CURRENT_VERSION_OUTPUT)."
     fi
 fi
-echo "" 
+echo ""
 ###################################################
 # End systemctl.py Setup                          #
 ###################################################
-
 
 # Print some useful information
 BLACK='\e[0;30m'; BOLD_BLACK='\e[1;30m'; RED='\e[0;31m'; BOLD_RED='\e[1;31m'
@@ -282,40 +282,39 @@ RESET_COLOR='\e[0m'
 
 display_header() {
     echo -e "${BOLD_MAGENTA} __      __        ______"
-    # ... (rest of display_header, display_resources, display_footer) ...
-    echo -e "${BOLD_MAGENTA} \ \    / /       |  ____|"
-    echo -e "${BOLD_MAGENTA}  \ \  / / __  ___| |__ _ __ ___  ___   ___  ___"
-    echo -e "${BOLD_MAGENTA}   \ \/ / '_ \/ __|  __| '__/ _ \/ _ \ / _ \/ __|"
-    echo -e "${BOLD_MAGENTA}    \  /| |_) \__ \ |  | | |  __/  __/|  __/\__ \\"
-    echo -e "${BOLD_MAGENTA}     \/ | .__/|___/_|  |_|  \___|\___(_)___||___/"
+    echo -e "${BOLD_MAGENTA} \\ \\    / /       |  ____|"
+    echo -e "${BOLD_MAGENTA}  \\ \\  / / __  ___| |__ _ __ ___  ___   ___  ___"
+    echo -e "${BOLD_MAGENTA}   \\ \\/ / '_ \\/ __|  __| '__/ _ \\/ _ \\ / _ \\/ __|"
+    echo -e "${BOLD_MAGENTA}    \\  /| |_) \\__ \\ |  | | |  __/  __/|  __/\\__ \\"
+    echo -e "${BOLD_MAGENTA}     \\/ | .__/|___/_|  |_|  \\___\\___(_)___||___/"
     echo -e "${BOLD_MAGENTA}        | |"
     echo -e "${BOLD_MAGENTA}        |_|"
     echo -e "${BOLD_MAGENTA}___________________________________________________"
     echo -e "           ${YELLOW}-----> System Resources <----${RESET_COLOR}"
-    echo -e "Done (s)! For help, type "help" change this text" # Consider updating this message
+    echo -e "Installation complete! For help, type 'help'"
 }
 
 display_resources() {
     local os_pretty_name="N/A"
     if [ -f "$ROOTFS_DIR/etc/os-release" ]; then
-        os_pretty_name=$(cat "$ROOTFS_DIR/etc/os-release" | grep "PRETTY_NAME" | cut -d'"' -f2)
+        os_pretty_name=$(grep "PRETTY_NAME" "$ROOTFS_DIR/etc/os-release" | cut -d'"' -f2)
     fi
     local cpu_model="N/A"
     if [ -f "/proc/cpuinfo" ]; then
-        cpu_model=$(cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1)
+        cpu_model=$(grep 'model name' /proc/cpuinfo | cut -d':' -f2- | sed 's/^ *//;s/  \+/ /g' | head -n 1)
     fi
     echo -e " INSTALLED OS -> ${RED}${os_pretty_name}${RESET_COLOR}"
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET_COLOR}"
-    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY:-N/A}MB${RESET_COLOR}" # Added default for SERVER_MEMORY
-    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT:-N/A}${RESET_COLOR}" # Added default
-    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT:-N/A}${RESET_COLOR}" # Added default
-    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID:-N/A}${RESET_COLOR}" # Added default
-    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION:-N/A}${RESET_COLOR}" # Added default
+    echo -e " RAM -> ${BOLD_GREEN}${SERVER_MEMORY:-N/A}MB${RESET_COLOR}"
+    echo -e " PRIMARY PORT -> ${BOLD_GREEN}${SERVER_PORT:-N/A}${RESET_COLOR}"
+    echo -e " EXTRA PORTS -> ${BOLD_GREEN}${P_SERVER_ALLOCATION_LIMIT:-N/A}${RESET_COLOR}"
+    echo -e " SERVER UUID -> ${BOLD_GREEN}${P_SERVER_UUID:-N/A}${RESET_COLOR}"
+    echo -e " LOCATION -> ${BOLD_GREEN}${P_SERVER_LOCATION:-N/A}${RESET_COLOR}"
 }
 
 display_footer() {
-	echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
-	echo -e ""
+    echo -e "${BOLD_MAGENTA}___________________________________________________${RESET_COLOR}"
+    echo -e ""
     echo -e "           ${YELLOW}-----> VPS HAS STARTED <----${RESET_COLOR}"
 }
 
