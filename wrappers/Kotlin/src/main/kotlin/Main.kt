@@ -244,7 +244,7 @@ fun runScript(scriptFile: File) {
 
     println("Running '${scriptFile.name}' and waiting for it to complete...")
     try {
-        val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
+        val processBuilder = ProcessBuilder("sh", scriptFile.absolutePath)
         processBuilder.inheritIO()
         val process = processBuilder.start()
         val exitCode = process.waitFor()
