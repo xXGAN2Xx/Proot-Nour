@@ -3,7 +3,7 @@ name: Build and commit server.jar
 on:
   push:
     paths:
-      - 'wrappers/**'
+      - 'wrappers/Kotlin/**'
   workflow_dispatch: {}
 
 permissions:
