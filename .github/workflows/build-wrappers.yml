@@ -1,4 +1,4 @@
-name: Build, commit and upload server.jar
+name: Build and commit server.jar
 
 on:
   push:
@@ -6,146 +6,61 @@ on:
       - 'wrappers/**'
   workflow_dispatch: {}
 
-# We need write permission to push the compiled jar back to the repo
 permissions:
   contents: write
 
 jobs:
-  build-and-commit:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (full history, allow push)
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Show wrappers folder contents
-        run: |
-          echo "PWD: $(pwd)"
-          echo "== wrappers listing =="
-          ls -la wrappers || true
-          echo "======================"
-
-      - name: Set up JDK (required for Kotlin/Gradle)
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Build (Gradle if present, else Kotlin via SDKMAN)
-        id: build_step
+      - name: Build (Gradle or Kotlin)
         shell: bash
         run: |
-          # NOTE: avoid 'set -u' because SDKMAN init reads unset vars
           set -eo pipefail
-
-          list_jars() {
-            echo "=== Jar files found ==="
-            find . -type f -name "*.jar" -print || true
-            echo "=== end jars ==="
-          }
 
           if [ -x "./gradlew" ]; then
-            echo "Detected ./gradlew -> using Gradle to build"
             chmod +x ./gradlew
-            ./gradlew clean assemble || ./gradlew clean build
-            list_jars
-            exit 0
-          fi
-
-          echo "No gradlew -> installing Kotlin via SDKMAN (latest stable)"
-          curl -sS https://get.sdkman.io | bash
-
-          SDKMAN_DIR="$HOME/.sdkman"
-          if [ -f "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
-            source "$SDKMAN_DIR/bin/sdkman-init.sh"
+            ./gradlew clean build || ./gradlew clean assemble
+            JAR_PATH=$(find . -type f -name "*.jar" | head -n 1)
           else
-            echo "ERROR: sdkman-init.sh not found at $SDKMAN_DIR/bin/sdkman-init.sh"
-            ls -la "$SDKMAN_DIR" || true
+            curl -sS https://get.sdkman.io | bash
+            source "$HOME/.sdkman/bin/sdkman-init.sh"
+            sdk install kotlin
+            mkdir -p build
+            KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ')
+            kotlinc $KT_FILES -include-runtime -d build/server.jar
+            JAR_PATH="build/server.jar"
+          fi
+
+          if [ ! -f "$JAR_PATH" ]; then
+            echo "ERROR: No jar built."
             exit 1
           fi
 
-          sdk install kotlin || true
-
-          if ! command -v kotlinc >/dev/null 2>&1; then
-            echo "kotlinc not found in PATH after SDKMAN install. Listing SDKMAN dir for debugging:"
-            ls -la "$SDKMAN_DIR" || true
-            exit 1
-          fi
-
-          # find Kotlin source files under wrappers
-          KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ' || true)
-          if [ -z "$KT_FILES" ]; then
-            echo "No .kt files found under wrappers/ - nothing to compile"
-            exit 1
-          fi
-
-          echo "Compiling Kotlin files: $KT_FILES"
-          mkdir -p build
-          kotlinc $KT_FILES -include-runtime -d build/server.jar
-
-          if [ -f build/server.jar ]; then
-            echo "Produced build/server.jar"
-          else
-            echo "build/server.jar not found after kotlinc; listing jars to help debug"
-          fi
-
-          list_jars
-
-      - name: Confirm JAR presence (debug)
-        run: |
-          echo "Searching for server.jar and other jars:"
-          find . -type f \( -name "server.jar" -o -path "*/build/libs/*.jar" -o -name "*.jar" \) -print || true
-
-      # Copy the produced JAR into the repository's source folder (src/)
-      - name: Copy server.jar to src/server.jar
-        if: always()
-        run: |
           mkdir -p src
-          if [ -f build/server.jar ]; then
-            cp build/server.jar src/server.jar
-            echo "Copied build/server.jar -> src/server.jar"
-          else
-            # try find any jar and copy the first one
-            FIRST_JAR=$(find . -type f -name "*.jar" | head -n 1 || true)
-            if [ -n "$FIRST_JAR" ]; then
-              cp "$FIRST_JAR" src/server.jar
-              echo "Copied $FIRST_JAR -> src/server.jar"
-            else
-              echo "No jar found to copy into src/"
-              exit 1
-            fi
-          fi
+          cp "$JAR_PATH" src/server.jar
+          echo "server.jar copied to src/server.jar"
 
-      # Commit & push back to the same branch only when this run was triggered by a push (not on PR runs)
-      - name: Commit and push server.jar into repo (src/server.jar)
-        if: github.event_name == 'push'
-        env:
-          REPO_BRANCH: ${{ github.ref_name }}
+      - name: Commit and push src/server.jar
         run: |
-          set -eo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Add file and commit if changed
-          git add src/server.jar || true
-          # Only commit if there's something to commit
+          git add src/server.jar
           if git diff --cached --quiet; then
-            echo "No changes to commit (src/server.jar unchanged)."
+            echo "No changes to commit."
           else
-            git commit -m "Add compiled server.jar (from CI) [skip ci]" || true
-            echo "Pushing commit to branch: ${REPO_BRANCH}"
-            git push origin "HEAD:${REPO_BRANCH}"
+            git commit -m "Update src/server.jar from CI"
+            git push origin HEAD:${GITHUB_REF_NAME}
           fi
-
-      - name: Upload server-jar artifact (globs)
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-jar
-          path: |
-            src/server.jar
-            build/server.jar
-            **/build/libs/*.jar
-            **/*.jar
-          retention-days: 7
