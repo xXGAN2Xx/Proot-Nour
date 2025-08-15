@@ -7,8 +7,8 @@ import java.io.IOException
 
 const val NOUR_SCRIPT_NAME = "nour.sh"
 const val NOURD_SCRIPT_NAME = "nourd.sh"
-const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh"
-const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nourd.sh"
+const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh"
+const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
 fun main() {
     try {
