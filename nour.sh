@@ -42,7 +42,7 @@ if [ ! -f "$DEP_FLAG" ]; then
   echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
   mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
   # This block now only runs if the system is considered "not ready"
-  apt_pkgs_to_download=(curl ca-certificates iproute2 xz-utils locales python3-minimal)
+  apt_pkgs_to_download=(curl ca-certificates xz-utils python3-minimal)
   echo -e "${Y}Downloading required .deb packages (including xz-utils and python3-minimal)...${NC}"
   if ! apt download "${apt_pkgs_to_download[@]}"; then
     echo -e "${BR}Failed to download .deb packages. Please check network and apt sources.${NC}"; exit 1;
