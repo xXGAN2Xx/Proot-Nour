@@ -1,24 +1,24 @@
-name: Build and upload server.jar
+name: Build, commit and upload server.jar
 
 on:
   push:
     paths:
       - 'wrappers/**'
-  pull_request:
-    paths:
-      - 'wrappers/**'
   workflow_dispatch: {}
 
+# We need write permission to push the compiled jar back to the repo
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
-    name: Compile Kotlin and upload server.jar
+  build-and-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (full history, allow push)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Show wrappers folder contents
         run: |
@@ -37,7 +37,7 @@ jobs:
         id: build_step
         shell: bash
         run: |
-          # NOTE: do NOT use `set -u` here because SDKMAN's init may read unset vars.
+          # NOTE: avoid 'set -u' because SDKMAN init reads unset vars
           set -eo pipefail
 
           list_jars() {
@@ -55,14 +55,10 @@ jobs:
           fi
 
           echo "No gradlew -> installing Kotlin via SDKMAN (latest stable)"
-          # Install SDKMAN non-interactively
           curl -sS https://get.sdkman.io | bash
 
-          # Source SDKMAN in this shell so `sdk` and `kotlinc` become available.
           SDKMAN_DIR="$HOME/.sdkman"
           if [ -f "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
-            # source the init script in this shell session
-            # avoid 'set -u' style errors by not using nounset
             source "$SDKMAN_DIR/bin/sdkman-init.sh"
           else
             echo "ERROR: sdkman-init.sh not found at $SDKMAN_DIR/bin/sdkman-init.sh"
@@ -70,10 +66,8 @@ jobs:
             exit 1
           fi
 
-          # Install the latest Kotlin candidate (ignores error if already installed)
           sdk install kotlin || true
 
-          # Verify kotlinc is available
           if ! command -v kotlinc >/dev/null 2>&1; then
             echo "kotlinc not found in PATH after SDKMAN install. Listing SDKMAN dir for debugging:"
             ls -la "$SDKMAN_DIR" || true
@@ -104,13 +98,54 @@ jobs:
           echo "Searching for server.jar and other jars:"
           find . -type f \( -name "server.jar" -o -path "*/build/libs/*.jar" -o -name "*.jar" \) -print || true
 
+      # Copy the produced JAR into the repository's source folder (src/)
+      - name: Copy server.jar to src/server.jar
+        if: always()
+        run: |
+          mkdir -p src
+          if [ -f build/server.jar ]; then
+            cp build/server.jar src/server.jar
+            echo "Copied build/server.jar -> src/server.jar"
+          else
+            # try find any jar and copy the first one
+            FIRST_JAR=$(find . -type f -name "*.jar" | head -n 1 || true)
+            if [ -n "$FIRST_JAR" ]; then
+              cp "$FIRST_JAR" src/server.jar
+              echo "Copied $FIRST_JAR -> src/server.jar"
+            else
+              echo "No jar found to copy into src/"
+              exit 1
+            fi
+          fi
+
+      # Commit & push back to the same branch only when this run was triggered by a push (not on PR runs)
+      - name: Commit and push server.jar into repo (src/server.jar)
+        if: github.event_name == 'push'
+        env:
+          REPO_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -eo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add file and commit if changed
+          git add src/server.jar || true
+          # Only commit if there's something to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit (src/server.jar unchanged)."
+          else
+            git commit -m "Add compiled server.jar (from CI) [skip ci]" || true
+            echo "Pushing commit to branch: ${REPO_BRANCH}"
+            git push origin "HEAD:${REPO_BRANCH}"
+          fi
+
       - name: Upload server-jar artifact (globs)
         uses: actions/upload-artifact@v4
         with:
           name: server-jar
           path: |
+            src/server.jar
             build/server.jar
             **/build/libs/*.jar
-            **/server.jar
             **/*.jar
           retention-days: 7
