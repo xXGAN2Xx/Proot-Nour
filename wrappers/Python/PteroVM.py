@@ -10,8 +10,8 @@ import traceback
 # --- Constants ---
 NOUR_SCRIPT_NAME = "nour.sh"
 NOURD_SCRIPT_NAME = "nourd.sh"
-NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nour.sh"
-NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/refs/heads/main/nourd.sh"
+NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh"
+NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
 # --- Helper Functions ---
 
