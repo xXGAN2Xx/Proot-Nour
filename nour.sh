@@ -139,11 +139,11 @@ echo -e "${BY}Checking for script and tool updates...${NC}"
 
 # Use associative array properly
 declare -A scripts_to_manage=(
-    ["common.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/main/scripts/common.sh"
-    ["entrypoint.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/main/scripts/entrypoint.sh"
-    ["helper.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/main/scripts/helper.sh"
-    ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/main/scripts/install.sh"
-    ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/raw/main/scripts/run.sh"
+    ["common.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/common.sh"
+    ["entrypoint.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/entrypoint.sh"
+    ["helper.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/helper.sh"
+    ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/install.sh"
+    ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/run.sh"
     ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 )
 
