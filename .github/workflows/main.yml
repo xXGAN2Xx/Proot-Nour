@@ -26,6 +26,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # -------------------------
+      # NEW: download external artifact and place its files into ./files
+      # -------------------------
+      - name: Download artifact (ID: 3774821538) and extract into ./files
+        env:
+          ARTIFACT_ID: "3774821538"
+          OWNER: "xXGAN2Xx"
+          REPO: "proot-nour"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded_artifact files
+
+          echo "Requesting artifact $ARTIFACT_ID from $OWNER/$REPO..."
+          # Use the REST API to download the artifact as a ZIP. The API redirects to a download URL; -L follows it.
+          curl -sSL -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$OWNER/$REPO/actions/artifacts/$ARTIFACT_ID/zip" -o artifact.zip
+
+          if [ ! -s artifact.zip ]; then
+            echo "Warning: artifact.zip is empty or missing. Check artifact ID / permissions."
+          else
+            echo "Unzipping artifact.zip..."
+            unzip -o artifact.zip -d downloaded_artifact
+            echo "Copying artifact contents into ./files/"
+            # unzip creates a top-level folder per artifact; copy its contents into ./files
+            shopt -s dotglob || true
+            cp -r downloaded_artifact/*/* ./files/ 2>/dev/null || cp -r downloaded_artifact/* ./files/ || true
+            ls -la files || true
+          fi
+
       - uses: gradle/wrapper-validation-action@v3
 
       - uses: actions/setup-java@v4
@@ -71,15 +101,15 @@ jobs:
           fi
 
           echo "Found JAR: $JAR"
-          # create server.jar and then the requested server.kar
           cp "$JAR" server.jar
           cp server.jar server.kar
           echo "Produced wrappers/Kotlin/server.kar"
 
-      - name: Upload Artifacts
+      - name: Upload Artifacts (includes downloaded files)
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: |
             wrappers/Kotlin/server.kar
+            files/**
           if-no-files-found: error
