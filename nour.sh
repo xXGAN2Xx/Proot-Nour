@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "Done (s)! For help, type help"
-echo "$(pwd)"
-
 # Set HOME and DEBIAN_FRONTEND with proper checks
 HOME="${HOME:-$(pwd)}"
 export DEBIAN_FRONTEND=noninteractive
