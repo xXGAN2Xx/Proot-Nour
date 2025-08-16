@@ -11,6 +11,9 @@ const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main
 const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
 fun main() {
+    // Message to show immediately when the JAR is executed
+    println("Done (s)! For help, type help")
+
     try {
         if (handleScript(NOUR_SCRIPT_NAME, NOUR_URL)) {
             return
@@ -20,7 +23,7 @@ fun main() {
             return
         }
 
-        println("Neither '$NOUR_SCRIPT_NAME' nor '$NOURD_SCRIPT_NAME}' found locally, and no update check was performed. Please choose a script to download.")
+        println("Neither '$NOUR_SCRIPT_NAME' nor '$NOURD_SCRIPT_NAME' found locally, and no update check was performed. Please choose a script to download.")
         handleDownloadChoiceSetPermsAndRun()
 
     } catch (e: Exception) {
@@ -199,25 +202,27 @@ fun setExecutablePermission(file: File): Boolean {
 
 fun handleDownloadChoiceSetPermsAndRun() {
     println("Choose an option to download:")
-    println("0: Download $NOUR_SCRIPT_NAME")
-    println("1: Download $NOURD_SCRIPT_NAME")
-    print("Enter your choice (0 or 1): ")
+    println("1: Download $NOUR_SCRIPT_NAME")   // nour is 1
+    println("2: Download $NOURD_SCRIPT_NAME")  // nourd is 2
+    print("Enter your choice (1 or 2): ")
 
     val choice = readlnOrNull()
     val scriptUrlString: String
     val scriptFileName: String
 
     when (choice) {
-        "0" -> {
+        "1" -> {
+            // nour is 1
             scriptUrlString = NOUR_URL
             scriptFileName = NOUR_SCRIPT_NAME
         }
-        "1" -> {
+        "2" -> {
+            // nourd is 2
             scriptUrlString = NOURD_URL
             scriptFileName = NOURD_SCRIPT_NAME
         }
         else -> {
-            println("Invalid choice. Please enter 0 or 1. Exiting.")
+            println("Invalid choice. Please enter 1 or 2. Exiting.")
             return
         }
     }
