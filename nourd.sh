@@ -75,6 +75,7 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
 
     echo "INFO: Attempting to install required packages locally (curl, ca-certificates, xz-utils, python3-minimal)..."
 
+
     # List of required packages
     REQUIRED_PKGS="curl ca-certificates xz-utils python3-minimal"
 
@@ -200,5 +201,11 @@ display_footer
 ###########################
 # Start PRoot environment #
 ###########################
+
+# Run proot and inside the proot environment:
+# 1) update package lists
+# 2) install the requested packages (non-interactively)
+# 3) launch tmate in foreground
+# The last command (tmate -F) will keep the proot session active.
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -n -w "/root" \
-    -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit
+    -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit -- /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update || true; apt-get install -y curl git gpg sudo wget tmate screen bash nano; tmate -F'
