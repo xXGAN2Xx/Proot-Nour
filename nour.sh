@@ -1,14 +1,13 @@
 #!/bin/bash
+
 # Exit immediately if a command exits with a non-zero status.
-set -e
-# Treat unset variables as an error when substituting.
-set -u
-# Pipes will fail if any command in the pipe fails.
-set -o pipefail
+# Treat unset variables as an error.
+# Pipes fail if any command in the pipeline fails.
+set -euo pipefail
 
-# --- Configuration & Logging ---
+# --- Constants and Configuration ---
 
-# Set HOME with proper checks
+# Set HOME if it's not already set.
 HOME="${HOME:-$(pwd)}"
 export DEBIAN_FRONTEND=noninteractive
 
@@ -24,90 +23,64 @@ BR='\033[1;31m'
 BGR='\033[1;32m'
 BY='\033[1;33m'
 
-# --- Helper Functions ---
-# Encapsulate logging to make the main script cleaner
-log_info() { echo -e "${GR}$*${NC}"; }
-log_info_bold() { echo -e "${BGR}$*${NC}"; }
-log_warn() { echo -e "${Y}$*${NC}"; }
-log_warn_bold() { echo -e "${BY}$*${NC}"; }
-log_error() { echo -e "${BR}$*${NC}" >&2; }
+# Dependency flag path
+DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
-# --- Architecture and System Setup ---
-setup_environment() {
-    log_info "Detecting architecture and system type..."
-    local ARCH
-    ARCH=$(uname -m)
-    case "$ARCH" in
-      x86_64) export ARCH_ALT="amd64" ;;
-      aarch64) export ARCH_ALT="arm64" ;;
-      riscv64) export ARCH_ALT="riscv64" ;;
-      *)
-        log_error "Unsupported architecture: $ARCH"
-        exit 1
-        ;;
-    esac
+# Ensure local binaries are prioritized in PATH.
+# We set this once here, covering all potential locations.
+export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 
-    if [[ ! -f /etc/debian_version ]]; then
-        log_error "This is not a Debian-based system. Exiting."
-        exit 1
-    fi
-    log_info "Debian-based system and supported architecture ($ARCH) detected."
+# --- Functions ---
 
-    # --- PATH SETUP ---
-    # CONSOLIDATED: Set path once, adding user-local directories first.
-    # We will add more specific paths later if dependencies are installed.
-    export PATH="${HOME}/.local/bin:${HOME}/usr/local/bin:${PATH}"
+# Function to print an error message and exit.
+error_exit() {
+    echo -e "${BR}${1}${NC}" >&2
+    exit 1
 }
 
-# --- Dependency Management ---
+# Function to install base dependencies if they are not present.
 install_dependencies() {
-    log_warn_bold "First time setup: Installing base packages, Python, and PRoot..."
+    echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
 
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
+    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
     # Download required packages
     local apt_pkgs_to_download=(curl ca-certificates xz-utils python3-minimal)
-    log_warn "Downloading required .deb packages..."
-    apt download "${apt_pkgs_to_download[@]}"
+    echo -e "${Y}Downloading required .deb packages...${NC}"
+    apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
     # Extract packages
-    shopt -s nullglob
+    shopt -s nullglob # Prevent errors if no .deb files match
     local deb_files=("$PWD"/*.deb)
-    if [[ ${#deb_files[@]} -eq 0 ]]; then
-        log_error "No .deb files found to extract."
-        exit 1
-    fi
+    [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
 
-    log_info "Unpacking .deb files into ${HOME}/.local/"
     for deb_file in "${deb_files[@]}"; do
-        dpkg -x "$deb_file" "${HOME}/.local/"
+        echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
+        dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
         rm "$deb_file"
     done
 
-    # IMPORTANT: Update PATH again after extraction to find binaries like xz
-    export PATH="${HOME}/.local/usr/bin:${PATH}"
-
-    # Verify xz installation
-    if command -v xz >/dev/null; then
-        log_info_bold "Local xz installed at: $(command -v xz)"
-        chmod +x "$(command -v xz)" 2>/dev/null || true
+    # Verify that our local xz is now available
+    if ! command -v xz >/dev/null; then
+        echo -e "${Y}Warning: xz not found in PATH after package extraction.${NC}" >&2
     else
-        log_error "Warning: xz not found after package extraction"
+        echo -e "${BGR}Local xz is available at: $(command -v xz)${NC}"
     fi
 
     # Install PRoot
-    log_warn "Installing PRoot..."
-    local proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH_ALT}-static"
+    echo -e "${Y}Installing PRoot...${NC}"
+    local proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
     local proot_dest="${HOME}/usr/local/bin/proot"
-    curl -Ls "$proot_url" -o "$proot_dest"
-    chmod +x "$proot_dest"
+    curl -Ls "$proot_url" -o "$proot_dest" || error_exit "Failed to download PRoot."
+    chmod +x "$proot_dest" || error_exit "Failed to make PRoot executable."
 
-    log_info_bold "PRoot installed successfully."
+    echo -e "${BGR}PRoot installed successfully.${NC}"
+    touch "$DEP_FLAG"
 }
 
-# --- Script Update Management ---
-update_scripts_and_tools() {
-    log_warn_bold "Checking for script and tool updates..."
+# Function to update scripts and tools from remote sources.
+update_scripts() {
+    echo -e "${BY}Checking for script and tool updates...${NC}"
 
     declare -A scripts_to_manage=(
         ["common.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/common.sh"
@@ -118,84 +91,89 @@ update_scripts_and_tools() {
         ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
     )
 
-    # --- PERFORMANCE IMPROVEMENT: PARALLEL DOWNLOADS ---
-    # We start all download processes in the background, then wait for them all to finish.
-    # This is much faster than downloading one by one.
-
-    local download_pids=()
+    local pids=()
     for dest_path_suffix in "${!scripts_to_manage[@]}"; do
-        ( # Start a subshell for each download process
+        # Run each download/update check in the background
+        (
             local url="${scripts_to_manage[$dest_path_suffix]}"
             local local_file="${HOME}/${dest_path_suffix}"
             local temp_file="${local_file}.new"
-
+            
             mkdir -p "$(dirname "$local_file")"
 
-            echo -n -e "${Y}Checking ${dest_path_suffix}... ${NC}"
-
+            echo -e "${Y}Checking ${dest_path_suffix}...${NC}"
             if curl -sSLf --connect-timeout 15 --retry 3 -o "$temp_file" "$url"; then
-                # Check for changes and update if necessary
                 if [[ ! -f "$local_file" ]] || ! cmp -s "$local_file" "$temp_file"; then
                     if mv "$temp_file" "$local_file" && chmod +x "$local_file"; then
-                        echo -e "${BGR}Updated.${NC}"
+                        echo -e "${BGR}Updated ${dest_path_suffix}.${NC}"
                     else
-                        echo -e "${BR}Update failed (mv/chmod error).${NC}" >&2
-                        [[ -f "$temp_file" ]] && rm "$temp_file"
+                        echo -e "${BR}Update failed for ${dest_path_suffix} (mv/chmod error).${NC}" >&2
+                        rm -f "$temp_file"
                     fi
                 else
                     rm "$temp_file"
-                    echo -e "${GR}Up to date.${NC}"
+                    echo -e "${GR}${dest_path_suffix} is up to date.${NC}"
                 fi
             else
-                [[ -f "$temp_file" ]] && rm "$temp_file"
-                echo -e "${BR}Download failed. Using local copy if available.${NC}" >&2
+                rm -f "$temp_file"
+                echo -e "${BR}Download failed for ${dest_path_suffix}. Using local version if available.${NC}" >&2
             fi
-        ) & # The '&' runs the subshell in the background
-        download_pids+=($!) # Store the process ID of the background job
+        ) &
+        pids+=($!) # Store the process ID of the background job
     done
 
-    # Wait for all background download processes to complete
-    log_info "Waiting for all downloads to complete..."
-    for pid in "${download_pids[@]}"; do
+    # Wait for all background download jobs to finish
+    for pid in "${pids[@]}"; do
         wait "$pid"
     done
-    log_info_bold "All script checks are complete."
+    echo -e "${BGR}Script update check complete.${NC}"
 }
 
 
-# --- Main Execution Logic ---
-main() {
-    setup_environment
+# --- Main Execution ---
 
-    local DEP_FLAG="${HOME}/.dependencies_installed_v2"
-    if [[ ! -f "$DEP_FLAG" ]]; then
-        install_dependencies
-        touch "$DEP_FLAG"
-        log_info "Dependency installation complete. Flag created at ${DEP_FLAG}"
-    else
-        log_info "Dependencies already installed. Skipping."
-    fi
+# Move to the HOME directory for predictable relative paths
+cd "${HOME}"
 
-    update_scripts_and_tools
+# Architecture detection
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64) ARCH_ALT="amd64";;
+  aarch64) ARCH_ALT="arm64";;
+  riscv64) ARCH_ALT="riscv64";;
+  *) error_exit "Unsupported architecture: $ARCH";;
+esac
 
-    local ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
-    if [[ ! -f "$ENTRYPOINT_SCRIPT" ]]; then
-        log_error "Error: ${ENTRYPOINT_SCRIPT} not found! Cannot proceed."
-        exit 1
-    fi
+# Check for Debian-based system
+if [[ ! -f /etc/debian_version ]]; then
+    error_exit "This is not a Debian-based system. Exiting."
+fi
+echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
 
-    log_info_bold "Executing ${ENTRYPOINT_SCRIPT##*/}..."
+# Install dependencies if the flag file doesn't exist.
+if [[ ! -f "$DEP_FLAG" ]]; then
+    install_dependencies
+else
+    echo -e "${GR}Base packages, Python, and PRoot are already installed. Skipping dependency installation.${NC}"
+fi
 
+# Update all scripts.
+update_scripts
+
+# Execute entrypoint script
+ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
+if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
+    echo -e "${BGR}Executing ${ENTRYPOINT_SCRIPT##*/}...${NC}"
+    
     if command -v xz >/dev/null; then
-        log_info "Using xz from: $(command -v xz)"
+        echo -e "${GR}Using xz from: $(command -v xz)${NC}"
     else
-        log_warn "Warning: xz not found in PATH"
+        echo -e "${Y}Warning: xz not found in PATH${NC}"
     fi
-
-    cd "${HOME}"
-    # The exec command replaces the current shell with the new process
+    
+    chmod +x "$ENTRYPOINT_SCRIPT"
+    # Use exec to replace the current shell process with the new one.
     exec bash "./${ENTRYPOINT_SCRIPT##*/}"
-}
-
-# Run the main function
-main "$@"
+else
+    error_exit "Error: ${ENTRYPOINT_SCRIPT} not found and could not be downloaded! Cannot proceed."
+fi
