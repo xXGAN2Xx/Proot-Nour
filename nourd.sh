@@ -209,4 +209,4 @@ display_footer
 # The last command (tmate -F) will keep the proot session active.
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -n -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-    /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update || true; apt-get install -y curl git gpg sudo wget tmate screen bash nano || true; exec tmate -F'
+    /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update || true; apt-get install -y tmate screen || true; exec tmate -F'
