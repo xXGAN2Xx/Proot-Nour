@@ -1,7 +1,4 @@
 #!/bin/sh
-
-set -e  # Fail fast on any command error
-
 #############################
 # Linux Installation #
 #############################
