@@ -1,5 +1,5 @@
 #!/bin/bash
-
+echo "Installation complete! For help, type 'help'"
 # Exit immediately if a command exits with a non-zero status.
 # Treat unset variables as an error.
 # Pipes fail if any command in the pipeline fails.
