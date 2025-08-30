@@ -1,21 +1,17 @@
 #!/bin/sh
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
-
 #############################
 # Linux Installation #
 #############################
 
 # Define the root directory to /home/container.
+# We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 # Define the directory for locally installed binaries
 LOCAL_BIN_DIR="$HOME/.local/usr/bin"
 
-# --- Optimized Variables ---
-MAX_RETRIES=5
-TIMEOUT=4
-PROOT_DISTRO_VERSION="v4.18.0"
+max_retries=5
+timeout=4
 
 # Function to prepend a directory to PATH if it's not already there and the directory exists
 prepend_to_path() {
@@ -31,16 +27,28 @@ prepend_to_path() {
 mkdir -p "$LOCAL_BIN_DIR"
 prepend_to_path "$LOCAL_BIN_DIR"
 
+# --- IMPROVEMENT: Updated architecture check for x86_64, aarch64, and arm ---
 # Detect the machine architecture.
 ARCH=$(uname -m)
-if [ "$ARCH" = "x86_64" ]; then
-    ARCH_ALT="amd64"
-elif [ "$ARCH" = "aarch64" ]; then
-    ARCH_ALT="arm64"
-else
-    printf "Unsupported CPU architecture: %s\n" "$ARCH"
-    exit 1
-fi
+
+# Check for supported architectures and standardize the name if needed.
+case "$ARCH" in
+    x86_64)
+        echo "INFO: Detected x86_64 (64-bit) architecture."
+        ;;
+    aarch64)
+        echo "INFO: Detected aarch64 (64-bit) architecture."
+        ;;
+    arm | armv7l | armv8l)
+        ARCH="arm" # Standardize to 'arm' for consistency in download URLs
+        echo "INFO: Detected arm (32-bit) architecture."
+        ;;
+    *)
+        printf "Unsupported CPU architecture: %s\n" "$ARCH"
+        exit 1
+        ;;
+esac
+# --- END IMPROVEMENT ---
 
 # Download & decompress the Linux root file system if not already installed.
 if [ ! -e "$ROOTFS_DIR/.installed" ]; then
@@ -50,85 +58,101 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     echo "#"
     echo "#######################################################################################"
     echo ""
-    echo "INFO: Starting first-time setup for ${ARCH} architecture..."
+    echo "INFO: Auto-selecting Ubuntu (no user input required)..."
 
-    # --- IMPROVEMENT: Consolidate all package downloads into a single command ---
-    echo "INFO: Downloading required host packages (wget, curl, etc.)..."
-    REQUIRED_PKGS="wget curl ca-certificates xz-utils python3-minimal"
-    apt-get update
-    apt-get download ${REQUIRED_PKGS}
+    # Consolidated package download
+    BOOTSTRAP_PKGS="wget ca-certificates xz-utils python3-minimal"
+    echo "INFO: Attempting to install required bootstrap packages locally: $BOOTSTRAP_PKGS"
 
-    # --- IMPROVEMENT: Extract all downloaded .deb files in a single loop ---
-    echo "INFO: Extracting host packages..."
-    for deb_file in *.deb; do
-        if [ -f "$deb_file" ]; then
-            dpkg -x "$deb_file" "$HOME/.local/"
-            rm "$deb_file"
-        fi
+    if ! apt download $BOOTSTRAP_PKGS; then
+        echo "ERROR: Failed to download one or more bootstrap packages. Cannot proceed."
+        exit 1
+    fi
+
+    find "$ROOTFS_DIR" -maxdepth 1 -name "*.deb" -type f -print0 | while IFS= read -r -d '' deb_file; do
+        echo "INFO: Extracting $(basename "$deb_file")..."
+        dpkg -x "$deb_file" "$HOME/.local/"
+        rm "$deb_file"
     done
+
     prepend_to_path "$LOCAL_BIN_DIR"
-    
+
     if ! command -v wget >/dev/null 2>&1; then
-        echo "ERROR: wget could not be installed. Cannot proceed."
+        echo "ERROR: wget could not be installed or found in PATH. Cannot proceed."
         exit 1
     fi
 
-    # --- NEW: Verify that assets for the detected architecture exist before downloading ---
-    echo "INFO: Verifying availability of assets for ${ARCH}..."
-    PROOT_URL="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
-    ROOTFS_URL="https://github.com/termux/proot-distro/releases/download/${PROOT_DISTRO_VERSION}/ubuntu-noble-${ARCH}-pd-${PROOT_DISTRO_VERSION}.tar.xz"
+    # Download Ubuntu rootfs
+    wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
+    "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
 
-    if ! wget --spider -q --tries=$MAX_RETRIES --timeout=$TIMEOUT "$PROOT_URL"; then
-        echo "ERROR: proot static binary not found for architecture ${ARCH} at ${PROOT_URL}"
-        exit 1
-    fi
-    if ! wget --spider -q --tries=$MAX_RETRIES --timeout=$TIMEOUT "$ROOTFS_URL"; then
-        echo "ERROR: Ubuntu rootfs not found for architecture ${ARCH} at ${ROOTFS_URL}"
-        exit 1
-    fi
-    echo "INFO: All required assets are available for download."
-    # --- END NEW ---
-
-    # --- IMPROVEMENT: Download proot and rootfs in parallel ---
-    echo "INFO: Downloading proot and rootfs simultaneously..."
-    mkdir -p "$ROOTFS_DIR/usr/local/bin"
-    PROOT_PATH="$ROOTFS_DIR/usr/local/bin/proot"
-
-    # Start proot download in the background
-    wget --tries=$MAX_RETRIES --timeout=$TIMEOUT -O "$PROOT_PATH" "$PROOT_URL" &
-    PROOT_PID=$!
-
-    # --- IMPROVEMENT: Stream rootfs extraction to avoid saving the tarball ---
-    echo "INFO: Streaming and extracting rootfs..."
-    wget --tries=$MAX_RETRIES --timeout=$TIMEOUT -O - "$ROOTFS_URL" | tar -xJf - -C "$ROOTFS_DIR" --strip-components=1
-    
-    # Wait for the proot download to finish and check if it was successful
-    wait $PROOT_PID
-    if [ ! -s "$PROOT_PATH" ]; then
-        echo "ERROR: Failed to download proot. Exiting."
-        exit 1
-    fi
-    chmod 755 "$PROOT_PATH"
-
-    # --- IMPROVEMENT: Move systemctl.py setup into the one-time installation ---
-    echo "INFO: Setting up systemctl replacement..."
-    SYSTEMCTL_PY_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-    SYSTEMCTL_PY_INSTALL_PATH="$ROOTFS_DIR/usr/local/bin/systemctl"
-    wget -O "$SYSTEMCTL_PY_INSTALL_PATH" "$SYSTEMCTL_PY_URL"
-    chmod 755 "$SYSTEMCTL_PY_INSTALL_PATH"
-
-    # --- IMPROVEMENT: Move package installation inside proot to the one-time setup ---
-    echo "INFO: Installing tmate and screen inside the environment..."
-    "$PROOT_PATH" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
-        -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-        /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y tmate screen'
-
-    # Final clean-up
-    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "${ROOTFS_DIR}/etc/resolv.conf"
-    rm -rf /tmp/* *.deb
-    touch "$ROOTFS_DIR/.installed"
-    echo "INFO: First-time setup complete."
+    echo "INFO: Extracting rootfs..."
+    tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
 fi
+
+################################
+# Package Installation & Setup #
+################################
+
+# Download static proot
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+    mkdir -p "$ROOTFS_DIR/usr/local/bin"
+    echo "INFO: Downloading proot static binary..."
+    proot_path="$ROOTFS_DIR/usr/local/bin/proot"
+    proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
+
+    current_try=0
+    max_download_retries=3
+    while [ ! -s "$proot_path" ]; do
+        current_try=$((current_try + 1))
+        if [ "$current_try" -gt "$max_download_retries" ]; then
+            echo "ERROR: Failed to download proot. Exiting."
+            exit 1
+        fi
+        wget --tries=$max_retries --timeout=$timeout -O "$proot_path" "$proot_url"
+        [ -s "$proot_path" ] || sleep 2
+    done
+    chmod 755 "$proot_path"
+fi
+
+# Clean-up
+if [ ! -e "$ROOTFS_DIR/.installed" ]; then
+    printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "${ROOTFS_DIR}/etc/resolv.conf"
+    rm -rf /tmp/*
+    touch "$ROOTFS_DIR/.installed"
+fi
+
+###################################################
+# systemctl.py (systemctl replacement) Setup      #
+###################################################
+SYSTEMCTL_PY_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+SYSTEMCTL_PY_INSTALL_DIR="$ROOTFS_DIR/usr/local/bin"
+SYSTEMCTL_PY_INSTALL_PATH="$SYSTEMCTL_PY_INSTALL_DIR/systemctl"
+SYSTEMCTL_PY_TEMP_PATH="/tmp/systemctl.py"
+
+echo "INFO: Checking for systemctl.py..."
+mkdir -p "$SYSTEMCTL_PY_INSTALL_DIR"
+
+if ! wget -qO "$SYSTEMCTL_PY_TEMP_PATH" "$SYSTEMCTL_PY_URL"; then
+    echo "WARN: Could not download systemctl.py to check for updates."
+else
+    LATEST_VERSION=$(grep "__version__ =" "$SYSTEMCTL_PY_TEMP_PATH" | head -n1 | cut -d'"' -f2)
+
+    if [ -n "$LATEST_VERSION" ]; then
+        if [ ! -f "$SYSTEMCTL_PY_INSTALL_PATH" ] || ! grep -q "$LATEST_VERSION" "$SYSTEMCTL_PY_INSTALL_PATH"; then
+            echo "INFO: Installing/updating systemctl.py to version $LATEST_VERSION"
+            mv "$SYSTEMCTL_PY_TEMP_PATH" "$SYSTEMCTL_PY_INSTALL_PATH"
+            chmod 755 "$SYSTEMCTL_PY_INSTALL_PATH"
+        else
+            echo "INFO: systemctl.py is already up to date."
+            rm "$SYSTEMCTL_PY_TEMP_PATH"
+        fi
+    else
+        echo "WARN: Could not determine latest version of systemctl.py."
+        rm "$SYSTEMCTL_PY_TEMP_PATH"
+    fi
+fi
+echo ""
 
 ###################################################
 # Fancy Output                                    #
@@ -136,17 +160,19 @@ fi
 GREEN='\e[0;32m'; RED='\e[0;31m'; YELLOW='\e[0;33m'; MAGENTA='\e[0;35m'; RESET='\e[0m'
 
 display_header() {
-    echo -e "${MAGENTA} __      __        ______"
-    echo -e " \\ \\    / /       |  ____|"
-    echo -e "  \\ \\  / / __  ___| |__ _ __ ___  ___"
-    echo -e "   \\ \\/ / '_ \\/ __|  __| '__/ _ \\/ _ \\"
-    echo -e "    \\  /| |_) \\__ \\ |  | | |  __/  __/"
-    echo -e "     \\/ | .__/|___/_|  |_|  \\___\\___|"
-    echo -e "        | |"
-    echo -e "        |_|"
-    echo -e "___________________________________________________${RESET}"
-    echo -e "           ${YELLOW}-----> System Resources <----${RESET}"
-    echo "Installation complete! For help, type 'help'"
+    cat << EOF
+${MAGENTA} __      __        ______
+ \\ \\    / /       |  ____|
+  \\ \\  / / __  ___| |__ _ __ ___  ___
+   \\ \\/ / '_ \\/ __|  __| '__/ _ \\/ _ \\
+    \\  /| |_) \\__ \\ |  | | |  __/  __/
+     \\/ | .__/|___/_|  |_|  \\___\\___|
+        | |
+        |_|${RESET}
+___________________________________________________
+           ${YELLOW}-----> System Resources <----${RESET}
+Installation complete! For help, type 'help'
+EOF
 }
 
 display_resources() {
@@ -173,7 +199,8 @@ display_footer
 # Start PRoot environment #
 ###########################
 
-# --- IMPROVEMENT: The final command is now much simpler and faster ---
-exec "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -n -w "/root" \
+"$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -n -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-    /bin/bash -lc 'exec tmate -F'
+    /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update -y && apt-get install -y tmate screen || echo "WARNING: Failed to install tmate/screen."; \
+    exec tmate -F'
