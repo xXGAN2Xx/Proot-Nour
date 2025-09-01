@@ -45,7 +45,7 @@ install_dependencies() {
     mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
     # Download required packages
-    local apt_pkgs_to_download=(curl ca-certificates xz-utils python3-minimal)
+    local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
     echo -e "${Y}Downloading required .deb packages...${NC}"
     apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
