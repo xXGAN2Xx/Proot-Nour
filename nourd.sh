@@ -61,7 +61,7 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     echo "INFO: Auto-selecting Ubuntu (no user input required)..."
 
     # Consolidated package download
-    BOOTSTRAP_PKGS="wget ca-certificates xz-utils python3-minimal"
+    BOOTSTRAP_PKGS="wget bash ca-certificates xz-utils python3-minimal"
     echo "INFO: Attempting to install required bootstrap packages locally: $BOOTSTRAP_PKGS"
 
     if ! apt download $BOOTSTRAP_PKGS; then
