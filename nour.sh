@@ -40,7 +40,7 @@ error_exit() {
 
 # Function to install base dependencies if they are not present.
 install_dependencies() {
-    echo -e "${BY}First time setup: Installing base packages, Python, and PRoot...${NC}"
+    echo -e "${BY}First time setup: Installing base packages, Bash, Python, and PRoot...${NC}"
 
     mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
