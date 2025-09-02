@@ -1,5 +1,7 @@
 #!/bin/bash
-echo "Installation complete! For help, type 'help'"
+# --- Installation and Setup Script ---
+# This script is designed to automatically detect and work on Debian-based,
+# RHEL-based (Amazon Linux), and Alpine Linux systems.
 
 # --- Constants and Configuration ---
 
@@ -30,7 +32,7 @@ export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${P
 
 # Function to print an error message and exit.
 error_exit() {
-    echo -e "${BR}${1}${NC}" >&2
+    echo -e "\n${BR}${1}${NC}" >&2
     exit 1
 }
 
@@ -38,23 +40,55 @@ error_exit() {
 install_dependencies() {
     echo -e "${BY}First time setup: Installing base packages, Bash, Python, and PRoot...${NC}"
 
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
+    mkdir -p "${HOME}/.local/bin" "${HOME}/.local/usr/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
-    # Download required packages
-    local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
-    echo -e "${Y}Downloading required .deb packages...${NC}"
-    apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+    # --- Debian-based System Logic (apt) ---
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
+        echo -e "${Y}Downloading required .deb packages...${NC}"
+        apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
-    # Extract packages
-    shopt -s nullglob # Prevent errors if no .deb files match
-    local deb_files=("$PWD"/*.deb)
-    [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
+        shopt -s nullglob # Prevent errors if no .deb files match
+        local deb_files=("$PWD"/*.deb)
+        [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
 
-    for deb_file in "${deb_files[@]}"; do
-        echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
-        dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
-        rm "$deb_file"
-    done
+        for deb_file in "${deb_files[@]}"; do
+            echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
+            dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
+            rm "$deb_file"
+        done
+
+    # --- RHEL-based System Logic (yum) ---
+    elif [ "$PKG_MANAGER" = "yum" ]; then
+        if ! command -v yumdownloader >/dev/null; then
+            echo -e "${Y}yumdownloader not found. It is required to download packages.${NC}"
+            echo -e "${Y}You may need to install it first: ${BGR}sudo yum install yum-utils${NC}"
+            error_exit "Dependency 'yum-utils' is not installed."
+        fi
+
+        local yum_pkgs_to_download=(curl bash ca-certificates xz python3)
+        echo -e "${Y}Downloading required .rpm packages...${NC}"
+        yumdownloader "${yum_pkgs_to_download[@]}" || error_exit "Failed to download .rpm packages. Please check network and yum repositories."
+        
+        shopt -s nullglob
+        local rpm_files=("$PWD"/*.rpm)
+        [[ ${#rpm_files[@]} -eq 0 ]] && error_exit "No .rpm files found to extract."
+
+        for rpm_file in "${rpm_files[@]}"; do
+            echo -e "${GR}Unpacking $(basename "$rpm_file") → ${HOME}/.local/${NC}"
+            rpm2cpio "$rpm_file" | cpio -idm --directory="${HOME}/.local/" || error_exit "Failed to extract $rpm_file"
+            rm "$rpm_file"
+        done
+
+    # --- Alpine Linux Logic (apk) ---
+    elif [ "$PKG_MANAGER" = "apk" ]; then
+        local apk_pkgs_to_add=(curl bash ca-certificates xz python3)
+        echo -e "${Y}Installing required .apk packages into local directory...${NC}"
+        # --root installs packages to a different root directory.
+        # --initdb creates the APK database if it doesn't exist.
+        # --no-cache avoids using the system-level cache, which may require root.
+        apk add --root "${HOME}/.local" --initdb --no-cache "${apk_pkgs_to_add[@]}" || error_exit "Failed to install packages with apk."
+    fi
 
     # Verify that our local xz is now available
     if ! command -v xz >/dev/null; then
@@ -63,7 +97,7 @@ install_dependencies() {
         echo -e "${BGR}Local xz is available at: $(command -v xz)${NC}"
     fi
 
-    # Install PRoot
+    # Install PRoot (common for all distros)
     echo -e "${Y}Installing PRoot...${NC}"
     local proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
     local proot_dest="${HOME}/usr/local/bin/proot"
@@ -89,7 +123,6 @@ update_scripts() {
 
     local pids=()
     for dest_path_suffix in "${!scripts_to_manage[@]}"; do
-        # Run each download/update check in the background
         (
             local url="${scripts_to_manage[$dest_path_suffix]}"
             local local_file="${HOME}/${dest_path_suffix}"
@@ -115,10 +148,9 @@ update_scripts() {
                 echo -e "${BR}Download failed for ${dest_path_suffix}. Using local version if available.${NC}" >&2
             fi
         ) &
-        pids+=($!) # Store the process ID of the background job
+        pids+=($!)
     done
 
-    # Wait for all background download jobs to finish
     for pid in "${pids[@]}"; do
         wait "$pid"
     done
@@ -128,8 +160,28 @@ update_scripts() {
 
 # --- Main Execution ---
 
-# Move to the HOME directory for predictable relative paths
-cd "${HOME}"
+cd "${HOME}" || exit 1
+
+# --- Automatic Distribution Detection ---
+PKG_MANAGER=""
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" = "alpine" ]]; then
+        PKG_MANAGER="apk"
+        echo -e "${BGR}Alpine Linux detected. Using apk.${NC}"
+    elif [[ "$ID" = "amzn" || "$ID_LIKE" == *"rhel"* || "$ID_LIKE" == *"fedora"* || "$ID_LIKE" == *"centos"* ]]; then
+        PKG_MANAGER="yum"
+        echo -e "${BGR}RHEL-based system (Amazon Linux/CentOS/Fedora) detected. Using yum.${NC}"
+    elif [[ "$ID" = "debian" || "$ID_LIKE" == *"debian"* || -f /etc/debian_version ]]; then
+        PKG_MANAGER="apt"
+        echo -e "${BGR}Debian-based system detected. Using apt.${NC}"
+    fi
+fi
+
+if [ -z "$PKG_MANAGER" ]; then
+    cat /etc/*-release 2>/dev/null
+    error_exit "Unsupported operating system. This script supports Debian, RHEL/Amazon, and Alpine."
+fi
 
 # Architecture detection
 ARCH=$(uname -m)
@@ -140,14 +192,7 @@ case "$ARCH" in
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
 
-# Check for Debian-based system
-if [[ ! -f /etc/debian_version ]]; then
-    cat /etc/*-release
-    error_exit "This is not a Debian-based system. Exiting."
-fi
-echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
-
-# Install dependencies if the flag file doesn't exist.
+# Install dependencies if they are not already present
 if [[ ! -f "$DEP_FLAG" ]]; then
     install_dependencies
 else
@@ -169,8 +214,9 @@ if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     fi
     
     chmod +x "$ENTRYPOINT_SCRIPT"
-    # Use exec to replace the current shell process with the new one.
     exec bash "./${ENTRYPOINT_SCRIPT##*/}"
 else
     error_exit "Error: ${ENTRYPOINT_SCRIPT} not found and could not be downloaded! Cannot proceed."
 fi
+
+echo -e "\nInstallation complete! For help, type 'help'"
