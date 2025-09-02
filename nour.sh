@@ -34,80 +34,76 @@ error_exit() {
     exit 1
 }
 
-# Function to install dependencies for Debian-based systems.
+# Function to install base dependencies for Debian-based systems (apt).
 install_dependencies_apt() {
-    echo -e "${BY}First time setup (Debian): Installing base packages, Bash, Python, and PRoot...${NC}"
+    echo -e "${BY}First time setup for Debian: Installing base packages...${NC}"
+    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
 
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
-
-    # Download required packages
-    local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
+    local pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
     echo -e "${Y}Downloading required .deb packages...${NC}"
-    apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+    apt-get download "${pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
-    # Extract packages
-    shopt -s nullglob # Prevent errors if no .deb files match
-    local deb_files=("$PWD"/*.deb)
-    [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
-
-    for deb_file in "${deb_files[@]}"; do
+    shopt -s nullglob
+    for deb_file in ./*.deb; do
         echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
         dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
         rm "$deb_file"
     done
 }
 
-# Function to install dependencies for Alpine-based systems.
+# Function to install base dependencies for Alpine-based systems (apk).
 install_dependencies_apk() {
-    echo -e "${BY}First time setup (Alpine): Installing base packages, Bash, Python, and PRoot...${NC}"
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
+    echo -e "${BY}First time setup for Alpine: Installing base packages...${NC}"
+    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
 
-    local apk_pkgs_to_download=(curl bash ca-certificates xz python3)
-    local alpine_repo="http://dl-cdn.alpinelinux.org/alpine/v3.18/main" # Using a recent, generic version
+    local pkgs_to_download=(curl bash ca-certificates xz python3)
+    echo -e "${Y}Downloading required .apk packages...${NC}"
+    apk fetch --force-non-root "${pkgs_to_download[@]}" || error_exit "Failed to download .apk packages."
 
-    for pkg in "${apk_pkgs_to_download[@]}"; do
-        echo -e "${Y}Downloading ${pkg}...${NC}"
-        # This is a simplified approach; a more robust solution would parse the APKINDEX
-        local pkg_url="${alpine_repo}/${ARCH}/${pkg}-*.apk"
-        curl -sSL $(curl -sSL ${alpine_repo}/${ARCH}/APKINDEX.tar.gz | tar -xz -O APKINDEX | grep -m 1 "^P:${pkg}$" -B 10 | grep "^V:" | cut -d: -f2 | xargs -I {} echo "${alpine_repo}/${ARCH}/${pkg}-{}.apk") -o "${pkg}.apk" || error_exit "Failed to download ${pkg}."
-
-        echo -e "${GR}Unpacking ${pkg}.apk → ${HOME}/.local/${NC}"
-        tar -xzf "${pkg}.apk" -C "${HOME}/.local/" || error_exit "Failed to extract ${pkg}.apk"
-        rm "${pkg}.apk"
+    shopt -s nullglob
+    for apk_file in ./*.apk; do
+        echo -e "${GR}Unpacking $(basename "$apk_file") → ${HOME}/.local/${NC}"
+        tar -xzf "$apk_file" -C "${HOME}/.local/" || error_exit "Failed to extract $apk_file"
+        rm "$apk_file"
     done
 }
 
-# Function to install dependencies for RHEL-based systems.
+# Function to install base dependencies for Red Hat-based systems (yum).
 install_dependencies_yum() {
-    echo -e "${BY}First time setup (RHEL/CentOS): Installing base packages, Bash, Python, and PRoot...${NC}"
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
+    echo -e "${BY}First time setup for Red Hat: Installing base packages...${NC}"
+    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
 
-    # Install yum-utils if not present, to get yumdownloader
-    if ! command -v yumdownloader &> /dev/null; then
-        echo -e "${Y}yumdownloader not found. Attempting to install yum-utils locally.${NC}"
-        # This is a bit of a chicken-and-egg problem. We'll try to download it directly.
-        yumdownloader yum-utils
-        rpm2cpio yum-utils*.rpm | cpio -idmv
-    fi
+    # Check for required tools
+    for tool in yumdownloader rpm2cpio cpio; do
+        command -v "$tool" >/dev/null || error_exit "$tool is not installed. Cannot proceed with non-root installation."
+    done
 
-
-    local yum_pkgs_to_download=(curl bash ca-certificates xz python3)
+    local pkgs_to_download=(curl bash ca-certificates xz python3)
     echo -e "${Y}Downloading required .rpm packages...${NC}"
-    yumdownloader --resolve --destdir=. "${yum_pkgs_to_download[@]}" || error_exit "Failed to download .rpm packages. Please check network and yum sources."
+    yumdownloader --destdir=. "${pkgs_to_download[@]}" || error_exit "Failed to download .rpm packages."
 
     shopt -s nullglob
-    local rpm_files=("$PWD"/*.rpm)
-    [[ ${#rpm_files[@]} -eq 0 ]] && error_exit "No .rpm files found to extract."
-
-    for rpm_file in "${rpm_files[@]}"; do
+    for rpm_file in ./*.rpm; do
         echo -e "${GR}Unpacking $(basename "$rpm_file") → ${HOME}/.local/${NC}"
-        rpm2cpio "$rpm_file" | cpio -idmv -D "${HOME}/.local/" || error_exit "Failed to extract $rpm_file"
+        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || error_exit "Failed to extract $rpm_file"
         rm "$rpm_file"
     done
 }
 
-# Common dependency installation steps (PRoot)
-install_common_dependencies() {
+
+# Function to install base dependencies if they are not present.
+install_dependencies() {
+    echo -e "${BY}First time setup: Installing base packages, Bash, Python, and PRoot...${NC}"
+    
+    mkdir -p "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
+
+    case "$PKG_MANAGER" in
+        apt) install_dependencies_apt ;;
+        apk) install_dependencies_apk ;;
+        yum) install_dependencies_yum ;;
+        *) error_exit "Internal error: No installer for PKG_MANAGER='$PKG_MANAGER'" ;;
+    esac
+
     # Verify that our local xz is now available
     if ! command -v xz >/dev/null; then
         echo -e "${Y}Warning: xz not found in PATH after package extraction.${NC}" >&2
@@ -192,30 +188,25 @@ case "$ARCH" in
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
 
-# Detect package manager
-if [[ -f /etc/debian_version ]]; then
+# --- OS/Package Manager Detection ---
+if [ -f /etc/debian_version ]; then
     PKG_MANAGER="apt"
     echo -e "${GR}Debian-based system detected. Using apt.${NC}"
-elif [[ -f /etc/alpine-release ]]; then
+elif [ -f /etc/alpine-release ]; then
     PKG_MANAGER="apk"
     echo -e "${GR}Alpine-based system detected. Using apk.${NC}"
-elif [[ -f /etc/redhat-release ]]; then
+elif [ -f /etc/redhat-release ]; then
     PKG_MANAGER="yum"
-    echo -e "${GR}RHEL-based system detected. Using yum.${NC}"
+    echo -e "${GR}Red Hat-based system detected. Using yum.${NC}"
 else
-    cat /etc/*-release
+    cat /etc/*-release >&2
     error_exit "Unsupported Linux distribution."
 fi
 
 
 # Install dependencies if the flag file doesn't exist.
 if [[ ! -f "$DEP_FLAG" ]]; then
-    case "$PKG_MANAGER" in
-        apt) install_dependencies_apt ;;
-        apk) install_dependencies_apk ;;
-        yum) install_dependencies_yum ;;
-    esac
-    install_common_dependencies
+    install_dependencies
 else
     echo -e "${GR}Base packages, Python, and PRoot are already installed. Skipping dependency installation.${NC}"
 fi
