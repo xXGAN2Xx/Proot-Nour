@@ -89,14 +89,23 @@ bootstrap_yum_packages() {
     baseurl=${baseurl//\$basearch/$basearch}
     echo -e "${GR}Using repository base URL: ${baseurl}${NC}"
 
-    # 3. Get repomd.xml and find the primary metadata file location.
+    # 3. Get repomd.xml and find the primary metadata file location using a robust awk script.
     local repomd_xml
     repomd_xml=$(curl -sL "${baseurl}/repodata/repomd.xml")
     if [[ -z "$repomd_xml" ]]; then
         error_exit "Failed to download repomd.xml from ${baseurl}"
     fi
+    
     local primary_location
-    primary_location=$(echo "$repomd_xml" | grep 'type="primary"' | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+    primary_location=$(echo "$repomd_xml" | awk '
+        /type="primary"/ { in_primary=1 }
+        in_primary && /<location href=/ {
+            match($0, /href="([^"]+)"/, a);
+            print a[1];
+            exit;
+        }
+    ')
+
     if [[ -z "$primary_location" ]]; then
         error_exit "Could not find primary package list location in repomd.xml."
     fi
@@ -109,8 +118,17 @@ bootstrap_yum_packages() {
     # 5. For each needed package, find its URL in the metadata, download, and extract it.
     for pkg_name in "${packages_to_bootstrap[@]}"; do
         echo -e "${Y}Finding URL for ${pkg_name}...${NC}"
+        
         local pkg_location
-        pkg_location=$(grep -A 10 "<name>${pkg_name}</name>" primary.xml | grep '<location href="' | head -n 1 | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+        pkg_location=$(awk -v pkg_name="^${pkg_name}$" '
+            $0 ~ "<name>" pkg_name "</name>" { in_pkg=1 }
+            in_pkg && /<location href=/ {
+                match($0, /href="([^"]+)"/, a);
+                print a[1];
+                exit;
+            }
+            in_pkg && /<\/package>/ { in_pkg=0 }
+        ' primary.xml)
 
         if [[ -z "$pkg_location" ]]; then
             echo -e "${BR}Warning: Could not find package ${pkg_name} in the repository. Skipping.${NC}" >&2
