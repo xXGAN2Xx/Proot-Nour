@@ -1,40 +1,8 @@
-#!/bin/bash
-echo "Installation complete! For help, type 'help'"
-
-# --- Constants and Configuration ---
-HOME="${HOME:-$(pwd)}"
-export DEBIAN_FRONTEND=noninteractive
-
-# Colors
-R='\033[0;31m'; GR='\033[0;32m'; Y='\033[0;33m'; P='\033[0;35m'; NC='\033[0m'
-BR='\033[1;31m'; BGR='\033[1;32m'; BY='\033[1;33m'
-
-# Dependency flag path
-DEP_FLAG="${HOME}/.dependencies_installed_v3"
-
-# Ensure local binaries are prioritized
-export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
-
-# --- Functions ---
-error_exit() { echo -e "${BR}${1}${NC}" >&2; exit 1; }
-
-# Generic extractor
-extract_pkg() {
-    local file="$1"
-    case "$file" in
-        *.deb) dpkg -x "$file" "${HOME}/.local/" ;;
-        *.apk) tar -xzf "$file" -C "${HOME}/.local/" ;;
-        *.rpm) rpm2cpio "$file" | cpio -idmv -D "${HOME}/.local/" ;;
-        *) echo -e "${Y}Unknown package format: $file${NC}" ;;
-    esac
-    rm -f "$file"
-}
-
 install_dependencies() {
     echo -e "${BY}First time setup: Installing base packages (bash, python, proot)...${NC}"
     mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin"
 
-    local pkgs=(curl bash ca-certificates xz-utils python3-minimal)
+    local pkgs=(curl bash ca-certificates xz python3)
 
     if [[ -f /etc/debian_version ]]; then
         echo -e "${GR}Debian-based detected (apt).${NC}"
@@ -49,9 +17,15 @@ install_dependencies() {
         for f in ./*.apk; do extract_pkg "$f"; done
 
     elif grep -qiE "centos|fedora|rhel" /etc/*-release; then
-        echo -e "${GR}RHEL/Fedora detected (yum/dnf).${NC}"
+        echo -e "${GR}RHEL/Fedora detected (rpm).${NC}"
+        local baseurl="https://mirrors.edge.kernel.org/fedora/releases/40/Everything/$(uname -m)/os/Packages"
         for pkg in "${pkgs[@]}"; do
-            yumdownloader "$pkg" || dnf download "$pkg" || error_exit "yum/dnf failed for $pkg"
+            echo -e "${Y}Fetching $pkg...${NC}"
+            # Try first letter directory (Fedora repo layout)
+            firstchar=$(echo "$pkg" | cut -c1)
+            url="$baseurl/${firstchar}/${pkg}-*.rpm"
+            # Use curl with globbing
+            curl -Ls --remote-name-all "$url" || error_exit "Failed to fetch $pkg"
         done
         for f in ./*.rpm; do extract_pkg "$f"; done
 
@@ -84,41 +58,3 @@ install_dependencies() {
     echo -e "${BGR}Dependencies + PRoot installed successfully.${NC}"
     touch "$DEP_FLAG"
 }
-
-update_scripts() {
-    echo -e "${BY}Checking for script updates...${NC}"
-    declare -A scripts=(
-        ["common.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/common.sh"
-        ["entrypoint.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/entrypoint.sh"
-        ["helper.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/helper.sh"
-        ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/install.sh"
-        ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/run.sh"
-        ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-    )
-    for dest in "${!scripts[@]}"; do
-        local url="${scripts[$dest]}"
-        local local_file="${HOME}/${dest}"
-        mkdir -p "$(dirname "$local_file")"
-        curl -sSLf -o "${local_file}.new" "$url" && mv "${local_file}.new" "$local_file" && chmod +x "$local_file"
-    done
-    echo -e "${BGR}Script update check complete.${NC}"
-}
-
-# --- Main Execution ---
-cd "${HOME}"
-
-if [[ ! -f "$DEP_FLAG" ]]; then
-    install_dependencies
-else
-    echo -e "${GR}Dependencies already installed. Skipping.${NC}"
-fi
-
-update_scripts
-
-ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
-if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
-    chmod +x "$ENTRYPOINT_SCRIPT"
-    exec bash "./${ENTRYPOINT_SCRIPT##*/}"
-else
-    error_exit "entrypoint.sh missing!"
-fi
