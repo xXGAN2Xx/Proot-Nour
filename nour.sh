@@ -70,7 +70,7 @@ install_dependencies_apk() {
 
 # Function to install base dependencies for Red Hat-based systems (yum).
 install_dependencies_yum() {
-    echo -e "${BY}First time setup for Red Hat: Installing base packages...${NC}"
+    echo -e "${BY}First time setup for Red Hat family: Installing base packages...${NC}"
     mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
 
     # Check for required tools
@@ -189,15 +189,22 @@ case "$ARCH" in
 esac
 
 # --- OS/Package Manager Detection ---
+# Source os-release to get distribution info, if it exists
+if [ -f /etc/os-release ]; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+fi
+
 if [ -f /etc/debian_version ]; then
     PKG_MANAGER="apt"
     echo -e "${GR}Debian-based system detected. Using apt.${NC}"
 elif [ -f /etc/alpine-release ]; then
     PKG_MANAGER="apk"
     echo -e "${GR}Alpine-based system detected. Using apk.${NC}"
-elif [ -f /etc/redhat-release ]; then
+# Check for RHEL/CentOS/Fedora family, including Amazon Linux, by checking for specific files or os-release variables
+elif [ -f /etc/redhat-release ] || [[ "${ID_LIKE}" == *"rhel"* ]] || [[ "${ID_LIKE}" == *"centos"* ]] || [[ "${ID}" == "amzn" ]]; then
     PKG_MANAGER="yum"
-    echo -e "${GR}Red Hat-based system detected. Using yum.${NC}"
+    echo -e "${GR}Red Hat-based system (like CentOS/RHEL/Amazon Linux) detected. Using yum.${NC}"
 else
     cat /etc/*-release >&2
     error_exit "Unsupported Linux distribution."
