@@ -146,6 +146,7 @@ esac
 
 # Check for Debian-based system
 if [[ ! -f /etc/debian_version ]]; then
+    cat /etc/issue
     error_exit "This is not a Debian-based system. Exiting."
 fi
 echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
