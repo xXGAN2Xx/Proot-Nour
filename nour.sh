@@ -73,81 +73,79 @@ bootstrap_yum_packages() {
     local packages_to_bootstrap=("$@")
     echo -e "${Y}Bootstrapping essential packages with shell tools: ${packages_to_bootstrap[*]}...${NC}"
 
-    # 1. Find the base URL from enabled repo files.
-    local baseurl
-    baseurl=$(grep -r -h 'baseurl=' /etc/yum.repos.d/*.repo | grep -v '#' | head -n 1 | cut -d'=' -f2-)
-    if [[ -z "$baseurl" ]]; then
-        error_exit "Could not determine a repository baseurl from /etc/yum.repos.d/. Cannot bootstrap."
+    # 1. Find all enabled base URLs.
+    local baseurls
+    baseurls=$(grep -r -h --include='*.repo' 'baseurl=' /etc/yum.repos.d/ | grep -v '#' | cut -d'=' -f2-)
+    if [[ -z "$baseurls" ]]; then
+        error_exit "Could not determine any repository baseurls from /etc/yum.repos.d/. Cannot bootstrap."
     fi
 
-    # 2. Replace common repo variables like $releasever and $basearch.
-    local releasever
-    releasever=$(rpm -q --qf "%{VERSION}" -f /etc/system-release 2>/dev/null || echo "2")
-    local basearch
-    basearch=$(uname -m)
-    baseurl=${baseurl//\$releasever/$releasever}
-    baseurl=${baseurl//\$basearch/$basearch}
-    echo -e "${GR}Using repository base URL: ${baseurl}${NC}"
-
-    # 3. Get repomd.xml and find the primary metadata file location using a robust awk script.
-    local repomd_xml
-    repomd_xml=$(curl -sL "${baseurl}/repodata/repomd.xml")
-    if [[ -z "$repomd_xml" ]]; then
-        error_exit "Failed to download repomd.xml from ${baseurl}"
-    fi
-    
-    local primary_location
-    primary_location=$(echo "$repomd_xml" | awk '
-        /type="primary"/ { in_primary=1 }
-        in_primary && /<location href=/ {
-            match($0, /href="([^"]+)"/, a);
-            print a[1];
-            exit;
-        }
-    ')
-
-    if [[ -z "$primary_location" ]]; then
-        error_exit "Could not find primary package list location in repomd.xml."
-    fi
-
-    # 4. Download and decompress the primary metadata file.
-    echo -e "${Y}Downloading package list...${NC}"
-    curl -sL "${baseurl}/${primary_location}" -o primary.xml.gz || error_exit "Failed to download primary package list."
-    gzip -d -f primary.xml.gz || error_exit "Failed to decompress package list. 'gzip' might be missing."
-
-    # 5. For each needed package, find its URL in the metadata, download, and extract it.
-    for pkg_name in "${packages_to_bootstrap[@]}"; do
-        echo -e "${Y}Finding URL for ${pkg_name}...${NC}"
+    # 2. For each package, iterate through repos and name variations until we find it.
+    for pkg_name_orig in "${packages_to_bootstrap[@]}"; do
+        local found_pkg=false
         
-        local pkg_location
-        pkg_location=$(awk -v pkg_name="^${pkg_name}$" '
-            $0 ~ "<name>" pkg_name "</name>" { in_pkg=1 }
-            in_pkg && /<location href=/ {
-                match($0, /href="([^"]+)"/, a);
-                print a[1];
-                exit;
-            }
-            in_pkg && /<\/package>/ { in_pkg=0 }
-        ' primary.xml)
-
-        if [[ -z "$pkg_location" ]]; then
-            echo -e "${BR}Warning: Could not find package ${pkg_name} in the repository. Skipping.${NC}" >&2
-            continue
+        # Define a list of possible names to try, especially for python3
+        local names_to_try=()
+        if [[ "$pkg_name_orig" == "python3" ]]; then
+            names_to_try=("python3" "python37" "python36")
+        else
+            names_to_try=("$pkg_name_orig")
         fi
 
-        local pkg_url="${baseurl}/${pkg_location}"
-        local rpm_file="${pkg_name}-bootstrap.rpm"
-        
-        echo -e "${GR}Found ${pkg_name} URL: ${pkg_url}${NC}"
-        curl -Ls "$pkg_url" -o "$rpm_file" || error_exit "Failed to download ${pkg_name} RPM."
+        for pkg_name in "${names_to_try[@]}"; do
+            echo -e "${Y}Searching for package '${pkg_name}'...${NC}"
+            
+            # Use a subshell to isolate the download/parse logic for each attempt
+            if (
+                trap 'rm -f primary.xml.gz primary.xml' EXIT
+                for baseurl in $baseurls; do
+                    local releasever
+                    releasever=$(rpm -q --qf "%{VERSION}" -f /etc/system-release 2>/dev/null || echo "2")
+                    local basearch
+                    basearch=$(uname -m)
+                    local clean_baseurl=${baseurl//\$releasever/$releasever}
+                    clean_baseurl=${clean_baseurl//\$basearch/$basearch}
+                    
+                    echo -e "${P}--> Checking repo: ${clean_baseurl}${NC}"
 
-        echo -e "${GR}Unpacking ${pkg_name} → ${HOME}/.local/${NC}"
-        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || error_exit "Failed to extract ${pkg_name} RPM."
-        rm "$rpm_file"
+                    local repomd_xml
+                    repomd_xml=$(curl -sL --connect-timeout 10 "${clean_baseurl}/repodata/repomd.xml")
+                    if [[ -z "$repomd_xml" ]]; then continue; fi
+                    
+                    local primary_location
+                    primary_location=$(echo "$repomd_xml" | awk '/type="primary"/ { in_primary=1 } in_primary && /<location href=/ { match($0, /href="([^"]+)"/, a); print a[1]; exit; }')
+                    if [[ -z "$primary_location" ]]; then continue; fi
+
+                    curl -sL "${clean_baseurl}/${primary_location}" -o primary.xml.gz || continue
+                    gzip -d -f primary.xml.gz || continue
+
+                    # Robust awk script to find package location within a <package> block
+                    local pkg_location
+                    pkg_location=$(awk -v name="$pkg_name" 'BEGIN{p=0;f=0} /<package/{p=1} p&&$0~"<name>"name"</name>"{f=1} p&&f&&/<location href=/{match($0,/href="([^"]+)"/,a);print a[1];exit} /<\/package>/{p=0;f=0}' primary.xml)
+
+                    if [[ -n "$pkg_location" ]]; then
+                        local pkg_url="${clean_baseurl}/${pkg_location}"
+                        local rpm_file="${pkg_name_orig}-bootstrap.rpm"
+                        
+                        echo -e "${BGR}Found '${pkg_name}' at: ${pkg_url}${NC}"
+                        curl -Ls "$pkg_url" -o "$rpm_file" || exit 1
+                        echo -e "${GR}Unpacking ${rpm_file} → ${HOME}/.local/${NC}"
+                        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || exit 1
+                        rm "$rpm_file"
+                        exit 0 # Success
+                    fi
+                done
+                exit 1 # Failure
+            ); then
+                found_pkg=true
+                break # Exit the inner loop (names_to_try)
+            fi
+        done
+
+        if ! $found_pkg; then
+            echo -e "${BR}Warning: Could not find package '${pkg_name_orig}' (or its alternatives) in any repository.${NC}" >&2
+        fi
     done
-
-    rm -f primary.xml
-    echo -e "${BGR}Shell-based bootstrap complete.${NC}"
 }
 
 # Function to install base dependencies for Red Hat-based systems (yum).
