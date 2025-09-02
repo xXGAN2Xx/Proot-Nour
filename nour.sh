@@ -68,118 +68,98 @@ install_dependencies_apk() {
     done
 }
 
-# Bootstrap yum-utils if yumdownloader is not found.
-bootstrap_yum_utils() {
-    echo -e "${Y}yumdownloader not found. Attempting to bootstrap it...${NC}"
-    
-    command -v python3 >/dev/null || error_exit "Python3 is required to bootstrap yumdownloader, but it's not installed."
-    command -v curl >/dev/null || error_exit "curl is required to bootstrap yumdownloader, but it's not installed."
+# Bootstrap essential yum packages using only curl and basic shell tools.
+bootstrap_yum_packages() {
+    local packages_to_bootstrap=("$@")
+    echo -e "${Y}Bootstrapping essential packages with shell tools: ${packages_to_bootstrap[*]}...${NC}"
 
-    echo -e "${Y}Finding URL for yum-utils RPM...${NC}"
-    # Use an embedded Python script to parse repo files and find the direct URL for yum-utils
-    local yum_utils_url
-    yum_utils_url=$(python3 <<'EOF'
-import configparser
-import gzip
-import os
-import re
-import sys
-import urllib.request
-import xml.etree.ElementTree as ET
+    # 1. Find the base URL from enabled repo files.
+    local baseurl
+    baseurl=$(grep -r -h 'baseurl=' /etc/yum.repos.d/*.repo | grep -v '#' | head -n 1 | cut -d'=' -f2-)
+    if [[ -z "$baseurl" ]]; then
+        error_exit "Could not determine a repository baseurl from /etc/yum.repos.d/. Cannot bootstrap."
+    fi
 
-def find_repo_files():
-    repo_paths = ['/etc/yum.repos.d', '/etc/yum/']
-    for path in repo_paths:
-        if os.path.isdir(path):
-            return [os.path.join(path, f) for f in os.listdir(path) if f.endswith('.repo')]
-    return []
+    # 2. Replace common repo variables like $releasever and $basearch.
+    local releasever
+    releasever=$(rpm -q --qf "%{VERSION}" -f /etc/system-release 2>/dev/null || echo "2")
+    local basearch
+    basearch=$(uname -m)
+    baseurl=${baseurl//\$releasever/$releasever}
+    baseurl=${baseurl//\$basearch/$basearch}
+    echo -e "${GR}Using repository base URL: ${baseurl}${NC}"
 
-def get_baseurl(repo_file):
-    config = configparser.ConfigParser()
-    config.read(repo_file)
-    for section in config.sections():
-        if config.getboolean(section, 'enabled', fallback=False):
-            baseurl = config.get(section, 'baseurl', fallback=None)
-            if baseurl:
-                # Replace variables like $releasever, $basearch
-                baseurl = re.sub(r'\$releasever', os.popen('rpm -E %{rhel}').read().strip(), baseurl)
-                baseurl = re.sub(r'\$basearch', os.popen('uname -m').read().strip(), baseurl)
-                return baseurl
-    return None
+    # 3. Get repomd.xml and find the primary metadata file location.
+    local repomd_xml
+    repomd_xml=$(curl -sL "${baseurl}/repodata/repomd.xml")
+    if [[ -z "$repomd_xml" ]]; then
+        error_exit "Failed to download repomd.xml from ${baseurl}"
+    fi
+    local primary_location
+    primary_location=$(echo "$repomd_xml" | grep 'type="primary"' | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+    if [[ -z "$primary_location" ]]; then
+        error_exit "Could not find primary package list location in repomd.xml."
+    fi
 
-def find_package_url(baseurl, package_name='yum-utils'):
-    try:
-        repomd_url = os.path.join(baseurl, 'repodata/repomd.xml')
-        with urllib.request.urlopen(repomd_url, timeout=10) as response:
-            repomd_xml = response.read()
+    # 4. Download and decompress the primary metadata file.
+    echo -e "${Y}Downloading package list...${NC}"
+    curl -sL "${baseurl}/${primary_location}" -o primary.xml.gz || error_exit "Failed to download primary package list."
+    gzip -d -f primary.xml.gz || error_exit "Failed to decompress package list. 'gzip' might be missing."
 
-        root = ET.fromstring(repomd_xml)
-        ns = {'repo': 'http://linux.duke.edu/metadata/repo'}
-        primary_location = root.find("repo:data[@type='primary']/repo:location", ns).get('href')
+    # 5. For each needed package, find its URL in the metadata, download, and extract it.
+    for pkg_name in "${packages_to_bootstrap[@]}"; do
+        echo -e "${Y}Finding URL for ${pkg_name}...${NC}"
+        local pkg_location
+        pkg_location=$(grep -A 10 "<name>${pkg_name}</name>" primary.xml | grep '<location href="' | head -n 1 | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+
+        if [[ -z "$pkg_location" ]]; then
+            echo -e "${BR}Warning: Could not find package ${pkg_name} in the repository. Skipping.${NC}" >&2
+            continue
+        fi
+
+        local pkg_url="${baseurl}/${pkg_location}"
+        local rpm_file="${pkg_name}-bootstrap.rpm"
         
-        primary_url = os.path.join(baseurl, primary_location)
-        with urllib.request.urlopen(primary_url, timeout=30) as response:
-            with gzip.GzipFile(fileobj=response) as decompressed:
-                primary_xml = decompressed.read()
+        echo -e "${GR}Found ${pkg_name} URL: ${pkg_url}${NC}"
+        curl -Ls "$pkg_url" -o "$rpm_file" || error_exit "Failed to download ${pkg_name} RPM."
 
-        primary_root = ET.fromstring(primary_xml)
-        pkg_ns = {'common': 'http://linux.duke.edu/metadata/common'}
-        package = primary_root.find(f"common:package[common:name='{package_name}']", pkg_ns)
-        if package is not None:
-            location = package.find('common:location', pkg_ns).get('href')
-            return os.path.join(baseurl, location)
-    except Exception:
-        return None
-    return None
+        echo -e "${GR}Unpacking ${pkg_name} → ${HOME}/.local/${NC}"
+        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || error_exit "Failed to extract ${pkg_name} RPM."
+        rm "$rpm_file"
+    done
 
-repo_files = find_repo_files()
-for repo in repo_files:
-    url = get_baseurl(repo)
-    if url:
-        pkg_url = find_package_url(url)
-        if pkg_url:
-            print(pkg_url)
-            sys.exit(0)
-sys.exit(1)
-EOF
-)
-
-    if [[ -z "$yum_utils_url" ]]; then
-        error_exit "Failed to automatically find a download URL for the yum-utils package."
-    fi
-
-    echo -e "${GR}Found yum-utils URL: ${yum_utils_url}${NC}"
-    local rpm_file="yum-utils-bootstrap.rpm"
-    curl -Ls "$yum_utils_url" -o "$rpm_file" || error_exit "Failed to download yum-utils RPM."
-
-    echo -e "${GR}Unpacking yum-utils → ${HOME}/.local/${NC}"
-    (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || error_exit "Failed to extract yum-utils RPM."
-    rm "$rpm_file"
-
-    # Verify that yumdownloader is now in the path
-    if ! command -v yumdownloader >/dev/null; then
-        error_exit "Successfully extracted yum-utils, but yumdownloader is still not in the PATH. Please check for installation errors."
-    fi
-    echo -e "${BGR}yumdownloader has been successfully bootstrapped.${NC}"
+    rm -f primary.xml
+    echo -e "${BGR}Shell-based bootstrap complete.${NC}"
 }
-
 
 # Function to install base dependencies for Red Hat-based systems (yum).
 install_dependencies_yum() {
     echo -e "${BY}First time setup for Red Hat family: Installing base packages...${NC}"
     mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
 
-    # Check for required tools, and bootstrap yumdownloader if it's missing
+    # Check for essential tools and decide what to bootstrap.
+    local essentials_missing=()
+    command -v python3 >/dev/null || essentials_missing+=("python3")
+    command -v yumdownloader >/dev/null || essentials_missing+=("yum-utils")
+    command -v xz >/dev/null || essentials_missing+=("xz")
+    
     for tool in rpm2cpio cpio; do
-        command -v "$tool" >/dev/null || error_exit "$tool is not installed. Cannot proceed."
+        command -v "$tool" >/dev/null || error_exit "$tool is not installed. Cannot proceed with non-root installation."
     done
-    if ! command -v yumdownloader >/dev/null; then
-        bootstrap_yum_utils
+
+    if [ ${#essentials_missing[@]} -gt 0 ]; then
+        bootstrap_yum_packages "${essentials_missing[@]}"
     fi
 
-    local pkgs_to_download=(curl bash ca-certificates xz python3)
-    echo -e "${Y}Downloading required .rpm packages...${NC}"
-    yumdownloader --destdir=. "${pkgs_to_download[@]}" || error_exit "Failed to download .rpm packages."
+    # After bootstrapping, verify the critical tools are now available.
+    command -v python3 >/dev/null || error_exit "Bootstrap failed: python3 is still not found in PATH."
+    command -v yumdownloader >/dev/null || error_exit "Bootstrap failed: yumdownloader is still not found in PATH."
+    command -v xz >/dev/null || error_exit "Bootstrap failed: xz is still not found in PATH."
+
+    # Now, with yumdownloader guaranteed to be present, download the rest.
+    local pkgs_to_download=(curl bash ca-certificates) # We already handled the bootstrapped packages.
+    echo -e "${Y}Downloading remaining required .rpm packages...${NC}"
+    yumdownloader --destdir=. "${pkgs_to_download[@]}" || error_exit "Failed to download remaining .rpm packages."
 
     shopt -s nullglob
     for rpm_file in ./*.rpm; do
