@@ -34,177 +34,55 @@ error_exit() {
     exit 1
 }
 
-# Function to install base dependencies for Debian-based systems (apt).
-install_dependencies_apt() {
-    echo -e "${BY}First time setup for Debian: Installing base packages...${NC}"
-    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
-
-    local pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
-    echo -e "${Y}Downloading required .deb packages...${NC}"
-    apt-get download "${pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
-
-    shopt -s nullglob
-    for deb_file in ./*.deb; do
-        echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
-        dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
-        rm "$deb_file"
-    done
-}
-
-# Function to install base dependencies for Alpine-based systems (apk).
-install_dependencies_apk() {
-    echo -e "${BY}First time setup for Alpine: Installing base packages...${NC}"
-    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
-
-    local pkgs_to_download=(curl bash ca-certificates xz python3)
-    echo -e "${Y}Downloading required .apk packages...${NC}"
-    apk fetch --force-non-root "${pkgs_to_download[@]}" || error_exit "Failed to download .apk packages."
-
-    shopt -s nullglob
-    for apk_file in ./*.apk; do
-        echo -e "${GR}Unpacking $(basename "$apk_file") → ${HOME}/.local/${NC}"
-        tar -xzf "$apk_file" -C "${HOME}/.local/" || error_exit "Failed to extract $apk_file"
-        rm "$apk_file"
-    done
-}
-
-# Bootstrap essential yum packages using only curl and basic shell tools.
-bootstrap_yum_packages() {
-    local packages_to_bootstrap=("$@")
-    echo -e "${Y}Bootstrapping essential packages with shell tools: ${packages_to_bootstrap[*]}...${NC}"
-
-    # 1. Find all enabled base URLs.
-    local baseurls
-    baseurls=$(grep -r -h --include='*.repo' 'baseurl=' /etc/yum.repos.d/ | grep -v '#' | cut -d'=' -f2-)
-    if [[ -z "$baseurls" ]]; then
-        error_exit "Could not determine any repository baseurls from /etc/yum.repos.d/. Cannot bootstrap."
+# Function to detect the package manager
+detect_package_manager() {
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "apt"
+    elif command -v yum >/dev/null 2>&1; then
+        echo "yum"
+    elif command -v apk >/dev/null 2>&1; then
+        echo "apk"
+    else
+        echo "unknown"
     fi
-
-    # 2. For each package, iterate through repos and name variations until we find it.
-    for pkg_name_orig in "${packages_to_bootstrap[@]}"; do
-        local found_pkg=false
-        
-        # Define a list of possible names to try, especially for python3
-        local names_to_try=()
-        if [[ "$pkg_name_orig" == "python3" ]]; then
-            names_to_try=("python3" "python37" "python36")
-        else
-            names_to_try=("$pkg_name_orig")
-        fi
-
-        for pkg_name in "${names_to_try[@]}"; do
-            echo -e "${Y}Searching for package '${pkg_name}'...${NC}"
-            
-            # Use a subshell to isolate the download/parse logic for each attempt
-            if (
-                trap 'rm -f primary.xml.gz primary.xml' EXIT
-                for baseurl in $baseurls; do
-                    local releasever
-                    releasever=$(rpm -q --qf "%{VERSION}" -f /etc/system-release 2>/dev/null || echo "2")
-                    local basearch
-                    basearch=$(uname -m)
-                    local clean_baseurl=${baseurl//\$releasever/$releasever}
-                    clean_baseurl=${clean_baseurl//\$basearch/$basearch}
-                    
-                    echo -e "${P}--> Checking repo: ${clean_baseurl}${NC}"
-
-                    local repomd_xml
-                    repomd_xml=$(curl -sL --connect-timeout 10 "${clean_baseurl}/repodata/repomd.xml")
-                    if [[ -z "$repomd_xml" ]]; then continue; fi
-                    
-                    local primary_location
-                    primary_location=$(echo "$repomd_xml" | awk '/type="primary"/ { in_primary=1 } in_primary && /<location href=/ { match($0, /href="([^"]+)"/, a); print a[1]; exit; }')
-                    if [[ -z "$primary_location" ]]; then continue; fi
-
-                    curl -sL "${clean_baseurl}/${primary_location}" -o primary.xml.gz || continue
-                    gzip -d -f primary.xml.gz || continue
-
-                    # Robust awk script to find package location within a <package> block
-                    local pkg_location
-                    pkg_location=$(awk -v name="$pkg_name" 'BEGIN{p=0;f=0} /<package/{p=1} p&&$0~"<name>"name"</name>"{f=1} p&&f&&/<location href=/{match($0,/href="([^"]+)"/,a);print a[1];exit} /<\/package>/{p=0;f=0}' primary.xml)
-
-                    if [[ -n "$pkg_location" ]]; then
-                        local pkg_url="${clean_baseurl}/${pkg_location}"
-                        local rpm_file="${pkg_name_orig}-bootstrap.rpm"
-                        
-                        echo -e "${BGR}Found '${pkg_name}' at: ${pkg_url}${NC}"
-                        curl -Ls "$pkg_url" -o "$rpm_file" || exit 1
-                        echo -e "${GR}Unpacking ${rpm_file} → ${HOME}/.local/${NC}"
-                        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || exit 1
-                        rm "$rpm_file"
-                        exit 0 # Success
-                    fi
-                done
-                exit 1 # Failure
-            ); then
-                found_pkg=true
-                break # Exit the inner loop (names_to_try)
-            fi
-        done
-
-        if ! $found_pkg; then
-            echo -e "${BR}Warning: Could not find package '${pkg_name_orig}' (or its alternatives) in any repository.${NC}" >&2
-        fi
-    done
 }
-
-# Function to install base dependencies for Red Hat-based systems (yum).
-install_dependencies_yum() {
-    echo -e "${BY}First time setup for Red Hat family: Installing base packages...${NC}"
-    mkdir -p "${HOME}/.local" || error_exit "Failed to create required directories."
-
-    # Check for essential tools and decide what to bootstrap.
-    local essentials_missing=()
-    command -v python3 >/dev/null || essentials_missing+=("python3")
-    command -v yumdownloader >/dev/null || essentials_missing+=("yum-utils")
-    command -v xz >/dev/null || essentials_missing+=("xz")
-    
-    for tool in rpm2cpio cpio; do
-        command -v "$tool" >/dev/null || error_exit "$tool is not installed. Cannot proceed with non-root installation."
-    done
-
-    if [ ${#essentials_missing[@]} -gt 0 ]; then
-        bootstrap_yum_packages "${essentials_missing[@]}"
-    fi
-
-    # After bootstrapping, verify the critical tools are now available.
-    command -v python3 >/dev/null || error_exit "Bootstrap failed: python3 is still not found in PATH."
-    command -v yumdownloader >/dev/null || error_exit "Bootstrap failed: yumdownloader is still not found in PATH."
-    command -v xz >/dev/null || error_exit "Bootstrap failed: xz is still not found in PATH."
-
-    # Now, with yumdownloader guaranteed to be present, download the rest.
-    local pkgs_to_download=(curl bash ca-certificates) # We already handled the bootstrapped packages.
-    echo -e "${Y}Downloading remaining required .rpm packages...${NC}"
-    yumdownloader --destdir=. "${pkgs_to_download[@]}" || error_exit "Failed to download remaining .rpm packages."
-
-    shopt -s nullglob
-    for rpm_file in ./*.rpm; do
-        echo -e "${GR}Unpacking $(basename "$rpm_file") → ${HOME}/.local/${NC}"
-        (cd "${HOME}/.local" && rpm2cpio "../${rpm_file}" | cpio -idm --no-absolute-filenames) || error_exit "Failed to extract $rpm_file"
-        rm "$rpm_file"
-    done
-}
-
 
 # Function to install base dependencies if they are not present.
 install_dependencies() {
     echo -e "${BY}First time setup: Installing base packages, Bash, Python, and PRoot...${NC}"
-    
-    mkdir -p "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
-    case "$PKG_MANAGER" in
-        apt) install_dependencies_apt ;;
-        apk) install_dependencies_apk ;;
-        yum) install_dependencies_yum ;;
-        *) error_exit "Internal error: No installer for PKG_MANAGER='$PKG_MANAGER'" ;;
-    esac
+    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" || error_exit "Failed to create required directories."
 
-    # Verify that our local xz is now available
-    if ! command -v xz >/dev/null; then
-        echo -e "${Y}Warning: xz not found in PATH after package extraction.${NC}" >&2
+    local pkg_manager
+    pkg_manager=$(detect_package_manager)
+
+    if [ "$pkg_manager" = "apt" ]; then
+        # Download required packages
+        local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
+        echo -e "${Y}Downloading required .deb packages...${NC}"
+        apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+
+        # Extract packages
+        shopt -s nullglob # Prevent errors if no .deb files match
+        local deb_files=("$PWD"/*.deb)
+        [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
+
+        for deb_file in "${deb_files[@]}"; do
+            echo -e "${GR}Unpacking $(basename "$deb_file") → ${HOME}/.local/${NC}"
+            dpkg -x "$deb_file" "${HOME}/.local/" || error_exit "Failed to extract $deb_file"
+            rm "$deb_file"
+        done
+
+        # Verify that our local xz is now available
+        if ! command -v xz >/dev/null; then
+            echo -e "${Y}Warning: xz not found in PATH after package extraction.${NC}" >&2
+        else
+            echo -e "${BGR}Local xz is available at: $(command -v xz)${NC}"
+        fi
     else
-        echo -e "${BGR}Local xz is available at: $(command -v xz)${NC}"
+        echo -e "${Y}Skipping apt package download on a non-Debian based system (${pkg_manager}).${NC}"
     fi
+
 
     # Install PRoot
     echo -e "${Y}Installing PRoot...${NC}"
@@ -283,26 +161,12 @@ case "$ARCH" in
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
 
-# --- OS/Package Manager Detection ---
-# Source os-release to get distribution info, if it exists
-if [ -f /etc/os-release ]; then
-    # shellcheck source=/dev/null
-    . /etc/os-release
-fi
-
-if [ -f /etc/debian_version ]; then
-    PKG_MANAGER="apt"
-    echo -e "${GR}Debian-based system detected. Using apt.${NC}"
-elif [ -f /etc/alpine-release ]; then
-    PKG_MANAGER="apk"
-    echo -e "${GR}Alpine-based system detected. Using apk.${NC}"
-# Check for RHEL/CentOS/Fedora family, including Amazon Linux, by checking for specific files or os-release variables
-elif [ -f /etc/redhat-release ] || [[ "${ID_LIKE}" == *"rhel"* ]] || [[ "${ID_LIKE}" == *"centos"* ]] || [[ "${ID}" == "amzn" ]]; then
-    PKG_MANAGER="yum"
-    echo -e "${GR}Red Hat-based system (like CentOS/RHEL/Amazon Linux) detected. Using yum.${NC}"
+# Check for Debian-based system
+if [[ ! -f /etc/debian_version ]]; then
+    cat /etc/*-release
+    echo -e "${Y}This is not a Debian-based system. apt commands will be skipped.${NC}"
 else
-    cat /etc/*-release >&2
-    error_exit "Unsupported Linux distribution."
+    echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
 fi
 
 
