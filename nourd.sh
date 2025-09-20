@@ -158,7 +158,7 @@ display_resources() {
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET}"
     echo -e " RAM -> ${GREEN}${SERVER_MEMORY:-N/A}MB${RESET}"
     echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET}"
-    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_ALLOCATION_ALIAS}${RESET}"
+    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_ALLOCATION}${RESET}"
 }
 
 display_footer() {
