@@ -31,7 +31,6 @@ prepend_to_path "$LOCAL_BIN_DIR"
 # Detect the machine architecture.
 ARCH=$(uname -m)
 
-# Check for supported architectures and standardize the name if needed.
 case "$ARCH" in
     x86_64)
         echo "INFO: Detected x86_64 (64-bit) architecture."
@@ -43,12 +42,15 @@ case "$ARCH" in
         ARCH="arm" # Standardize to 'arm' for consistency in download URLs
         echo "INFO: Detected arm (32-bit) architecture."
         ;;
+    i686 | i386)
+        ARCH="i686" # Standardize to 'i686' for consistency
+        echo "INFO: Detected i686 (32-bit) architecture."
+        ;;
     *)
         printf "Unsupported CPU architecture: %s\n" "$ARCH"
         exit 1
         ;;
 esac
-# --- END IMPROVEMENT ---
 
 # Download & decompress the Linux root file system if not already installed.
 if [ ! -e "$ROOTFS_DIR/.installed" ]; then
@@ -84,7 +86,7 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
 
     # Download Ubuntu rootfs
     wget --tries=$max_retries --timeout=$timeout -O /tmp/rootfs.tar.xz \
-    "https://github.com/termux/proot-distro/releases/download/v4.18.0/ubuntu-noble-${ARCH}-pd-v4.18.0.tar.xz"
+    "https://github.com/termux/proot-distro/releases/download/v4.26.0/debian-trixie-${ARCH}-pd-v4.26.0.tar.xz"
 
     echo "INFO: Extracting rootfs..."
     tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
