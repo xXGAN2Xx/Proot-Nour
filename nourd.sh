@@ -157,8 +157,8 @@ display_resources() {
     echo -e " INSTALLED OS -> ${RED}${os_pretty_name}${RESET}"
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET}"
     echo -e " RAM -> ${GREEN}${SERVER_MEMORY:-N/A}MB${RESET}"
-    echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT:-N/A}${RESET}"
-    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_IP:-N/A}${RESET}"
+    echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET}"
+    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_ALLOCATION_IP}${RESET}"
 }
 
 display_footer() {
@@ -252,8 +252,8 @@ fi
 
 # Start the service
 echo "--- Starting sing-box service... ---"
-sing-box start --config /etc/sing-box/config.json
-echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_IP:-N/A}:${SERVER_PORT:-N/A}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
+sing-box run --config /etc/sing-box/config.json
+echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
 EOF
 
 # Make the startup script executable
