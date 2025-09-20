@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ROOTFS_DIR=/home/container
-PUBLIC_IP=$(curl -s ifconfig.me)
+export PUBLIC_IP=$(curl -s ifconfig.me)
 
 download_file() {
     local url="$1"
@@ -147,7 +147,7 @@ display_resources
 display_footer
 
 echo "INFO: Creating sing-box startup script..."
-cat << 'EOF' > "${ROOTFS_DIR}/root/startup.sh"
+cat << EOF > "${ROOTFS_DIR}/root/startup.sh"
 #!/bin/bash
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
@@ -181,7 +181,7 @@ cat << EOT > /etc/sing-box/config.json
       "type": "vless",
       "tag": "vless-in",
       "listen": "::",
-      "listen_port": ${SERVER_PORT},
+      "listen_port": \${SERVER_PORT},
       "tcp_fast_open": true,
       "users": [
         {
