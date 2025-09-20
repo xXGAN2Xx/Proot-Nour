@@ -152,7 +152,7 @@ cat << EOF > "${ROOTFS_DIR}/root/startup.sh"
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
-echo "Updating package lists and installing dependencies (curl, openssl)..."
+echo "Updating package lists and installing dependencies ..."
 apt-get update > /dev/null 2>&1
 apt-get install -y curl openssl tmate screen > /dev/null 2>&1
 
@@ -217,11 +217,12 @@ fi
 
 echo "--- Starting sing-box service... ---"
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
- sing-box run --config /etc/sing-box/config.json
+systemctl enable sing-box
+systemctl start sing-box
 EOF
 
 chmod +x "${ROOTFS_DIR}/root/startup.sh"
 
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-     /bin/bash /root/startup.sh
+     /bin/bash -c "/root/startup.sh && tmate -F"
