@@ -231,4 +231,4 @@ chmod +x "${ROOTFS_DIR}/root/startup.sh"
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -n -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
     /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; \
-    sh startup.sh && exec tmate'
+    sh startup.sh'
