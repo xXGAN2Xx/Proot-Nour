@@ -173,7 +173,7 @@ cat << EOT > /etc/sing-box/config.json
 {
   "log": {
     "disabled": false,
-    "level": "warn",
+    "level": "fatal",
     "timestamp": true
   },
   "inbounds": [
