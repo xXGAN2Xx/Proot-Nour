@@ -158,7 +158,7 @@ display_resources() {
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET}"
     echo -e " RAM -> ${GREEN}${SERVER_MEMORY:-N/A}MB${RESET}"
     echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET}"
-    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_ALLOCATION_IP}${RESET}"
+    echo -e " PRIMARY IP   -> ${GREEN}${SERVER_ALLOCATION_ALIAS}${RESET}"
 }
 
 display_footer() {
@@ -252,7 +252,7 @@ fi
 
 # Start the service
 echo "--- Starting sing-box service... ---"
-echo "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
+echo "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_ALIAS}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
 sing-box run --config /etc/sing-box/config.json
 EOF
 
