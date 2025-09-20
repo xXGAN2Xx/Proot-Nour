@@ -153,17 +153,20 @@ cat << EOF > "${ROOTFS_DIR}/root/startup.sh"
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
 echo "Updating package lists and installing dependencies ..."
+# Ensure python3 is installed for the systemctl replacement, even though we bypass it for starting
 apt-get update > /dev/null 2>&1
 apt-get install -y curl openssl tmate screen python3 > /dev/null 2>&1
 
 if ! command -v sing-box &> /dev/null; then
     echo "Installing sing-box for the first time..."
+    # The installer will likely try to interact with systemd and fail, which is okay.
+    # We only need it to place the binary in /usr/local/bin/
     curl -fsSL https://sing-box.app/install.sh | sh
 else
     echo "sing-box is already installed."
 fi
 
-SERVER_PORT=${SERVER_PORT:-25565}
+SERVER_PORT=${SERVER_PORT}
 echo "sing-box will use port: $SERVER_PORT"
 
 mkdir -p /etc/sing-box
@@ -173,7 +176,7 @@ cat << EOT > /etc/sing-box/config.json
 {
   "log": {
     "disabled": false,
-    "level": "fatal",
+    "level": "info",
     "timestamp": true
   },
   "inbounds": [
@@ -217,7 +220,11 @@ fi
 
 echo "--- Starting sing-box service... ---"
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
-systemctl start sing-box
+
+/usr/local/bin/sing-box run -c /etc/sing-box/config.json &
+
+echo "sing-box started in the background."
+
 EOF
 
 chmod +x "${ROOTFS_DIR}/root/startup.sh"
