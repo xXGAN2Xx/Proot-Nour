@@ -158,7 +158,8 @@ display_resources() {
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET}"
     echo -e " RAM -> ${GREEN}${SERVER_MEMORY:-N/A}MB${RESET}"
     echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET}"
-    echo -e " PRIMARY IP   -> ${GREEN}printenv${RESET}"
+    PUBLIC_IP=$(curl -s ifconfig.me)
+    echo -e " PRIMARY IP   -> ${GREEN}${PUBLIC_IP}${RESET}"
 }
 
 display_footer() {
@@ -252,7 +253,7 @@ fi
 
 # Start the service
 echo "--- Starting sing-box service... ---"
-echo -e "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_ALIAS}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
+echo -e "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
  sing-box run --config /etc/sing-box/config.json
 EOF
 
@@ -266,6 +267,5 @@ chmod +x "${ROOTFS_DIR}/root/startup.sh"
 
 # Execute the newly created startup script inside the proot environment
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
-    -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit 
-    
-   # /bin/bash /root/startup.sh
+    -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
+     /bin/bash /root/startup.sh
