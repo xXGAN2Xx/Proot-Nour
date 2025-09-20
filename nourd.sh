@@ -7,7 +7,7 @@
 # Define the root directory to /home/container.
 # We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
-
+PUBLIC_IP=$(curl -s ifconfig.me)
 # --- FIX: Robust download function ---
 # This function checks for wget or curl and uses whichever is available.
 # This avoids the dependency on "apt download" which was failing.
@@ -158,7 +158,6 @@ display_resources() {
     echo -e " CPU -> ${YELLOW}${cpu_model}${RESET}"
     echo -e " RAM -> ${GREEN}${SERVER_MEMORY:-N/A}MB${RESET}"
     echo -e " PRIMARY PORT -> ${GREEN}${SERVER_PORT}${RESET}"
-    PUBLIC_IP=$(curl -s ifconfig.me)
     echo -e " PRIMARY IP   -> ${GREEN}${PUBLIC_IP}${RESET}"
 }
 
