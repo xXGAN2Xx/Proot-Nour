@@ -65,29 +65,29 @@ install_dependencies() {
         # Create the directory structure apt and dpkg expect.
         mkdir -p "${apt_dir}/lists/partial" "${apt_dir}/archives/partial" "${apt_dir}/dpkg/updates"
         
-        # Create an empty dpkg status file if it doesn't exist. This is essential,
-        # as apt-get will fail if this file is missing.
+        # Create an empty dpkg status file if it doesn't exist. This is essential.
         touch "$dpkg_status_file"
 
-        # Define comprehensive apt-get options to use our local directories for everything.
-        # This prevents apt from trying to access root-owned paths like /var/lib/dpkg or /var/cache/apt.
+        # Define comprehensive apt-get options to use our local directories and disable hooks.
         local apt_opts=(
             "-o" "Dir::State=${apt_dir}"
             "-o" "Dir::State::status=${dpkg_status_file}"
             "-o" "Dir::Cache=${apt_dir}"
             "-o" "Dir::Etc::sourcelist=/etc/apt/sources.list"
             "-o" "Dir::Etc::sourceparts=/etc/apt/sources.list.d"
+            # --- CRITICAL FIX ---
+            # Disable post-update hooks that try to run commands (like rm) in root-owned directories.
+            "-o" "APT::Update::Post-Invoke-Success=" 
+            "-o" "APT::Update::Post-Invoke="
         )
 
-        # Update package lists into our local directory. This is crucial as the system's
-        # lists are likely stale and can't be updated without root.
+        # Update package lists into our local directory.
         echo -e "${Y}Updating apt package lists locally...${NC}"
         if ! apt-get "${apt_opts[@]}" update; then
             error_exit "Local apt update failed. This is a critical step, cannot proceed."
         fi
 
         # Download required packages using our local apt configuration.
-        # The downloaded .deb files will go to the current working directory.
         local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
         apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
