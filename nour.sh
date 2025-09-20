@@ -57,10 +57,24 @@ install_dependencies() {
     pkg_manager=$(detect_package_manager)
 
     if [ "$pkg_manager" = "apt" ]; then
-        # Download required packages
+        # Create a local apt configuration and state directory to allow apt-get to run without root.
+        mkdir -p "${HOME}/.local/apt/lists/partial"
+
+        # Define apt-get options to use local directories for state and cache.
+        # This allows us to run 'apt-get update' without root privileges.
+        local apt_opts="-o Dir::State=${HOME}/.local/apt -o Dir::Cache=${HOME}/.local/apt -o APT::Get::AllowUnauthenticated=true"
+
+        # Update package lists into our local directory. This is crucial as the system's
+        # lists are likely stale and can't be updated without root.
+        echo -e "${Y}Updating apt package lists locally...${NC}"
+        if ! apt-get ${apt_opts} update; then
+            echo -e "${Y}Warning: Local apt update failed, but continuing. This might impact package downloads.${NC}"
+        fi
+
+        # Download required packages using our local apt configuration
         local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
-        apt-get download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+        apt-get ${apt_opts} download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
         # Extract packages
         shopt -s nullglob # Prevent errors if no .deb files match
