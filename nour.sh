@@ -1,40 +1,28 @@
 #!/bin/bash
 echo "Installation complete! For help, type 'help'"
 
-# --- Constants and Configuration ---
-
-# Set HOME if it's not already set.
 HOME="${HOME:-$(pwd)}"
 export DEBIAN_FRONTEND=noninteractive
 
-# Standard Colors
 R='\033[0;31m'
 GR='\033[0;32m'
 Y='\033[0;33m'
 P='\033[0;35m'
 NC='\033[0m'
 
-# Bold Colors
 BR='\033[1;31m'
 BGR='\033[1;32m'
 BY='\033[1;33m'
 
-# Dependency flag path
 DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
-# Ensure local binaries are prioritized in PATH.
-# We set this once here, covering all potential locations.
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 
-# --- Functions ---
-
-# Function to print an error message and exit.
 error_exit() {
     echo -e "${BR}${1}${NC}" >&2
     exit 1
 }
 
-# Function to detect the package manager
 detect_package_manager() {
     if command -v apt-get >/dev/null 2>&1; then
         echo "apt"
@@ -47,7 +35,6 @@ detect_package_manager() {
     fi
 }
 
-# Function to install base dependencies if they are not present.
 install_dependencies() {
     echo -e "${BY}First time setup: Installing base packages, Bash, Python, and PRoot...${NC}"
 
@@ -57,43 +44,33 @@ install_dependencies() {
     pkg_manager=$(detect_package_manager)
 
     if [ "$pkg_manager" = "apt" ]; then
-        # --- Rootless Apt Setup ---
-        # Create a complete local apt environment to avoid any permission issues.
         local apt_dir="${HOME}/.local/apt"
         local dpkg_status_file="${apt_dir}/dpkg/status"
         
-        # Create the directory structure apt and dpkg expect.
         mkdir -p "${apt_dir}/lists/partial" "${apt_dir}/archives/partial" "${apt_dir}/dpkg/updates"
         
-        # Create an empty dpkg status file if it doesn't exist. This is essential.
         touch "$dpkg_status_file"
 
-        # Define comprehensive apt-get options to use our local directories and disable hooks.
         local apt_opts=(
             "-o" "Dir::State=${apt_dir}"
             "-o" "Dir::State::status=${dpkg_status_file}"
             "-o" "Dir::Cache=${apt_dir}"
             "-o" "Dir::Etc::sourcelist=/etc/apt/sources.list"
             "-o" "Dir::Etc::sourceparts=/etc/apt/sources.list.d"
-            # --- CRITICAL FIX ---
-            # Disable post-update hooks that try to run commands (like rm) in root-owned directories.
             "-o" "APT::Update::Post-Invoke-Success=" 
             "-o" "APT::Update::Post-Invoke="
         )
 
-        # Update package lists into our local directory.
         echo -e "${Y}Updating apt package lists locally...${NC}"
         if ! apt-get "${apt_opts[@]}" update; then
             error_exit "Local apt update failed. This is a critical step, cannot proceed."
         fi
 
-        # Download required packages using our local apt configuration.
         local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
         apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
-        # --- Package Extraction ---
-        shopt -s nullglob # Prevent errors if no .deb files match
+        shopt -s nullglob
         local deb_files=("$PWD"/*.deb)
         [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
 
@@ -103,7 +80,6 @@ install_dependencies() {
             rm "$deb_file"
         done
 
-        # Verify that our local xz is now available
         if ! command -v xz >/dev/null; then
             echo -e "${Y}Warning: xz not found in PATH after package extraction.${NC}" >&2
         else
@@ -113,8 +89,6 @@ install_dependencies() {
         echo -e "${Y}Skipping apt package download on a non-Debian based system (${pkg_manager}).${NC}"
     fi
 
-
-    # Install PRoot
     echo -e "${Y}Installing PRoot...${NC}"
     local proot_url="https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static"
     local proot_dest="${HOME}/usr/local/bin/proot"
@@ -125,7 +99,6 @@ install_dependencies() {
     touch "$DEP_FLAG"
 }
 
-# Function to update scripts and tools from remote sources.
 update_scripts() {
     echo -e "${BY}Checking for script and tool updates...${NC}"
 
@@ -140,7 +113,6 @@ update_scripts() {
 
     local pids=()
     for dest_path_suffix in "${!scripts_to_manage[@]}"; do
-        # Run each download/update check in the background
         (
             local url="${scripts_to_manage[$dest_path_suffix]}"
             local local_file="${HOME}/${dest_path_suffix}"
@@ -166,23 +138,17 @@ update_scripts() {
                 echo -e "${BR}Download failed for ${dest_path_suffix}. Using local version if available.${NC}" >&2
             fi
         ) &
-        pids+=($!) # Store the process ID of the background job
+        pids+=($!)
     done
 
-    # Wait for all background download jobs to finish
     for pid in "${pids[@]}"; do
         wait "$pid"
     done
     echo -e "${BGR}Script update check complete.${NC}"
 }
 
-
-# --- Main Execution ---
-
-# Move to the HOME directory for predictable relative paths
 cd "${HOME}"
 
-# Architecture detection
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64) ARCH_ALT="amd64";;
@@ -191,7 +157,6 @@ case "$ARCH" in
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
 
-# Check for Debian-based system
 if [[ ! -f /etc/debian_version ]]; then
     cat /etc/*-release
     echo -e "${Y}This is not a Debian-based system. apt commands will be skipped.${NC}"
@@ -199,18 +164,14 @@ else
     echo -e "${GR}This is a Debian-based system. Continuing...${NC}"
 fi
 
-
-# Install dependencies if the flag file doesn't exist.
 if [[ ! -f "$DEP_FLAG" ]]; then
     install_dependencies
 else
     echo -e "${GR}Base packages, Python, and PRoot are already installed. Skipping dependency installation.${NC}"
 fi
 
-# Update all scripts.
 update_scripts
 
-# Execute entrypoint script
 ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
 if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     echo -e "${BGR}Executing ${ENTRYPOINT_SCRIPT##*/}...${NC}"
@@ -222,7 +183,6 @@ if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     fi
     
     chmod +x "$ENTRYPOINT_SCRIPT"
-    # Use exec to replace the current shell process with the new one.
     exec bash "./${ENTRYPOINT_SCRIPT##*/}"
 else
     error_exit "Error: ${ENTRYPOINT_SCRIPT} not found and could not be downloaded! Cannot proceed."
