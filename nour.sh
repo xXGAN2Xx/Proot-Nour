@@ -57,26 +57,42 @@ install_dependencies() {
     pkg_manager=$(detect_package_manager)
 
     if [ "$pkg_manager" = "apt" ]; then
-        # Create a local apt configuration and state directory to allow apt-get to run without root.
-        mkdir -p "${HOME}/.local/apt/lists/partial"
+        # --- Rootless Apt Setup ---
+        # Create a complete local apt environment to avoid any permission issues.
+        local apt_dir="${HOME}/.local/apt"
+        local dpkg_status_file="${apt_dir}/dpkg/status"
+        
+        # Create the directory structure apt and dpkg expect.
+        mkdir -p "${apt_dir}/lists/partial" "${apt_dir}/archives/partial" "${apt_dir}/dpkg/updates"
+        
+        # Create an empty dpkg status file if it doesn't exist. This is essential,
+        # as apt-get will fail if this file is missing.
+        touch "$dpkg_status_file"
 
-        # Define apt-get options to use local directories for state and cache.
-        # This allows us to run 'apt-get update' without root privileges.
-        local apt_opts="-o Dir::State=${HOME}/.local/apt -o Dir::Cache=${HOME}/.local/apt -o APT::Get::AllowUnauthenticated=true"
+        # Define comprehensive apt-get options to use our local directories for everything.
+        # This prevents apt from trying to access root-owned paths like /var/lib/dpkg or /var/cache/apt.
+        local apt_opts=(
+            "-o" "Dir::State=${apt_dir}"
+            "-o" "Dir::State::status=${dpkg_status_file}"
+            "-o" "Dir::Cache=${apt_dir}"
+            "-o" "Dir::Etc::sourcelist=/etc/apt/sources.list"
+            "-o" "Dir::Etc::sourceparts=/etc/apt/sources.list.d"
+        )
 
         # Update package lists into our local directory. This is crucial as the system's
         # lists are likely stale and can't be updated without root.
         echo -e "${Y}Updating apt package lists locally...${NC}"
-        if ! apt-get ${apt_opts} update; then
-            echo -e "${Y}Warning: Local apt update failed, but continuing. This might impact package downloads.${NC}"
+        if ! apt-get "${apt_opts[@]}" update; then
+            error_exit "Local apt update failed. This is a critical step, cannot proceed."
         fi
 
-        # Download required packages using our local apt configuration
+        # Download required packages using our local apt configuration.
+        # The downloaded .deb files will go to the current working directory.
         local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
-        apt-get ${apt_opts} download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+        apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
-        # Extract packages
+        # --- Package Extraction ---
         shopt -s nullglob # Prevent errors if no .deb files match
         local deb_files=("$PWD"/*.deb)
         [[ ${#deb_files[@]} -eq 0 ]] && error_exit "No .deb files found to extract."
