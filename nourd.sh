@@ -179,6 +179,4 @@ display_footer
 
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-    /bin/bash -lc 'export DEBIAN_FRONTEND=noninteractive; \
-    apt-get update -y && apt-get install -y tmate screen || echo "WARNING: Failed to install tmate/screen."; \
-    exec tmate -F'
+    /bin/bash
