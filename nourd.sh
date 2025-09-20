@@ -223,6 +223,22 @@ EOF
 
 chmod +x "${ROOTFS_DIR}/root/startup.sh"
 
+cleanup() {
+    echo -e "\n${YELLOW}INFO: Received stop command. Shutting down proot environment...${RESET}"
+        PROOT_PID=$(ps -o pid,command | grep "[p]root --rootfs=${ROOTFS_DIR}" | awk '{print $1}')
+    
+    if [ -n "$PROOT_PID" ]; then
+        kill "$PROOT_PID"
+        echo "INFO: Shutdown signal sent to PRoot PID: $PROOT_PID"
+    else
+        echo "WARN: Could not find a running proot process to stop."
+    fi
+    exit 0
+}
+trap 'cleanup' INT TERM
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
-     /bin/bash -c "/root/startup.sh && tmate -F"
+    /bin/bash -c "/root/startup.sh && tmate -F" &
+PROOT_PID=$!
+echo "INFO: PRoot environment started with PID: $PROOT_PID"
+wait $PROOT_PID
