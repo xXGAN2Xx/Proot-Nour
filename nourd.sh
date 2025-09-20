@@ -175,8 +175,8 @@ echo "Creating/Updating sing-box configuration file..."
 cat << EOT > /etc/sing-box/config.json
 {
   "log": {
-    "disabled": false,
-    "level": "info",
+    "disabled": true,
+    "level": "trace",
     "timestamp": true
   },
   "inbounds": [
