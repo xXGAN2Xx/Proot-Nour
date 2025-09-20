@@ -1,16 +1,8 @@
 #!/bin/sh
 
-#############################
-# Linux Installation #
-#############################
-
-# Define the root directory to /home/container.
-# We can only write in /home/container and /tmp in the container.
 ROOTFS_DIR=/home/container
 PUBLIC_IP=$(curl -s ifconfig.me)
-# --- FIX: Robust download function ---
-# This function checks for wget or curl and uses whichever is available.
-# This avoids the dependency on "apt download" which was failing.
+
 download_file() {
     local url="$1"
     local dest="$2"
@@ -30,7 +22,6 @@ download_file() {
     fi
 }
 
-# Detect the machine architecture.
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64)
@@ -53,7 +44,6 @@ case "$ARCH" in
         ;;
 esac
 
-# Download & decompress the Linux root file system if not already installed.
 if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     echo "#######################################################################################"
     echo "#"
@@ -63,7 +53,6 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     echo ""
     echo "INFO: Auto-selecting Debian (no user input required)..."
 
-    # Download Debian rootfs
     ROOTFS_URL="https://github.com/termux/proot-distro/releases/download/v4.26.0/debian-trixie-${ARCH}-pd-v4.26.0.tar.xz"
     download_file "$ROOTFS_URL" "/tmp/rootfs.tar.xz"
 
@@ -71,11 +60,6 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     tar -xJf /tmp/rootfs.tar.xz -C "$ROOTFS_DIR" --strip-components=1
 fi
 
-################################
-# Package Installation & Setup #
-################################
-
-# Download static proot
 if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     mkdir -p "$ROOTFS_DIR/usr/local/bin"
     echo "INFO: Downloading proot static binary..."
@@ -86,16 +70,12 @@ if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     chmod +x "$proot_path"
 fi
 
-# Clean-up
 if [ ! -e "$ROOTFS_DIR/.installed" ]; then
     printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "${ROOTFS_DIR}/etc/resolv.conf"
     rm -rf /tmp/*
     touch "$ROOTFS_DIR/.installed"
 fi
 
-###################################################
-# systemctl.py (systemctl replacement) Setup      #
-###################################################
 SYSTEMCTL_PY_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
 SYSTEMCTL_PY_INSTALL_DIR="$ROOTFS_DIR/usr/local/bin"
 SYSTEMCTL_PY_INSTALL_PATH="$SYSTEMCTL_PY_INSTALL_DIR/systemctl"
@@ -104,7 +84,6 @@ SYSTEMCTL_PY_TEMP_PATH="/tmp/systemctl.py"
 echo "INFO: Checking for systemctl.py..."
 mkdir -p "$SYSTEMCTL_PY_INSTALL_DIR"
 
-# Use our download function for systemctl.py as well
 download_file "$SYSTEMCTL_PY_URL" "$SYSTEMCTL_PY_TEMP_PATH"
 
 if [ -s "$SYSTEMCTL_PY_TEMP_PATH" ]; then
@@ -128,9 +107,6 @@ else
 fi
 echo ""
 
-###################################################
-# Fancy Output                                    #
-###################################################
 GREEN='\e[0;32m'; RED='\e[0;31m'; YELLOW='\e[0;33m'; MAGENTA='\e[0;35m'; RESET='\e[0m'
 
 display_header() {
@@ -170,23 +146,16 @@ display_header
 display_resources
 display_footer
 
-##################################
-# Create sing-box startup script #
-##################################
-
-# This script will be executed inside the PRoot environment every time the container starts.
 echo "INFO: Creating sing-box startup script..."
 cat << 'EOF' > "${ROOTFS_DIR}/root/startup.sh"
 #!/bin/bash
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
-# Ensure dependencies are installed
 echo "Updating package lists and installing dependencies (curl, openssl)..."
 apt-get update > /dev/null 2>&1
 apt-get install -y curl openssl tmate screen > /dev/null 2>&1
 
-# Install sing-box if it's not already installed
 if ! command -v sing-box &> /dev/null; then
     echo "Installing sing-box for the first time..."
     curl -fsSL https://sing-box.app/install.sh | sh
@@ -194,14 +163,11 @@ else
     echo "sing-box is already installed."
 fi
 
-# Set the server port. Inherits SERVER_PORT from the host environment, defaults to 6406.
 SERVER_PORT=${SERVER_PORT:-25565}
 echo "sing-box will use port: $SERVER_PORT"
 
-# Create the configuration directory if it doesn't exist
 mkdir -p /etc/sing-box
 
-# Create the JSON configuration file for sing-box
 echo "Creating/Updating sing-box configuration file..."
 cat << EOT > /etc/sing-box/config.json
 {
@@ -239,7 +205,6 @@ cat << EOT > /etc/sing-box/config.json
 }
 EOT
 
-# Generate a self-signed TLS certificate if it doesn't exist
 if [ ! -f /etc/sing-box/cert.pem ] || [ ! -f /etc/sing-box/key.pem ]; then
     echo "Generating new self-signed TLS certificate..."
     openssl req -x509 -newkey rsa:4096 -keyout /etc/sing-box/key.pem \
@@ -250,21 +215,13 @@ else
     echo "Certificate and key already exist."
 fi
 
-# Start the service
 echo "--- Starting sing-box service... ---"
-echo -e "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
+echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
  sing-box run --config /etc/sing-box/config.json
 EOF
 
-# Make the startup script executable
 chmod +x "${ROOTFS_DIR}/root/startup.sh"
 
-
-###########################
-# Start PRoot environment #
-###########################
-
-# Execute the newly created startup script inside the proot environment
 "$ROOTFS_DIR/usr/local/bin/proot" --rootfs="${ROOTFS_DIR}" -0 -w "/root" \
     -b /dev -b /sys -b /proc -b /etc/resolv.conf --kill-on-exit \
      /bin/bash /root/startup.sh
