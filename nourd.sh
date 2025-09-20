@@ -221,7 +221,7 @@ fi
 echo "--- Starting sing-box service... ---"
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
 
-/usr/local/bin/sing-box run -c /etc/sing-box/config.json &
+sing-box run --config /etc/sing-box/config.json &
 
 echo "sing-box started in the background."
 
