@@ -253,7 +253,7 @@ fi
 # Start the service
 echo "--- Starting sing-box service... ---"
 sing-box run --config /etc/sing-box/config.json
-echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
+echo "${GREEN}vless://bf000d23-0752-40b4-affe-68f7707a9661@${SERVER_ALLOCATION_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless${RESET}"
 EOF
 
 # Make the startup script executable
