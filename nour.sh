@@ -60,7 +60,7 @@ install_dependencies() {
         # Download required packages
         local apt_pkgs_to_download=(curl bash ca-certificates xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
-        apt download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+        apt-get download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
         # Extract packages
         shopt -s nullglob # Prevent errors if no .deb files match
