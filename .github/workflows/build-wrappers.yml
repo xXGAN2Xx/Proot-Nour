@@ -27,14 +27,13 @@ jobs:
           java-version: '21'
           check-latest: true
 
-      - name: Build (explicit main/nourd, then fallback)
+      - name: Build server.jar
         shell: bash
         run: |
           set -eo pipefail
 
           mkdir -p build
           BUILT_SERVER=false
-          BUILT_SERVERD=false
 
           ensure_kotlinc() {
             if ! command -v kotlinc >/dev/null 2>&1; then
@@ -56,33 +55,23 @@ jobs:
             fi
           fi
 
-          # 2) Prefer explicit compilation of wrappers/Kotlin/*nourd*.kt -> build/serverd.jar
-          NOURD_KT=$(find wrappers/Kotlin -maxdepth 1 -type f -iname "*nourd*.kt" | head -n 1 || true)
-          if [ -n "$NOURD_KT" ]; then
-            ensure_kotlinc
-            echo "Compiling $NOURD_KT -> build/serverd.jar"
-            kotlinc "$NOURD_KT" -include-runtime -d build/serverd.jar
-            if [ -f build/serverd.jar ]; then
-              BUILT_SERVERD=true
-            fi
-          fi
-
-          # 3) Fallback: if no explicit compiled jars and gradlew exists, try Gradle build
-          if [ "$BUILT_SERVER" = false ] && [ "$BUILT_SERVERD" = false ] && [ -x "./gradlew" ]; then
-            echo "No explicit main/nourd compilation done. Running ./gradlew clean build (or assemble)."
+          # 2) Fallback: if no explicit compiled jar and gradlew exists, try Gradle build
+          if [ "$BUILT_SERVER" = false ] && [ -x "./gradlew" ]; then
+            echo "No explicit main compilation done. Running ./gradlew clean build (or assemble)."
             chmod +x ./gradlew
             ./gradlew clean build || ./gradlew clean assemble || true
-            # try to pick jars produced by Gradle (first jar -> server.jar)
+            # try to pick the first jar produced by Gradle
             JAR_FOUND=$(find . -type f -name "*.jar" ! -path "*/.gradle/*" ! -path "./build/*/tmp/*" | head -n 1 || true)
-            if [ -n "$JAR_FOUND" ]; then
+            if [ -n "$JAR_FOUND" ];
+            then
               mkdir -p build
               cp "$JAR_FOUND" build/server.jar
               BUILT_SERVER=true
             fi
           fi
 
-          # 4) Last-resort fallback: compile all .kt files into build/server.jar (original behaviour)
-          if [ "$BUILT_SERVER" = false ] && [ "$BUILT_SERVERD" = false ]; then
+          # 3) Last-resort fallback: compile all .kt files into build/server.jar
+          if [ "$BUILT_SERVER" = false ]; then
             echo "Falling back to compiling all Kotlin files into build/server.jar"
             # install kotlin if needed
             ensure_kotlinc
@@ -95,39 +84,32 @@ jobs:
             fi
           fi
 
-          # Verify at least one jar was built
-          if [ "$BUILT_SERVER" = false ] && [ "$BUILT_SERVERD" = false ]; then
-            echo "ERROR: No jar built."
+          # Verify a jar was built
+          if [ "$BUILT_SERVER" = false ]; then
+            echo "ERROR: No server.jar was built."
             exit 1
           fi
 
-          # Copy built jars into the root directory with the desired names
+          # Copy built jar into the root directory
           if [ "$BUILT_SERVER" = true ]; then
             cp -f build/server.jar ./server.jar
             echo "server.jar copied to the root directory"
           fi
-          if [ "$BUILT_SERVERD" = true ]; then
-            cp -f build/serverd.jar ./serverd.jar
-            echo "serverd.jar copied to the root directory"
-          fi
 
-      - name: Commit and push built jars
+      - name: Commit and push built jar
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage any of the built jars that exist in the root
+          # Stage the built jar if it exists
           if [ -f server.jar ]; then
             git add server.jar
-          fi
-          if [ -f serverd.jar ]; then
-            git add serverd.jar
           fi
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update server jars from CI"
+            git commit -m "Update server.jar from CI"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
