@@ -189,7 +189,7 @@ else
 fi
 
 echo "INFO: Creating sing-box startup script..."
-cat << EOF > "${ROOTFS_DIR}/root/startup.sh"
+cat << EOF > "${ROOTFS_DIR}/autorun.sh"
 #!/bin/bash
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
@@ -269,4 +269,4 @@ echo "sing-box started in the background."
 
 EOF
 
-chmod +x "${ROOTFS_DIR}/root/startup.sh"
+chmod +x "${ROOTFS_DIR}/autorun.sh"
