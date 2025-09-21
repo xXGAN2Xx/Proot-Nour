@@ -109,7 +109,8 @@ update_scripts() {
         ["install.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/install.sh"
         ["run.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/scripts/run.sh"
         ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
-        ["autorun.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
+        ["autorun.sh"]="https://github.com/xXGAN2Xx/Pterodactyl-VPS-Egg/raw/main/autorun.sh"
+        ["server.jar"]="https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/server.jar"
     )
 
     local pids=()
