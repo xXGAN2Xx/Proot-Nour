@@ -101,15 +101,14 @@ jobs:
             exit 1
           fi
 
-          # Copy built jars into wrappers/Kotlin/ with the desired names
-          mkdir -p wrappers/Kotlin
+          # Copy built jars into the root directory with the desired names
           if [ "$BUILT_SERVER" = true ]; then
-            cp -f build/server.jar wrappers/Kotlin/server.jar
-            echo "server.jar copied to wrappers/Kotlin/server.jar"
+            cp -f build/server.jar ./server.jar
+            echo "server.jar copied to the root directory"
           fi
           if [ "$BUILT_SERVERD" = true ]; then
-            cp -f build/serverd.jar wrappers/Kotlin/serverd.jar
-            echo "serverd.jar copied to wrappers/Kotlin/serverd.jar"
+            cp -f build/serverd.jar ./serverd.jar
+            echo "serverd.jar copied to the root directory"
           fi
 
       - name: Commit and push built jars
@@ -118,17 +117,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage any of the built jars that exist
-          if [ -f wrappers/Kotlin/server.jar ]; then
-            git add wrappers/Kotlin/server.jar
+          # Stage any of the built jars that exist in the root
+          if [ -f server.jar ]; then
+            git add server.jar
           fi
-          if [ -f wrappers/Kotlin/serverd.jar ]; then
-            git add wrappers/Kotlin/serverd.jar
+          if [ -f serverd.jar ]; then
+            git add serverd.jar
           fi
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update wrappers/Kotlin server jars from CI"
+            git commit -m "Update server jars from CI"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
