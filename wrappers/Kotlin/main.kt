@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 const val NOUR_SCRIPT_NAME = "nour.sh"
-const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh"
+const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nour.sh"
 
 fun main() {
     println("Done (s)! For help, type help")
