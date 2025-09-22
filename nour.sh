@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "Installation complete! For help, type 'help'"
 export PUBLIC_IP=$(curl -s ifconfig.me)
 HOME="${HOME:-$(pwd)}"
 export DEBIAN_FRONTEND=noninteractive
