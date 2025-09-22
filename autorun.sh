@@ -15,9 +15,7 @@ if ! command -v sing-box &> /dev/null; then
 else
     echo "sing-box is already installed."
 fi
-
-SERVER_PORT=${SERVER_PORT}
-echo "sing-box will use port: $SERVER_PORT"
+echo "sing-box will use port: ${SERVER_PORT}"
 
 mkdir -p /etc/sing-box
 
