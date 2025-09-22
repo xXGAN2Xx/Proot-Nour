@@ -72,8 +72,8 @@ fi
 echo "--- Starting sing-box service... ---"
 
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&alpn=h3&allowInsecure=1&type=tcp&headerType=none#nour-vless"
-
+echo "sing-box service has been started."
 systemctl enable sing-box
 systemctl start sing-box
-
-echo "sing-box service has been started."
+# killall sing-box > /dev/null 2>&1 # Ensure no other instances are running
+# sing-box run --config /etc/sing-box/config.json &
