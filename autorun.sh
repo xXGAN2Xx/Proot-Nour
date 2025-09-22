@@ -5,7 +5,7 @@ echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 echo "Updating package lists and installing dependencies ..."
 # Ensure python3 is installed for the systemctl replacement, even though we bypass it for starting
 apt-get update > /dev/null 2>&1
-apt-get install -y curl openssl tmate screen python3 > /dev/null 2>&1
+apt-get install -y curl openssl tmate screen python3-minimal > /dev/null 2>&1
 
 if ! command -v sing-box &> /dev/null; then
     echo "Installing sing-box for the first time..."
