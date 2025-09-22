@@ -1,40 +1,79 @@
+# The name of the GitHub Actions workflow, which is displayed in the "Actions" tab of the repository.
 name: Build and commit server.jar
 
+# --- Trigger Conditions ---
+# Defines when this workflow will be automatically executed.
 on:
+  # Trigger the workflow on any push event that includes changes within the 'wrappers/Kotlin/' directory.
+  # This ensures the build only runs when the relevant Kotlin source code is modified.
   push:
     paths:
       - 'wrappers/Kotlin/**'
+  
+  # Also allow this workflow to be run manually from the GitHub UI's "Actions" tab.
+  # This is useful for forcing a rebuild without needing to push a code change.
   workflow_dispatch: {}
 
+# --- Permissions ---
+# Grants specific permissions to the GITHUB_TOKEN for this workflow.
 permissions:
+  # 'write' access to the repository's contents is required so the workflow can
+  # commit the newly built `server.jar` back to the repository.
   contents: write
 
+# --- Jobs ---
+# A workflow run is made up of one or more jobs, which run in parallel by default.
 jobs:
+  # Defines a single job named 'build'.
   build:
+    # Specifies that this job will run on the latest available version of an Ubuntu Linux runner.
     runs-on: ubuntu-latest
+    
+    # --- Steps ---
+    # A job contains a sequence of tasks called steps. Steps can run commands or use actions.
     steps:
+      # Step 1: Check out the repository's code.
       - name: Checkout repo
+        # Uses the official 'checkout' action to download the repository content to the runner.
         uses: actions/checkout@v4
         with:
+          # fetch-depth: 0 fetches the entire git history. This is crucial because the
+          # final step needs the full history to compare the old and new jar files and to push a commit.
           fetch-depth: 0
+          # persist-credentials: true ensures that the git credentials used for checkout
+          # are available for subsequent steps, allowing the 'git push' command to authenticate.
           persist-credentials: true
 
+      # Step 2: Set up the Java environment needed to compile Kotlin code.
       - name: Set up JDK (Temurin, latest patch for chosen major)
+        # Uses the official 'setup-java' action to install a specific Java version.
         uses: actions/setup-java@v4
         with:
+          # 'temurin' is a widely-used, open-source distribution of the OpenJDK.
           distribution: 'temurin'
-          # Use the current latest major (21) and check-latest ensures the newest patch is used
+          # Specifies the major version of Java to install.
           java-version: '21'
+          # 'check-latest: true' ensures that the action always installs the most recent
+          # patch release for the specified major version (e.g., 21.0.3 instead of 21.0.1).
           check-latest: true
 
+      # Step 3: The core logic for building the server.jar file. This step uses a multi-stage fallback strategy.
       - name: Build server.jar
+        # Run these commands using the bash shell.
         shell: bash
         run: |
+          # 'set -eo pipefail' is a best practice for shell scripts.
+          # -e: exits immediately if any command fails.
+          # -o pipefail: ensures that a pipeline command fails if any command in the pipeline fails.
           set -eo pipefail
 
+          # Create a 'build' directory to store the compiled output.
           mkdir -p build
+          # This flag will be used to track if a JAR has been successfully built.
           BUILT_SERVER=false
 
+          # Helper function to install the Kotlin compiler (kotlinc) on demand.
+          # It uses 'sdkman' for a quick and easy installation.
           ensure_kotlinc() {
             if ! command -v kotlinc >/dev/null 2>&1; then
               echo "kotlinc not found — installing kotlin via sdkman..."
@@ -45,22 +84,29 @@ jobs:
             fi
           }
 
-          # 1) Prefer explicit compilation of wrappers/Kotlin/main.kt -> build/server.jar
+          # --- Build Strategy 1: Preferred Method ---
+          # First, try to compile a specific main.kt file. This is the most direct and reliable approach.
           if [ -f "wrappers/Kotlin/main.kt" ]; then
             ensure_kotlinc
             echo "Compiling wrappers/Kotlin/main.kt -> build/server.jar"
+            # 'kotlinc' compiles the source file.
+            # '-include-runtime': bundles the Kotlin runtime library into the JAR, making it executable.
+            # '-d': specifies the destination file.
             kotlinc wrappers/Kotlin/main.kt -include-runtime -d build/server.jar
             if [ -f build/server.jar ]; then
               BUILT_SERVER=true
             fi
           fi
 
-          # 2) Fallback: if no explicit compiled jar and gradlew exists, try Gradle build
+          # --- Build Strategy 2: Gradle Fallback ---
+          # If the first method didn't work and a Gradle wrapper exists, try to build with Gradle.
           if [ "$BUILT_SERVER" = false ] && [ -x "./gradlew" ]; then
             echo "No explicit main compilation done. Running ./gradlew clean build (or assemble)."
             chmod +x ./gradlew
+            # Try 'build' first, if it fails, try 'assemble'. The final '|| true' prevents the
+            # entire script from failing if both Gradle commands fail, allowing it to proceed to the next fallback.
             ./gradlew clean build || ./gradlew clean assemble || true
-            # try to pick the first jar produced by Gradle
+            # After the build, find the first .jar file produced by Gradle, avoiding temporary files.
             JAR_FOUND=$(find . -type f -name "*.jar" ! -path "*/.gradle/*" ! -path "./build/*/tmp/*" | head -n 1 || true)
             if [ -n "$JAR_FOUND" ];
             then
@@ -70,11 +116,12 @@ jobs:
             fi
           fi
 
-          # 3) Last-resort fallback: compile all .kt files into build/server.jar
+          # --- Build Strategy 3: Last-Resort Fallback ---
+          # If all else fails, find all .kt files in the 'wrappers' directory and compile them together.
           if [ "$BUILT_SERVER" = false ]; then
             echo "Falling back to compiling all Kotlin files into build/server.jar"
-            # install kotlin if needed
             ensure_kotlinc
+            # Find all .kt files and join them into a space-separated string.
             KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ' || true)
             if [ -n "$KT_FILES" ]; then
               kotlinc $KT_FILES -include-runtime -d build/server.jar
@@ -84,32 +131,39 @@ jobs:
             fi
           fi
 
-          # Verify a jar was built
+          # --- Verification and Final Copy ---
+          # After all attempts, verify that a JAR was actually created.
           if [ "$BUILT_SERVER" = false ]; then
             echo "ERROR: No server.jar was built."
             exit 1
           fi
 
-          # Copy built jar into the root directory
+          # Copy the final JAR from the build directory to the root of the repository.
           if [ "$BUILT_SERVER" = true ]; then
             cp -f build/server.jar ./server.jar
             echo "server.jar copied to the root directory"
           fi
 
+      # Step 4: Commit the newly built server.jar file back to the repository.
       - name: Commit and push built jar
         shell: bash
         run: |
+          # Configure git with the identity of the GitHub Actions bot for the commit.
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage the built jar if it exists
+          # Stage the server.jar file, preparing it for commit.
           if [ -f server.jar ]; then
             git add server.jar
           fi
 
+          # Check if staging the file actually resulted in any changes.
+          # If the new JAR is identical to the old one, there's nothing to commit.
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
+            # If there are changes, create a commit with a standard message.
             git commit -m "Update server.jar from CI"
+            # Push the commit back to the same branch that triggered the workflow.
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
