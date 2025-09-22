@@ -67,7 +67,7 @@ install_dependencies() {
             error_exit "Local apt update failed. This is a critical step, cannot proceed."
         fi
 
-        local apt_pkgs_to_download=(bash curl ca-certificates iproute2 xz-utils shadow python3-minimal)
+        local apt_pkgs_to_download=(bash curl ca-certificates iproute2 xz-utils python3-minimal)
         echo -e "${Y}Downloading required .deb packages...${NC}"
         apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
 
