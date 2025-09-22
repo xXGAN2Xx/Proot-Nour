@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# --- Standard Library Imports ---
 import os
 import subprocess
 import urllib.request
@@ -7,9 +11,11 @@ import tempfile
 import sys
 import traceback
 
-# --- Constants ---
+# --- Configuration Constants ---
+# Define the names of the scripts to be managed.
 NOUR_SCRIPT_NAME = "nour.sh"
 NOURD_SCRIPT_NAME = "nourd.sh"
+# Define the authoritative URLs from which to download or update the scripts.
 NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh"
 NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
@@ -17,306 +23,330 @@ NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh
 
 def download_file(url_str: str, destination_path: str):
     """
-    Downloads a file from url_str to destination_path atomically.
-    Downloads to a temporary file first, then moves it to the final destination.
+    Downloads a file from a URL to a specified destination path safely and atomically.
+    
+    This function first downloads the content to a temporary file in the same
+    directory. If the download is successful, it then atomically moves the
+    temporary file to the final destination path. This prevents file corruption
+    if the script is interrupted during the download.
+
+    Args:
+        url_str: The URL of the file to download.
+        destination_path: The final path to save the file.
+
+    Raises:
+        IOError: If the download or file move operation fails.
     """
+    # Ensure the destination directory exists.
     dest_dir = os.path.dirname(destination_path) or "."
     os.makedirs(dest_dir, exist_ok=True)
 
-    temp_file_path = None # Initialize to None
+    temp_file_path = None  # Initialize to ensure it's available in the finally block.
     try:
-        # 'delete=False' is crucial as we will move it manually
-        # The prefix includes the original basename for better temp file identification
-        with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=dest_dir, 
-                                         prefix=os.path.basename(destination_path) + "_", 
+        # Create a named temporary file. 'delete=False' is crucial because we need to
+        # close it and then move it ourselves. It will not be deleted on close.
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, dir=dest_dir,
+                                         prefix=os.path.basename(destination_path) + "_",
                                          suffix=".tmpdownload") as temp_f:
             temp_file_path = temp_f.name
+            # Open the remote URL and copy its content directly to our temp file.
             with urllib.request.urlopen(url_str) as response:
                 shutil.copyfileobj(response, temp_f)
         
+        # Once the download is complete, move the temp file to the final destination.
+        # This operation is atomic on most systems, ensuring integrity.
         shutil.move(temp_file_path, destination_path)
     
     except Exception as e:
+        # If any error occurs, attempt to clean up the temporary file.
         if temp_file_path and os.path.exists(temp_file_path):
             try:
                 os.remove(temp_file_path)
             except OSError as oe:
                 print(f"Warning: Failed to delete temporary file '{temp_file_path}' during error handling: {oe}")
+        # Re-raise the exception as an IOError to be handled by the calling function.
         raise IOError(f"Failed to download or replace file '{os.path.basename(destination_path)}' from {url_str}: {e}") from e
     
     finally:
-        # Fallback cleanup: if temp_file_path was assigned and still exists, try to delete.
-        # This handles cases where an error might occur after temp file creation but before/during move,
-        # and the main exception block didn't catch it or failed to clean up.
+        # A final cleanup check. This ensures that even if an error occurred after
+        # the temp file was created but before the 'except' block could clean it,
+        # we still attempt to remove it.
         if temp_file_path and os.path.exists(temp_file_path):
             try:
                 os.remove(temp_file_path)
             except OSError:
-                print(f"Warning: Temporary file '{temp_file_path}' may still exist and could not be cleaned up in finally block.")
+                print(f"Warning: Temporary file '{temp_file_path}' may still exist and could not be cleaned up.")
 
 
 def set_executable_permission(file_path: str) -> bool:
-    """Sets executable permission on the given file, similar to 'chmod +x'."""
+    """
+    Sets executable permission on the given file, similar to 'chmod +x'.
+
+    This function first attempts to use the system's `chmod` command for consistency
+    with system-level tools. If `chmod` is not found (e.g., on some minimal systems),
+    it falls back to using Python's built-in `os.chmod` function.
+
+    Args:
+        file_path: The path to the file.
+
+    Returns:
+        True if the permission was set successfully, False otherwise.
+    """
     abs_file_path = os.path.abspath(file_path)
     if not os.path.exists(abs_file_path):
-        print(f"Cannot set permissions: File '{os.path.basename(file_path)}' does not exist at path '{abs_file_path}'.")
+        print(f"Cannot set permissions: File '{os.path.basename(file_path)}' does not exist at '{abs_file_path}'.")
         return False
 
     print(f"Setting executable permission on '{os.path.basename(file_path)}'...")
     try:
-        # Attempt to use 'chmod +x' via subprocess for behavior closest to Kotlin
-        process = subprocess.run(["chmod", "+x", abs_file_path], 
+        # Primary method: Use the 'chmod' command for reliable behavior.
+        process = subprocess.run(["chmod", "+x", abs_file_path],
                                  capture_output=True, text=True, check=False)
         if process.returncode != 0:
-            print(f"Error setting executable permission for '{os.path.basename(file_path)}' (chmod exit code: {process.returncode}).")
+            print(f"Error setting permission (chmod exit code: {process.returncode}).")
             if process.stderr: print(f"chmod stderr: {process.stderr.strip()}")
-            if process.stdout: print(f"chmod stdout: {process.stdout.strip()}") # Usually empty on error
             return False
         else:
-            print(f"Executable permission set for '{os.path.basename(file_path)}'.")
+            print(f"Executable permission set via 'chmod'.")
             return True
-    except FileNotFoundError: # 'chmod' command not found
-        print(f"Warning: 'chmod' command not found. Attempting fallback using Python's os.chmod.")
+    except FileNotFoundError:
+        # Fallback method: If 'chmod' isn't on the system PATH.
+        print("Warning: 'chmod' command not found. Falling back to Python's os.chmod.")
         try:
             current_mode = os.stat(abs_file_path).st_mode
-            # Add execute permissions for user, group, and others (S_IXUSR | S_IXGRP | S_IXOTH = 0o111)
-            new_mode = current_mode | 0o111 
+            # Add execute permissions for user, group, and others using a bitwise OR.
+            # 0o111 is the octal representation of r-x r-x r-x.
+            new_mode = current_mode | 0o111
             os.chmod(abs_file_path, new_mode)
-            print(f"Fallback: Successfully set executable permission for '{os.path.basename(file_path)}' using os.chmod.")
+            print(f"Successfully set executable permission using os.chmod.")
             return True
         except Exception as e_chmod:
-            print(f"Fallback os.chmod also failed for '{os.path.basename(file_path)}': {e_chmod}")
+            print(f"Fallback os.chmod also failed: {e_chmod}")
             return False
-    except (IOError, OSError) as e:
-        print(f"OS error while trying to run chmod for '{os.path.basename(file_path)}': {e}")
-        return False
-    except Exception as e: # Catch-all for other unexpected errors
-        print(f"Unexpected error during chmod for '{os.path.basename(file_path)}': {e}")
+    except Exception as e:
+        # Catch any other unexpected errors during the process.
+        print(f"Unexpected error during permission setting: {e}")
         traceback.print_exc()
         return False
 
 
-def download_and_set_permissions(script_url: str, script_file_name: str) -> str | None:
-    """Downloads a script, sets executable permissions, and returns its path on success."""
-    print(f"Downloading '{script_file_name}' from {script_url}...")
+def download_and_set_permissions(script_url: str, script_name: str) -> str | None:
+    """
+    Orchestrates the download and permission-setting process for a script.
+
+    Args:
+        script_url: The URL to download the script from.
+        script_name: The local filename to save the script as.
+
+    Returns:
+        The script's file path on full success, or None if any step fails.
+    """
+    print(f"Downloading '{script_name}' from {script_url}...")
     try:
-        download_file(script_url, script_file_name) # Raises IOError on failure
-        print(f"Download completed for '{script_file_name}'.")
-    except IOError as e: # Specifically catch IOError from download_file
-        print(f"Error downloading '{script_file_name}': {e}")
-        return None
-    except Exception as e: # Catch any other unexpected errors during download
-        print(f"Unexpected error downloading '{script_file_name}': {e}")
-        traceback.print_exc()
+        download_file(script_url, script_name)
+        print(f"Download completed for '{script_name}'.")
+    except (IOError, Exception) as e:
+        print(f"Error downloading '{script_name}': {e}")
         return None
 
-    if not set_executable_permission(script_file_name):
-        print(f"Download of '{script_file_name}' succeeded but setting permissions failed.")
+    # After a successful download, set the necessary permissions.
+    if not set_executable_permission(script_name):
+        print(f"Download of '{script_name}' succeeded but setting permissions failed.")
         return None
     
-    print(f"Successfully downloaded and ensured permissions for '{script_file_name}'.")
-    return script_file_name
+    print(f"Successfully downloaded and set permissions for '{script_name}'.")
+    return script_name
 
 
-def is_file_changed(local_file_path: str, remote_url: str) -> bool:
-    """Compares local file content with remote URL content. Returns True if different or error."""
-    print(f"Comparing local '{os.path.basename(local_file_path)}' with remote '{remote_url}'...")
+def is_file_changed(local_path: str, remote_url: str) -> bool:
+    """
+    Compares local file content with content from a remote URL.
+
+    Args:
+        local_path: The path to the local file.
+        remote_url: The URL pointing to the master version of the file.
+
+    Returns:
+        True if contents are different or if an error occurs (fail-safe).
+        False if contents are identical.
+    """
+    print(f"Comparing local '{os.path.basename(local_path)}' with remote version...")
     try:
+        # Fetch remote content.
         with urllib.request.urlopen(remote_url) as response:
-            remote_content_bytes = response.read()
-            remote_content = remote_content_bytes.decode('utf-8') # Assuming UTF-8 encoding
+            remote_content = response.read().decode('utf-8')
         
-        with open(local_file_path, 'rb') as f_local_bytes: # Read local file as bytes for consistency
-            local_content_bytes = f_local_bytes.read()
-            local_content = local_content_bytes.decode('utf-8') # Assuming UTF-8 encoding
+        # Read local content.
+        with open(local_path, 'r', encoding='utf-8') as f_local:
+            local_content = f_local.read()
             
-        changed = remote_content != local_content
-        if changed:
-            print(f"Contents differ for '{os.path.basename(local_file_path)}'.")
+        is_different = remote_content != local_content
+        if is_different:
+            print(f"Contents of '{os.path.basename(local_path)}' differ from remote.")
         else:
-            print(f"Contents are the same for '{os.path.basename(local_file_path)}'.")
-        return changed
-    except (urllib.error.URLError, urllib.error.HTTPError, IOError, UnicodeDecodeError) as e:
-        print(f"Error during comparison for '{os.path.basename(local_file_path)}': {e}. Assuming it has changed to be safe.")
-        return True
-    except Exception as e: # Catch any other unexpected errors
-        print(f"Unexpected error comparing file '{os.path.basename(local_file_path)}' with remote: {e}. Assuming it has changed.")
-        traceback.print_exc()
+            print(f"Contents are the same.")
+        return is_different
+    except Exception as e:
+        # On any error (network, file read, etc.), assume the file has changed.
+        # This is a fail-safe approach to ensure the user gets a fresh copy.
+        print(f"Error during comparison: {e}. Assuming file has changed.")
         return True
 
 
-def run_script(script_file_path: str):
-    """Runs the specified script file using 'bash'."""
-    abs_script_path = os.path.abspath(script_file_path)
+def run_script(script_path: str):
+    """
+    Executes the given shell script using the 'bash' interpreter.
+
+    Args:
+        script_path: The path of the script file to execute.
+    """
+    abs_script_path = os.path.abspath(script_path)
+    # Safety checks before execution.
     if not os.path.exists(abs_script_path):
-        print(f"Cannot run script: '{os.path.basename(script_file_path)}' does not exist at {abs_script_path}.")
+        print(f"Cannot run script: '{os.path.basename(script_path)}' does not exist.")
         return
-    
-    if not os.access(abs_script_path, os.X_OK): # Check for execute permission
-        print(f"Cannot run script: '{os.path.basename(script_file_path)}' is not executable. Path: {abs_script_path}")
+    if not os.access(abs_script_path, os.X_OK):
+        print(f"Cannot run script: '{os.path.basename(script_path)}' is not executable.")
         return
 
-    print(f"Running '{os.path.basename(script_file_path)}' (path: {abs_script_path}) and waiting for it to complete...")
+    print(f"Running '{os.path.basename(script_path)}'...")
     try:
-        # subprocess.run inherits stdio by default if not captured.
-        # check=False allows manual handling of return code.
+        # Execute the script using a subprocess. The script's I/O will be
+        # connected to the current console by default.
         process = subprocess.run(["bash", abs_script_path], check=False)
-        print(f"'{os.path.basename(script_file_path)}' finished with exit code {process.returncode}.")
-    except FileNotFoundError: # 'bash' command not found
-        print(f"Error: 'bash' command not found. Cannot run script '{os.path.basename(script_file_path)}'.")
-    except OSError as e: # Other OS-level errors during process execution
-        print(f"OS error while trying to run script '{os.path.basename(script_file_path)}': {e}")
-    # KeyboardInterrupt is handled by the main try-except block.
-    except Exception as e: # Catch any other unexpected errors
-        print(f"Unexpected error running script '{os.path.basename(script_file_path)}': {e}")
+        print(f"'{os.path.basename(script_path)}' finished with exit code {process.returncode}.")
+    except FileNotFoundError:
+        print("Error: 'bash' command not found. Cannot run script.")
+    except Exception as e:
+        print(f"An error occurred while running script '{os.path.basename(script_path)}': {e}")
         traceback.print_exc()
 
 
 def handle_download_choice_set_perms_and_run():
-    """Prompts user to choose a script to download, then downloads, sets permissions, and runs it."""
+    """
+    Prompts the user to choose a script to download if none are found locally.
+    Then, it manages the download, permission setting, and execution of the chosen script.
+    """
     print("Choose an option to download:")
     print(f"0: Download {NOUR_SCRIPT_NAME}")
     print(f"1: Download {NOURD_SCRIPT_NAME}")
     
     try:
         choice = input("Enter your choice (0 or 1): ").strip()
-    except EOFError: # Handle case where input stream is closed (e.g., piping without input)
-        print("\nNo input received (EOF). Exiting.")
+    except EOFError:
+        print("\nNo input received. Exiting.")
         return
-    # KeyboardInterrupt will be caught by the main handler.
 
-    script_url_to_download: str
-    script_name_to_download: str
-
+    # Determine which script to download based on user input.
     if choice == "0":
-        script_url_to_download = NOUR_URL
-        script_name_to_download = NOUR_SCRIPT_NAME
+        script_url, script_name = NOUR_URL, NOUR_SCRIPT_NAME
     elif choice == "1":
-        script_url_to_download = NOURD_URL
-        script_name_to_download = NOURD_SCRIPT_NAME
+        script_url, script_name = NOURD_URL, NOURD_SCRIPT_NAME
     else:
-        print("Invalid choice. Please enter 0 or 1. Exiting.")
+        print("Invalid choice. Exiting.")
         return
 
-    downloaded_file_path = download_and_set_permissions(script_url_to_download, script_name_to_download)
-    if downloaded_file_path:
-        print(f"Preparing to run downloaded '{os.path.basename(downloaded_file_path)}'...")
-        run_script(downloaded_file_path)
+    # Orchestrate the process for the chosen script.
+    downloaded_file = download_and_set_permissions(script_url, script_name)
+    if downloaded_file:
+        print(f"Preparing to run downloaded '{os.path.basename(downloaded_file)}'...")
+        run_script(downloaded_file)
     else:
-        print(f"Failed to download or set permissions for '{script_name_to_download}'. Script will not be run.")
+        print(f"Failed to process '{script_name}'. Script will not be run.")
 
 
 def handle_script(script_name: str, script_url: str) -> bool:
     """
-    Manages a single script: checks existence, updates if necessary, sets permissions, and runs.
-    Returns True if the script was "handled" (i.e., found locally and processed),
-    False if the script was not found locally.
+    Manages a single script: checks for existence, updates, sets permissions, and runs.
+
+    This is the core logic for a script that already exists locally. It ensures the
+    script is up-to-date and executable before running it.
+
+    Args:
+        script_name: The local name of the script file.
+        script_url: The remote URL for update checks.
+
+    Returns:
+        True if the script was found locally and its lifecycle was handled.
+        False if the script was not found locally.
     """
-    script_file_path = os.path.abspath(script_name) 
-    file_to_execute_path: str | None = None # Path of the script that might be executed
+    if not os.path.exists(script_name):
+        return False  # Let the main logic know the script wasn't found.
     
-    was_successfully_updated = False       # True if downloaded AND permissions set successfully
-    is_up_to_date_and_local_exists = False # True if file exists locally and is up-to-date
+    print(f"Found '{script_name}'. Checking for updates...")
+    file_to_execute = script_name
 
-    if os.path.exists(script_file_path):
-        print(f"Found '{os.path.basename(script_file_path)}' at '{script_file_path}'. Checking for updates...")
-        
-        if is_file_changed(script_file_path, script_url): # True if changed or error during check
-            print(f"'{os.path.basename(script_file_path)}' has changed or an error occurred. Attempting to download new version...")
-            updated_file = download_and_set_permissions(script_url, script_file_path)
-            if updated_file:
-                file_to_execute_path = updated_file
-                was_successfully_updated = True
-                print(f"Successfully updated '{os.path.basename(script_file_path)}'.")
-            else:
-                print(f"Failed to update '{os.path.basename(script_file_path)}'. Will attempt to run the existing local version.")
-                file_to_execute_path = script_file_path # Fallback to existing local version
-        else: # File is up to date
-            print(f"'{os.path.basename(script_file_path)}' is up to date.")
-            file_to_execute_path = script_file_path
-            is_up_to_date_and_local_exists = True
-    else:
-        # Script does not exist locally. Return False so main logic can try the next script or prompt.
-        return False 
-
-    if file_to_execute_path:
-        can_run = False
-        
-        # Ensure the file we intend to execute actually exists, especially for fallback.
-        if not os.path.exists(file_to_execute_path):
-             print(f"Error: File '{os.path.basename(file_to_execute_path)}' designated for execution does not exist at '{file_to_execute_path}'. Cannot proceed.")
-             return True # Script path was "handled" (determined it can't run).
-
-        if was_successfully_updated:
-            # download_and_set_permissions should ensure it's executable.
-            # Re-verify with os.access for robustness.
-            if os.access(file_to_execute_path, os.X_OK):
-                print(f"Permissions for updated '{os.path.basename(file_to_execute_path)}' were set during download.")
-                can_run = True
-            else:
-                print(f"Error: Updated file '{os.path.basename(file_to_execute_path)}' is not executable despite successful update. Cannot run.")
-        
-        elif is_up_to_date_and_local_exists:
-            # Mirrors Kotlin's logic: if up-to-date, skip explicit permission setting.
-            # If not executable, it will not be run (and no attempt to make it executable here).
-            print(f"Skipping explicit permission setting for up-to-date file '{os.path.basename(file_to_execute_path)}'.")
-            if os.access(file_to_execute_path, os.X_OK):
-                print(f"'{os.path.basename(file_to_execute_path)}' is already executable.")
-                can_run = True
-            else:
-                print(f"Warning: Up-to-date file '{os.path.basename(file_to_execute_path)}' is NOT executable. Permission setting was skipped. Script will not be run.")
-                can_run = False # As per Kotlin logic, do not run.
-        
-        else: 
-            # Fallback case (e.g., local file existed, update failed).
-            # Here, we MUST attempt to set permissions on the existing local file.
-            print(f"Attempting to set/verify permissions for '{os.path.basename(file_to_execute_path)}' (e.g., fallback scenario)...")
-            if set_executable_permission(file_to_execute_path):
-                if os.access(file_to_execute_path, os.X_OK): # Re-check after attempting to set
-                    print(f"Permissions set successfully for '{os.path.basename(file_to_execute_path)}'.")
-                    can_run = True
-                else:
-                     print(f"Error: Setting permissions for '{os.path.basename(file_to_execute_path)}' reported successful, but file still not executable. Cannot run.")
-            else:
-                print(f"Failed to set executable permission for '{os.path.basename(file_to_execute_path)}'. Script will not be run.")
-
-        if can_run:
-            print(f"Preparing to run '{os.path.basename(file_to_execute_path)}'...")
-            run_script(file_to_execute_path)
+    # Check if a new version of the script is available.
+    if is_file_changed(script_name, script_url):
+        print(f"'{script_name}' has changed. Attempting to download new version...")
+        updated_file = download_and_set_permissions(script_url, script_name)
+        if updated_file:
+            print(f"Successfully updated '{script_name}'.")
+            file_to_execute = updated_file
         else:
-            print(f"Script '{os.path.basename(file_to_execute_path)}' will not be run based on the checks performed.")
-        
-        return True # Script was "handled" (found, processed, decision made to run or not).
+            # If the update fails, we will fall back to using the old version.
+            print(f"Failed to update '{script_name}'. Attempting to run existing version.")
+    else:
+        print(f"'{script_name}' is up to date.")
+
+    # At this point, we have a file to execute (either the updated or old one).
+    # Now, ensure it's runnable.
+    is_executable = os.access(file_to_execute, os.X_OK)
+    can_run = False
+
+    if is_executable:
+        print(f"'{os.path.basename(file_to_execute)}' is already executable.")
+        can_run = True
+    else:
+        # If the file is not executable, we must try to set permissions.
+        print(f"Warning: '{os.path.basename(file_to_execute)}' is NOT executable. Attempting to set permissions...")
+        if set_executable_permission(file_to_execute):
+            can_run = True
+        else:
+            print(f"Failed to set executable permission. The script will not be run.")
+
+    # Final step: run the script if it's ready.
+    if can_run:
+        print(f"Preparing to run '{os.path.basename(file_to_execute)}'...")
+        run_script(file_to_execute)
     
-    # This part should ideally not be reached if os.path.exists(script_file_path) was true at the start.
-    # If reached, it implies an unexpected logical flow.
-    print(f"Warning: Reached unexpected state at the end of handle_script for {script_name}.")
-    return False
+    return True # Return true because the script was found and handled.
 
 
-# --- Main Execution ---
+# --- Main Execution Block ---
 def main():
+    """
+    Main entry point for the script launcher.
+    
+    The logic is as follows:
+    1. Check for `nour.sh`. If it exists, handle it (update/run) and exit.
+    2. If not, check for `nourd.sh`. If it exists, handle it and exit.
+    3. If neither exists locally, prompt the user to download one.
+    """
     try:
-        # Try to handle NOUR_SCRIPT_NAME
+        # First, try to find and handle the primary script.
         if handle_script(NOUR_SCRIPT_NAME, NOUR_URL):
-            return # Script was found locally and processed (run or determined not runnable).
+            return
 
-        # If NOUR_SCRIPT_NAME was not found locally, try NOURD_SCRIPT_NAME
+        # If the primary script was not found, try the secondary script.
         if handle_script(NOURD_SCRIPT_NAME, NOURD_URL):
-            return # Script was found locally and processed.
+            return
 
-        # If neither script was found locally (both handle_script calls returned False)
-        print(f"Neither '{NOUR_SCRIPT_NAME}' nor '{NOURD_SCRIPT_NAME}' found locally. "
-              "Please choose a script to download.")
+        # If neither script was found, prompt the user for a choice.
+        print(f"Neither '{NOUR_SCRIPT_NAME}' nor '{NOURD_SCRIPT_NAME}' found locally.")
         handle_download_choice_set_perms_and_run()
 
     except KeyboardInterrupt:
+        # Cleanly handle Ctrl+C from the user.
         print("\nOperation interrupted by user. Exiting.")
-        sys.exit(130) # Standard exit code for Ctrl+C (SIGINT)
+        sys.exit(130)
     except Exception as e:
+        # Catch any other unexpected errors for graceful exit and debugging.
         print(f"An unexpected error occurred in main: {e}")
-        traceback.print_exc() # Print full stack trace for debugging
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
+    # This prevents the main() function from running if the script is imported
+    # as a module into another script.
     main()
