@@ -6,31 +6,37 @@ import java.nio.file.StandardCopyOption
 import java.io.IOException
 
 const val NOUR_SCRIPT_NAME = "nour.sh"
-const val NOURD_SCRIPT_NAME = "nourd.sh"
 const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nour.sh"
-const val NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
 fun main() {
     // Message to show immediately when the JAR is executed
     println("Done (s)! For help, type help")
 
     try {
+        // Attempt to handle the nour script (check for updates, set permissions, and run if it exists)
         if (handleScript(NOUR_SCRIPT_NAME, NOUR_URL)) {
+            // If handleScript returns true, it means the script was found locally and processed.
+            // The function itself takes care of running it, so we can exit.
             return
         }
 
-        if (handleScript(NOURD_SCRIPT_NAME, NOURD_URL)) {
-            return
+        // If handleScript returns false, it means nour.sh was not found locally.
+        // In this case, we proceed to download it automatically.
+        println("'$NOUR_SCRIPT_NAME' not found locally. Attempting to download...")
+        val downloadedFile = downloadAndSetPermissions(NOUR_URL, NOUR_SCRIPT_NAME)
+        if (downloadedFile != null) {
+            println("Preparing to run downloaded '${downloadedFile.name}'...")
+            runScript(downloadedFile)
+        } else {
+            println("Failed to download or set permissions for '$NOUR_SCRIPT_NAME'. Script will not be run.")
         }
-
-        println("Neither '$NOUR_SCRIPT_NAME' nor '$NOURD_SCRIPT_NAME' found locally, and no update check was performed. Please choose a script to download.")
-        handleDownloadChoiceSetPermsAndRun()
 
     } catch (e: Exception) {
         println("An unexpected error occurred in main: ${e.message}")
         e.printStackTrace()
     }
 }
+
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
@@ -59,7 +65,7 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
             isUpToDateAndSkippingPermSet = true // Mark that we intend to skip explicit chmod for this up-to-date file
         }
     } else {
-        // Script does not exist locally. Main will handle if both are missing.
+        // Script does not exist locally. The main function will handle the download.
         return false
     }
 
@@ -197,43 +203,6 @@ fun setExecutablePermission(file: File): Boolean {
         e.printStackTrace()
         Thread.currentThread().interrupt()
         return false
-    }
-}
-
-fun handleDownloadChoiceSetPermsAndRun() {
-    println("Choose an option to download:")
-    println("1: Download $NOUR_SCRIPT_NAME")   // nour is 1
-    println("2: Download $NOURD_SCRIPT_NAME")  // nourd is 2
-    print("Enter your choice (1 or 2): ")
-
-    val choice = readlnOrNull()
-    val scriptUrlString: String
-    val scriptFileName: String
-
-    when (choice) {
-        "1" -> {
-            // nour is 1
-            scriptUrlString = NOUR_URL
-            scriptFileName = NOUR_SCRIPT_NAME
-        }
-        "2" -> {
-            // nourd is 2
-            scriptUrlString = NOURD_URL
-            scriptFileName = NOURD_SCRIPT_NAME
-        }
-        else -> {
-            println("Invalid choice. Please enter 1 or 2. Exiting.")
-            return
-        }
-    }
-
-    val downloadedFile = downloadAndSetPermissions(scriptUrlString, scriptFileName)
-    if (downloadedFile != null) {
-        // downloadAndSetPermissions already sets permissions and ensures it's executable.
-        println("Preparing to run downloaded '${downloadedFile.name}'...")
-        runScript(downloadedFile)
-    } else {
-        println("Failed to download or set permissions for '$scriptFileName'. Script will not be run.")
     }
 }
 
