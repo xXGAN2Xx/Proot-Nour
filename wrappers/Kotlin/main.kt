@@ -10,7 +10,7 @@ const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs
 
 fun main() {
     // Message to show immediately when the JAR is executed
-    println("Installation complete! For help, type 'help'")
+    println("Done (s)! For help, type help")
 
     try {
         // Attempt to handle the nour script (check for updates, set permissions, and run if it exists)
