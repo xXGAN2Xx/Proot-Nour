@@ -186,7 +186,7 @@ if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     fi
     
     chmod +x "$ENTRYPOINT_SCRIPT"
-    exec bash "./${ENTRYPOINT_SCRIPT##*/}"
+    exec sh "./${ENTRYPOINT_SCRIPT##*/}"
 else
     error_exit "Error: ${ENTRYPOINT_SCRIPT} not found and could not be downloaded! Cannot proceed."
 fi
