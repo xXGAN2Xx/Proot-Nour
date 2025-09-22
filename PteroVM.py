@@ -13,6 +13,10 @@ NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nour.sh"
 NOURD_URL = "https://raw.githubusercontent.com/xXGAN2Xx/proot-nour/main/nourd.sh"
 
 def download_file(url_str: str, destination_path: str):
+    """
+    Downloads a file from url_str to destination_path atomically.
+    Downloads to a temporary file first, then moves it to the final destination.
+    """
     dest_dir = os.path.dirname(destination_path) or "."
     os.makedirs(dest_dir, exist_ok=True)
 
@@ -44,6 +48,7 @@ def download_file(url_str: str, destination_path: str):
 
 
 def set_executable_permission(file_path: str) -> bool:
+    """Sets executable permission on the given file, similar to 'chmod +x'."""
     abs_file_path = os.path.abspath(file_path)
     if not os.path.exists(abs_file_path):
         print(f"Cannot set permissions: File '{os.path.basename(file_path)}' does not exist at path '{abs_file_path}'.")
@@ -82,6 +87,7 @@ def set_executable_permission(file_path: str) -> bool:
 
 
 def download_and_set_permissions(script_url: str, script_file_name: str) -> str | None:
+    """Downloads a script, sets executable permissions, and returns its path on success."""
     print(f"Downloading '{script_file_name}' from {script_url}...")
     try:
         download_file(script_url, script_file_name)
@@ -103,6 +109,7 @@ def download_and_set_permissions(script_url: str, script_file_name: str) -> str 
 
 
 def is_file_changed(local_file_path: str, remote_url: str) -> bool:
+    """Compares local file content with remote URL content. Returns True if different or error."""
     print(f"Comparing local '{os.path.basename(local_file_path)}' with remote '{remote_url}'...")
     try:
         with urllib.request.urlopen(remote_url) as response:
@@ -129,6 +136,7 @@ def is_file_changed(local_file_path: str, remote_url: str) -> bool:
 
 
 def run_script(script_file_path: str):
+    """Runs the specified script file using 'bash'."""
     abs_script_path = os.path.abspath(script_file_path)
     if not os.path.exists(abs_script_path):
         print(f"Cannot run script: '{os.path.basename(script_file_path)}' does not exist at {abs_script_path}.")
@@ -152,6 +160,7 @@ def run_script(script_file_path: str):
 
 
 def handle_download_choice_set_perms_and_run():
+    """Prompts user to choose a script to download, then downloads, sets permissions, and runs it."""
     print("Choose an option to download:")
     print(f"0: Download {NOUR_SCRIPT_NAME}")
     print(f"1: Download {NOURD_SCRIPT_NAME}")
@@ -184,6 +193,11 @@ def handle_download_choice_set_perms_and_run():
 
 
 def handle_script(script_name: str, script_url: str) -> bool:
+    """
+    Manages a single script: checks existence, updates if necessary, sets permissions, and runs.
+    Returns True if the script was "handled" (i.e., found locally and processed),
+    False if the script was not found locally.
+    """
     script_file_path = os.path.abspath(script_name) 
     file_to_execute_path: str | None = None
     
@@ -277,4 +291,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()```
+    main()
