@@ -34,7 +34,7 @@ cat << EOT > /etc/sing-box/config.json
       "type": "vless",
       "tag": "vless-in",
       "listen": "::",
-      "listen_port": \${SERVER_PORT},
+      "listen_port": ${SERVER_PORT},
       "tcp_fast_open": true,
       "users": [
         {
