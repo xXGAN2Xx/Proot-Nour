@@ -40,7 +40,8 @@ cat << EOT > /etc/sing-box/config.json
       "users": [
         {
           "name": "nour",
-          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661"
+          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661",
+          "flow": "xtls-rprx-vision"
         }
       ],
       "tls": {
@@ -71,7 +72,7 @@ fi
 
 echo "--- Starting sing-box service... ---"
 echo "sing-box service has been started."
-echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=1&type=tcp&headerType=none&host=playstation.net#nour-vless"
+echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&flow=xtls-rprx-vision&security=tls&sni=playstation.net&allowInsecure=1&type=tcp&headerType=none#nour-vless"
 systemctl enable sing-box
 systemctl start sing-box
 # killall sing-box > /dev/null 2>&1 # Ensure no other instances are running
