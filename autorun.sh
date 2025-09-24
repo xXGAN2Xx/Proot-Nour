@@ -19,9 +19,6 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
 else
     echo "Dependencies are already installed. Skipping installation."
 fi
-
-echo "sing-box will use port: ${SERVER_PORT}"
-
 echo "Creating/Updating sing-box configuration file..."
 cat << EOT > /etc/sing-box/config.json
 {
