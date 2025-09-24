@@ -24,7 +24,7 @@ cat << EOT > /etc/sing-box/config.json
 {
   "log": {
     "disabled": true,
-    "level": "trace",
+    "level": "panic",
     "timestamp": true
   },
   "inbounds": [
@@ -37,14 +37,12 @@ cat << EOT > /etc/sing-box/config.json
       "users": [
         {
           "name": "nour",
-          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661",
-          "flow": ""
+          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661"
         }
       ],
-      "tls": {
-        "enabled": true,
-        "certificate_path": "/etc/sing-box/cert.pem",
-        "key_path": "/etc/sing-box/key.pem"
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/nour"
       }
     }
   ],
@@ -69,7 +67,7 @@ fi
 
 echo "--- Starting sing-box service... ---"
 echo "sing-box service has been started."
-echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=1&type=tcp&headerType=none#nour-vless"
+echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
 systemctl enable sing-box
 systemctl start sing-box
 # systemctl kill sing-box
