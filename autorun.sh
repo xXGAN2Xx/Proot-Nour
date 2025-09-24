@@ -55,16 +55,6 @@ cat << EOT > /etc/sing-box/config.json
 }
 EOT
 
-if [ ! -f /etc/sing-box/cert.pem ] || [ ! -f /etc/sing-box/key.pem ]; then
-    echo "Generating new self-signed TLS certificate..."
-    openssl req -x509 -newkey rsa:4096 -keyout /etc/sing-box/key.pem \
-    -out /etc/sing-box/cert.pem -days 365 -nodes \
-    -subj "/C=US/ST=State/L=City/O=FakeOrg/OU=FakeUnit/CN=fake.local" \
-    -addext "subjectAltName=DNS:playstation.net,DNS:localhost,IP:127.0.0.1"
-else
-    echo "Certificate and key already exist."
-fi
-
 echo "--- Starting sing-box service... ---"
 echo "sing-box service has been started."
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
