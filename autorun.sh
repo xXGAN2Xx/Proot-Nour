@@ -26,7 +26,7 @@ echo "Creating/Updating sing-box configuration file..."
 cat << EOT > /etc/sing-box/config.json
 {
   "log": {
-    "disabled": true,
+    "disabled": false,
     "level": "trace",
     "timestamp": true
   },
@@ -48,6 +48,10 @@ cat << EOT > /etc/sing-box/config.json
         "enabled": true,
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/nour"
       }
     }
   ],
