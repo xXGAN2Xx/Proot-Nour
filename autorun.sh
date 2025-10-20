@@ -56,7 +56,6 @@ cat << EOT > /etc/sing-box/config.json
 EOT
 
 echo "--- Starting sing-box service... ---"
-echo "sing-box service has been started."
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
 echo "systemctl start sing-box"
 # systemctl enable sing-box
