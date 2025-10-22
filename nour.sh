@@ -174,6 +174,8 @@ fi
 
 update_scripts
 
+chmod +x "${HOME}/usr/local/bin/systemctl"
+
 ENTRYPOINT_SCRIPT="${HOME}/entrypoint.sh"
 if [[ -f "$ENTRYPOINT_SCRIPT" ]]; then
     echo -e "${BGR}Executing ${ENTRYPOINT_SCRIPT##*/}...${NC}"
