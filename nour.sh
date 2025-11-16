@@ -172,6 +172,24 @@ else
     echo -e "${GR}Base packages, Python, and PRoot are already installed. Skipping dependency installation.${NC}"
 fi
 
+# =========================================================================================
+# BEGIN: EDITED SECTION TO FIX "libjq.so.1" ERROR
+# This block finds all library directories within the local installation
+# and adds them to LD_LIBRARY_PATH, so binaries like 'jq' can find their .so files.
+# =========================================================================================
+echo -e "${BY}Configuring library paths for locally installed packages...${NC}"
+LOCAL_LIB_PATHS=$(find "${HOME}/.local/lib" "${HOME}/.local/usr/lib" -type d 2>/dev/null | sort -u | paste -sd: -)
+
+if [ -n "$LOCAL_LIB_PATHS" ]; then
+    export LD_LIBRARY_PATH="${LOCAL_LIB_PATHS}:${LD_LIBRARY_PATH}"
+    echo -e "${GR}Dynamic linker path (LD_LIBRARY_PATH) has been configured.${NC}"
+else
+    echo -e "${Y}No local library directories found to configure.${NC}"
+fi
+# =========================================================================================
+# END: EDITED SECTION
+# =========================================================================================
+
 update_scripts
 
 chmod +x "${HOME}/usr/local/bin/systemctl"
