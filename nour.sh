@@ -19,9 +19,7 @@ DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 
-# FIX: Add local library paths to LD_LIBRARY_PATH so the dynamic linker can find
-# libraries like libjq.so.1 which were extracted from .deb packages.
-export LD_LIBRARY_PATH="${HOME}/.local/usr/lib:${HOME}/.local/lib:${LD_LIBRARY_PATH}"
+# Removed the initial LD_LIBRARY_PATH export here, as ARCH_ALT is not yet set.
 
 error_exit() {
     echo -e "${BR}${1}${NC}" >&2
@@ -162,6 +160,10 @@ case "$ARCH" in
   riscv64) ARCH_ALT="riscv64";;
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
+
+# FIX: Add local library paths, including the architecture-specific one, to LD_LIBRARY_PATH
+# This is necessary for locally extracted binaries like 'jq' to find their shared libraries.
+export LD_LIBRARY_PATH="${HOME}/.local/usr/lib/${ARCH_ALT}-linux-gnu:${HOME}/.local/usr/lib:${HOME}/.local/lib:${LD_LIBRARY_PATH}"
 
 if [[ ! -f /etc/debian_version ]]; then
     cat /etc/*-release
