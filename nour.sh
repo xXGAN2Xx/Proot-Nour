@@ -18,6 +18,8 @@ BY='\033[1;33m'
 DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
+# FIX: Add LD_LIBRARY_PATH so the dynamically linked 'jq' can find its library 'libjq.so.1'
+export LD_LIBRARY_PATH="${HOME}/.local/lib:${HOME}/.local/usr/lib:${LD_LIBRARY_PATH}"
 
 error_exit() {
     echo -e "${BR}${1}${NC}" >&2
@@ -134,6 +136,7 @@ update_scripts() {
                 else
                     rm "$temp_file"
                     echo -e "${GR}${dest_path_suffix} is up to date.${NC}"
+                }
                 fi
             else
                 rm -f "$temp_file"
@@ -171,24 +174,6 @@ if [[ ! -f "$DEP_FLAG" ]]; then
 else
     echo -e "${GR}Base packages, Python, and PRoot are already installed. Skipping dependency installation.${NC}"
 fi
-
-# =========================================================================================
-# BEGIN: EDITED SECTION TO FIX "libjq.so.1" ERROR
-# This block finds all library directories within the local installation
-# and adds them to LD_LIBRARY_PATH, so binaries like 'jq' can find their .so files.
-# =========================================================================================
-echo -e "${BY}Configuring library paths for locally installed packages...${NC}"
-LOCAL_LIB_PATHS=$(find "${HOME}/.local/lib" "${HOME}/.local/usr/lib" -type d 2>/dev/null | sort -u | paste -sd: -)
-
-if [ -n "$LOCAL_LIB_PATHS" ]; then
-    export LD_LIBRARY_PATH="${LOCAL_LIB_PATHS}:${LD_LIBRARY_PATH}"
-    echo -e "${GR}Dynamic linker path (LD_LIBRARY_PATH) has been configured.${NC}"
-else
-    echo -e "${Y}No local library directories found to configure.${NC}"
-fi
-# =========================================================================================
-# END: EDITED SECTION
-# =========================================================================================
 
 update_scripts
 
