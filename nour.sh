@@ -18,8 +18,10 @@ BY='\033[1;33m'
 DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
-# FIX: Add LD_LIBRARY_PATH so the dynamically linked 'jq' can find its library 'libjq.so.1'
-export LD_LIBRARY_PATH="${HOME}/.local/lib:${HOME}/.local/usr/lib:${LD_LIBRARY_PATH}"
+
+# FIX: Add local library paths to LD_LIBRARY_PATH so the dynamic linker can find
+# libraries like libjq.so.1 which were extracted from .deb packages.
+export LD_LIBRARY_PATH="${HOME}/.local/usr/lib:${HOME}/.local/lib:${LD_LIBRARY_PATH}"
 
 error_exit() {
     echo -e "${BR}${1}${NC}" >&2
@@ -136,7 +138,6 @@ update_scripts() {
                 else
                     rm "$temp_file"
                     echo -e "${GR}${dest_path_suffix} is up to date.${NC}"
-                }
                 fi
             else
                 rm -f "$temp_file"
