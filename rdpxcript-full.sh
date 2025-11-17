@@ -189,13 +189,12 @@ install_xrdp() {
   systemctl enable xrdp
   systemctl restart xrdp
   
-  # Get server IP
-  SERVER_IP=$(curl -s https://api64.ipify.org/ || hostname -I | awk '{print $1}')
+  # Get server IP (IPv4 only)
+  SERVER_IP=$(curl -4 -s https://api64.ipify.org/ || hostname -I | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
   
   success "XRDP installation completed!"
   output "================================================"
   output "Connect using: $SERVER_IP:$SERVER_PORT"
-  output "For IPv6: [$SERVER_IP]:$SERVER_PORT"
   output "================================================"
 }
 
