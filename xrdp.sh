@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # Use the SERVER_PORT environment variable, or fall back to 14212 if not set.
-XRDP_PORT="${SERVER_PORT}"
+XRDP_PORT="${SERVER_PORT:-14212}"
 RDP_USER="nour"         # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
@@ -46,6 +46,7 @@ fi
 
 # 3. Configure XRDP to use the new custom port
 echo "[3/6] Configuring XRDP port to $XRDP_PORT..."
+# Use sed to safely replace the port number in xrdp.ini
 sudo sed -i "s/^port=3389/port=$XRDP_PORT/" $XRDP_INI
 echo "XRDP port set to $XRDP_PORT in $XRDP_INI."
 
@@ -77,14 +78,28 @@ echo "[5/6] Adding user $RDP_USER to the ssl-cert group for session stability...
 sudo usermod -a -G ssl-cert $RDP_USER
 echo "User added to ssl-cert group."
 
-# 6. Restart XRDP service
-echo "[6/6] Restarting XRDP service to apply all changes..."
-sudo systemctl restart xrdp
+# 6. Restart/Start XRDP services
+echo "[6/6] Stopping, Enabling, and Starting XRDP services to apply all changes..."
+# Stop both services first
+sudo systemctl stop xrdp
+sudo systemctl stop xrdp-sesman 2>/dev/null || true # Ignore error if sesman is not a separate service
+
+# Enable and start both services
+sudo systemctl enable xrdp
+sudo systemctl enable xrdp-sesman 2>/dev/null || true
+
+sudo systemctl start xrdp
+sudo systemctl start xrdp-sesman 2>/dev/null || true
+
+# Verify status
+echo "XRDP Status:"
 sudo systemctl status xrdp | grep Active
+echo "Sesman Status (If separate):"
+sudo systemctl status xrdp-sesman | grep Active 2>/dev/null || echo "xrdp-sesman is likely integrated with xrdp."
 
 echo "----------------------------------------------"
 echo "--- SETUP COMPLETE ---"
-echo "You can now connect to your server via RDP client on: ${PUBLIC_IP}:$XRDP_PORT"
+echo "You can now connect to your server via RDP client on: [Server_IP]:$XRDP_PORT"
 echo "Use Username: $RDP_USER and Password: $DEFAULT_PASSWORD"
 echo "!!! IMMEDIATELY CHANGE THE PASSWORD FOR USER $RDP_USER AFTER CONNECTING !!!"
 echo "----------------------------------------------"
