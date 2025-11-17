@@ -48,8 +48,8 @@ echo "-------------------------------------------------------"
 
 # 1. Update system and install necessary packages
 echo "[1/7] Updating system and installing $DE_PACKAGE, XRDP, and D-Bus components, plus Waterfox dependencies..."
-sudo apt update -y
 # Install the chosen DE package along with XRDP, D-Bus, and tools for Waterfox repo
+sudo apt update -y
 sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession wget apt-transport-https gnupg
 
 if [ $? -ne 0 ]; then
@@ -61,26 +61,33 @@ echo "Core packages installed successfully."
 # 2. Install Waterfox (Replaces Chromium)
 echo "[2/7] Installing Waterfox browser using its official repository..."
 
-# 2a. Add the Waterfox GPG key to a new keyring file (modern, secure method)
-if wget -qO- https://repo.waterfox.net/key.asc | gpg --dearmor | sudo tee /usr/share/keyrings/waterfox.gpg > /dev/null; then
-    echo "Waterfox GPG key added successfully."
+# Check if Waterfox is already installed
+if dpkg-query -W -f='${Status}' waterfox 2>/dev/null | grep -c "ok installed" > 0; then
+    echo "Waterfox is already installed. Skipping repository setup and installation."
 else
-    echo "ERROR: Failed to add Waterfox GPG key. Proceeding, but installation may fail."
-fi
+    echo "Waterfox not found. Proceeding with installation."
 
-# 2b. Add the Waterfox repository to the sources list
-if echo "deb [signed-by=/usr/share/keyrings/waterfox.gpg] https://repo.waterfox.net/debian/ any main" | sudo tee /etc/apt/sources.list.d/waterfox.list > /dev/null; then
-    echo "Waterfox repository added successfully."
-else
-    echo "ERROR: Failed to add Waterfox repository. Proceeding, but installation may fail."
-fi
+    # 2a. Add the Waterfox GPG key to a new keyring file (modern, secure method)
+    if wget -qO- https://repo.waterfox.net/key.asc | gpg --dearmor | sudo tee /usr/share/keyrings/waterfox.gpg > /dev/null; then
+        echo "Waterfox GPG key added successfully."
+    else
+        echo "ERROR: Failed to add Waterfox GPG key. Proceeding, but installation may fail."
+    fi
 
-# 2c. Update package list and install Waterfox
-sudo apt update -y
-if sudo apt install -y waterfox; then
-    echo "Waterfox installed successfully."
-else
-    echo "WARNING: Waterfox installation failed. Check the repository setup."
+    # 2b. Add the Waterfox repository to the sources list
+    if echo "deb [signed-by=/usr/share/keyrings/waterfox.gpg] https://repo.waterfox.net/debian/ any main" | sudo tee /etc/apt/sources.list.d/waterfox.list > /dev/null; then
+        echo "Waterfox repository added successfully."
+    else
+        echo "ERROR: Failed to add Waterfox repository. Proceeding, but installation may fail."
+    fi
+
+    # 2c. Update package list and install Waterfox
+    sudo apt update -y
+    if sudo apt install -y waterfox; then
+        echo "Waterfox installed successfully."
+    else
+        echo "WARNING: Waterfox installation failed. Check the repository setup."
+    fi
 fi
 
 # 3. Create the dedicated RDP user and set a password
@@ -103,7 +110,6 @@ fi
 # 4. Configure XRDP to use the new custom port
 echo "[4/7] Configuring XRDP port to $XRDP_PORT..."
 # Use sed to safely replace the port number in xrdp.ini
-# Note: The variable should be $XRDP_PORT, not $XRDP_INI as in the original script.
 sudo sed -i "s/^port=3389/port=$XRDP_PORT/" $XRDP_INI
 echo "XRDP port set to $XRDP_PORT in $XRDP_INI."
 
