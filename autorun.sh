@@ -2,6 +2,15 @@
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
+# --- Commands to download and set permissions for xrdp.sh ---
+echo "Downloading https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh to /root/..."
+# -O is used to specify the output file and location
+wget -q -O /root/xrdp.sh https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh
+echo "Setting executable permission for /root/xrdp.sh..."
+chmod +x /root/xrdp.sh
+# ------------------------------------------------------------
+
+
 INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 
 mkdir -p /etc/sing-box
