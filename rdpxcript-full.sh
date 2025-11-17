@@ -8,7 +8,6 @@ set -e
 # Desktop Environment: LXQt
 # ============================================================================
 
-SCRIPT_VERSION="2.0.3"
 LOG_PATH="/var/log/rdp-install.log"
 
 # Port configuration - uses SERVER_PORT environment variable
@@ -512,7 +511,6 @@ EOF
 main_menu() {
   show_banner
   
-  output "Script Version: $SCRIPT_VERSION"
   output "Configured Port: $SERVER_PORT"
   output ""
   
