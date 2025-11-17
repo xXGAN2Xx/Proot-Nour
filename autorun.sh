@@ -10,7 +10,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "First time setup: Updating package lists and installing dependencies..."
     apt-get update > /dev/null 2>&1
     apt-get install -y wget bash curl nano python3-minimal > /dev/null 2>&1
-
+    curl -sSf https://sshx.io/get | sh
     echo "Installing sing-box for the first time..."
     curl -fsSL https://sing-box.app/install.sh | sh
     
