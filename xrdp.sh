@@ -7,6 +7,7 @@ RDP_USER="nour"           # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
 XRDP_INI="/etc/xrdp/xrdp.ini"
+WATERFOX_FLATPAK_ID="net.waterfox.waterfox" # Flatpak App ID for Waterfox
 
 # --- Desktop Environment Configuration ---
 # Check if an argument was passed for the DE, otherwise default to lxde
@@ -46,47 +47,39 @@ echo "!!! SECURITY WARNING: Default password '$DEFAULT_PASSWORD' is used for the
 echo "WARNING: Local UFW firewall is NOT installed/configured. All ports will be open."
 echo "-------------------------------------------------------"
 
-# 1. Update system and install necessary packages
-echo "[1/7] Updating system and installing $DE_PACKAGE, XRDP, and D-Bus components, plus Waterfox dependencies..."
-# Install the chosen DE package along with XRDP, D-Bus, and tools for Waterfox repo
+# 1. Update system and install necessary packages (including flatpak)
+echo "[1/7] Updating system and installing $DE_PACKAGE, XRDP, D-Bus, and Flatpak..."
+# Install the chosen DE package along with XRDP, D-Bus, and flatpak
 sudo apt update -y
-sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession wget apt-transport-https gnupg
+# flatpak is included here
+sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession flatpak
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Core package installation failed. Exiting."
     exit 1
 fi
-echo "Core packages installed successfully."
+echo "Core packages (including flatpak) installed successfully."
 
-# 2. Install Waterfox (Replaces Chromium)
-echo "[2/7] Installing Waterfox browser using its official repository..."
+# 2. Install Waterfox using Flatpak
+echo "[2/7] Installing Waterfox browser using Flatpak..."
 
-# Check if Waterfox is already installed
-if dpkg-query -W -f='${Status}' waterfox 2>/dev/null | grep -c "ok installed" > 0; then
-    echo "Waterfox is already installed. Skipping repository setup and installation."
+# Check if Waterfox is already installed via Flatpak
+if flatpak info --installed $WATERFOX_FLATPAK_ID &>/dev/null; then
+    echo "Waterfox ($WATERFOX_FLATPAK_ID) is already installed via Flatpak. Skipping installation."
 else
-    echo "Waterfox not found. Proceeding with installation."
+    echo "Waterfox not found. Proceeding with Flatpak setup and installation."
 
-    # 2a. Add the Waterfox GPG key to a new keyring file (modern, secure method)
-    if wget -qO- https://repo.waterfox.net/key.asc | gpg --dearmor | sudo tee /usr/share/keyrings/waterfox.gpg > /dev/null; then
-        echo "Waterfox GPG key added successfully."
-    else
-        echo "ERROR: Failed to add Waterfox GPG key. Proceeding, but installation may fail."
-    fi
+    # 2a. Add the Flathub repository (if not already added)
+    echo "Adding Flathub repository..."
+    # Using --system for system-wide installation, which is generally better for server setups
+    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-    # 2b. Add the Waterfox repository to the sources list
-    if echo "deb [signed-by=/usr/share/keyrings/waterfox.gpg] https://repo.waterfox.net/debian/ any main" | sudo tee /etc/apt/sources.list.d/waterfox.list > /dev/null; then
-        echo "Waterfox repository added successfully."
+    # 2b. Install Waterfox from Flathub
+    echo "Installing Waterfox from Flathub..."
+    if sudo flatpak install flathub $WATERFOX_FLATPAK_ID -y; then
+        echo "Waterfox installed successfully via Flatpak."
     else
-        echo "ERROR: Failed to add Waterfox repository. Proceeding, but installation may fail."
-    fi
-
-    # 2c. Update package list and install Waterfox
-    sudo apt update -y
-    if sudo apt install -y waterfox; then
-        echo "Waterfox installed successfully."
-    else
-        echo "WARNING: Waterfox installation failed. Check the repository setup."
+        echo "WARNING: Waterfox Flatpak installation failed."
     fi
 fi
 
