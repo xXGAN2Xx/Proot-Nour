@@ -7,7 +7,10 @@ RDP_USER="nour"           # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
 XRDP_INI="/etc/xrdp/xrdp.ini"
-WATERFOX_FLATPAK_ID="net.waterfox.waterfox" # Flatpak App ID for Waterfox
+CHROME_DEB_URL="https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+CHROME_DEB_PATH="/tmp/google-chrome-stable_current_amd64.deb"
+CHROME_PACKAGE="google-chrome-stable"
+CHROME_EXEC="/usr/bin/google-chrome-stable" # Standard installation path for Chrome
 
 # --- Desktop Environment Configuration ---
 # Check if an argument was passed for the DE, otherwise default to lxde
@@ -47,44 +50,20 @@ echo "!!! SECURITY WARNING: Default password '$DEFAULT_PASSWORD' is used for the
 echo "WARNING: Local UFW firewall is NOT installed/configured. All ports will be open."
 echo "-------------------------------------------------------"
 
-# 1. Update system and install necessary packages (including flatpak)
-echo "[1/7] Updating system and installing $DE_PACKAGE, XRDP, D-Bus, and Flatpak..."
-# Install the chosen DE package along with XRDP, D-Bus, and flatpak
+# 1. Update system and install necessary packages
+echo "[1/8] Updating system and installing $DE_PACKAGE, XRDP, D-Bus, and wget..."
+# Install the chosen DE package along with XRDP, D-Bus, and wget for Chrome download
 sudo apt update -y
-# flatpak is included here
-sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession flatpak
+sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession wget
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Core package installation failed. Exiting."
     exit 1
 fi
-echo "Core packages (including flatpak) installed successfully."
+echo "Core packages installed successfully."
 
-# 2. Install Waterfox using Flatpak
-echo "[2/7] Installing Waterfox browser using Flatpak..."
-
-# Check if Waterfox is already installed via Flatpak
-if flatpak info --installed $WATERFOX_FLATPAK_ID &>/dev/null; then
-    echo "Waterfox ($WATERFOX_FLATPAK_ID) is already installed via Flatpak. Skipping installation."
-else
-    echo "Waterfox not found. Proceeding with Flatpak setup and installation."
-
-    # 2a. Add the Flathub repository (if not already added)
-    echo "Adding Flathub repository..."
-    # Using --system for system-wide installation, which is generally better for server setups
-    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-    # 2b. Install Waterfox from Flathub
-    echo "Installing Waterfox from Flathub..."
-    if sudo flatpak install flathub $WATERFOX_FLATPAK_ID -y; then
-        echo "Waterfox installed successfully via Flatpak."
-    else
-        echo "WARNING: Waterfox Flatpak installation failed."
-    fi
-fi
-
-# 3. Create the dedicated RDP user and set a password
-echo "[3/7] Checking for user '$RDP_USER' and setting its password (CRUCIAL for XRDP login)."
+# 2. Create the dedicated RDP user and set a password
+echo "[2/8] Checking for user '$RDP_USER' and setting its password (CRUCIAL for XRDP login)."
 if id "$RDP_USER" &>/dev/null; then
     echo "User '$RDP_USER' already exists. Skipping user creation."
 else
@@ -100,14 +79,69 @@ else
     echo "Default password set for user '$RDP_USER'."
 fi
 
-# 4. Configure XRDP to use the new custom port
-echo "[4/7] Configuring XRDP port to $XRDP_PORT..."
+# 3. Install Google Chrome (System-wide installation)
+echo "[3/8] Installing web browser (Google Chrome) system-wide..."
+
+# Check if Chrome is already installed
+if dpkg-query -W -f='${Status}' $CHROME_PACKAGE 2>/dev/null | grep -c "ok installed" > 0; then
+    echo "$CHROME_PACKAGE is already installed. Skipping installation."
+else
+    echo "$CHROME_PACKAGE not found. Downloading and installing..."
+    
+    # Download the .deb package
+    if sudo wget -O "$CHROME_DEB_PATH" "$CHROME_DEB_URL"; then
+        echo "Download complete. Installing package and dependencies..."
+        
+        # Install the package (will likely fail due to dependencies)
+        sudo dpkg -i "$CHROME_DEB_PATH"
+        
+        # Install missing dependencies and complete the installation
+        if sudo apt --fix-broken install -y; then
+            echo "$CHROME_PACKAGE installed successfully."
+        else
+            echo "ERROR: Dependency resolution failed. $CHROME_PACKAGE may not be fully installed."
+        fi
+        
+        # Clean up the downloaded .deb file
+        sudo rm -f "$CHROME_DEB_PATH"
+    else
+        echo "ERROR: Failed to download Google Chrome from $CHROME_DEB_URL. Proceeding without a browser."
+    fi
+fi
+
+# 4. Configure Google Chrome to autostart in LXDE
+echo "[4/8] Configuring Google Chrome to autostart for user '$RDP_USER'..."
+CHROME_AUTOSTART_DIR="/home/$RDP_USER/.config/autostart"
+CHROME_AUTOSTART_FILE="$CHROME_AUTOSTART_DIR/google-chrome.desktop"
+
+# Create the autostart directory if it doesn't exist
+sudo -u $RDP_USER mkdir -p "$CHROME_AUTOSTART_DIR"
+
+# Create the .desktop file to launch Chrome
+sudo tee "$CHROME_AUTOSTART_FILE" > /dev/null << EOF
+[Desktop Entry]
+Type=Application
+Name=Google Chrome
+Exec=$CHROME_EXEC --no-sandbox --start-maximized
+Terminal=false
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+# Ensure the file is owned by the user
+sudo chown $RDP_USER:$RDP_USER "$CHROME_AUTOSTART_FILE"
+echo "Google Chrome autostart configured in $CHROME_AUTOSTART_FILE."
+echo "NOTE: '--no-sandbox' is added for compatibility in headless/proot environments."
+
+# 5. Configure XRDP to use the new custom port (was 4/7)
+echo "[5/8] Configuring XRDP port to $XRDP_PORT..."
 # Use sed to safely replace the port number in xrdp.ini
 sudo sed -i "s/^port=3389/port=$XRDP_PORT/" $XRDP_INI
 echo "XRDP port set to $XRDP_PORT in $XRDP_INI."
 
-# 5. Configure the XRDP session manager (sesman) to start the selected DE
-echo "[5/7] Configuring XRDP to launch the $DE_CHOICE session with command: $DE_START_COMMAND"
+# 6. Configure the XRDP session manager (sesman) to start the selected DE (was 5/7)
+echo "[6/8] Configuring XRDP to launch the $DE_CHOICE session with command: $DE_START_COMMAND"
 # Backup the original file
 sudo cp $STARTWM_FILE "${STARTWM_FILE}.bak"
 
@@ -128,14 +162,14 @@ EOF
 sudo chmod +x $STARTWM_FILE
 echo "$DE_CHOICE launch configured in $STARTWM_FILE."
 
-# 6. Fix potential D-Bus/Sesman connection permissions
-echo "[6/7] Adding user $RDP_USER to the ssl-cert group for session stability..."
+# 7. Fix potential D-Bus/Sesman connection permissions (was 6/7)
+echo "[7/8] Adding user $RDP_USER to the ssl-cert group for session stability..."
 # Use -a to append, -G to specify groups
 sudo usermod -a -G ssl-cert $RDP_USER
 echo "User added to ssl-cert group."
 
-# 7. Restart/Start XRDP services
-echo "[7/7] Stopping, Enabling, and Starting XRDP services to apply all changes..."
+# 8. Restart/Start XRDP services (was 7/7)
+echo "[8/8] Stopping, Enabling, and Starting XRDP services to apply all changes..."
 sudo systemctl stop xrdp
 sudo systemctl stop xrdp-sesman 2>/dev/null || true
 
@@ -153,7 +187,7 @@ sudo systemctl status xrdp-sesman | grep Active 2>/dev/null || echo "xrdp-sesman
 
 echo "----------------------------------------------"
 echo "--- SETUP COMPLETE ---"
-echo "You can now connect to your server via RDP client on: \${PUBLIC_IP}:$XRDP_PORT"
+echo "You can now connect to your server via RDP client on: ${PUBLIC_IP}:$XRDP_PORT"
 echo "Use Username: $RDP_USER and Password: $DEFAULT_PASSWORD"
 echo "!!! IMMEDIATELY CHANGE THE PASSWORD FOR USER $RDP_USER AFTER CONNECTING !!!"
 echo "----------------------------------------------"
