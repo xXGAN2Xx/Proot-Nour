@@ -8,6 +8,7 @@ set -e
 # Desktop Environment: LXQt
 # ============================================================================
 
+SCRIPT_VERSION="2.0.1"
 LOG_PATH="/var/log/rdp-install.log"
 
 # Port configuration - uses SERVER_PORT environment variable
@@ -156,13 +157,19 @@ install_xrdp() {
   echo "startlxqt" > /etc/skel/.xsession
   chmod +x /etc/skel/.xsession
   
-  # Apply to existing users
+  # Apply to existing users (with user existence check for proot compatibility)
   for user_home in /home/*; do
     if [ -d "$user_home" ]; then
       username=$(basename "$user_home")
-      echo "startlxqt" > "$user_home/.xsession"
-      chown "$username:$username" "$user_home/.xsession"
-      chmod +x "$user_home/.xsession"
+      # Check if user actually exists before proceeding
+      if id "$username" &>/dev/null; then
+        echo "startlxqt" > "$user_home/.xsession"
+        chown "$username:$username" "$user_home/.xsession"
+        chmod +x "$user_home/.xsession"
+        output "Configured session for user: $username"
+      else
+        output "Skipping $user_home - user $username does not exist (proot/container environment)"
+      fi
     fi
   done
   
@@ -429,6 +436,7 @@ EOF
 main_menu() {
   show_banner
   
+  output "Script Version: $SCRIPT_VERSION"
   output "Configured Port: $SERVER_PORT"
   output ""
   
