@@ -58,17 +58,13 @@ if [ $? -ne 0 ]; then
 fi
 echo "Packages installed successfully."
 
-# 2. Install Firefox with ESR fallback
-echo "[2/7] Attempting to install web browser (firefox/firefox-esr)..."
-if sudo apt install -y firefox; then
-    echo "Firefox installed successfully."
+# 2. Install Chromium
+echo "[2/7] Attempting to install web browser (Chromium)..."
+# Try the common package names for Chromium
+if sudo apt install -y chromium-browser || sudo apt install -y chromium; then
+    echo "Chromium installed successfully."
 else
-    echo "Firefox package not found. Falling back to firefox-esr..."
-    if sudo apt install -y firefox-esr; then
-        echo "Firefox ESR installed successfully."
-    else
-        echo "WARNING: Neither 'firefox' nor 'firefox-esr' could be installed. Proceeding without a browser."
-    fi
+    echo "WARNING: The 'chromium' or 'chromium-browser' package could not be installed. Proceeding without a browser."
 fi
 
 # 3. Create the dedicated RDP user and set a password
