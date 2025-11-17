@@ -85,6 +85,6 @@ sudo systemctl status xrdp | grep Active
 echo "----------------------------------------------"
 echo "--- SETUP COMPLETE ---"
 echo "You can now connect to your server via RDP client on: ${PUBLIC_IP}:$XRDP_PORT"
-echo "Use **Username: $RDP_USER** and **Password: $DEFAULT_PASSWORD**."
+echo "Use Username: $RDP_USER and Password: $DEFAULT_PASSWORD"
 echo "!!! IMMEDIATELY CHANGE THE PASSWORD FOR USER $RDP_USER AFTER CONNECTING !!!"
 echo "----------------------------------------------"
