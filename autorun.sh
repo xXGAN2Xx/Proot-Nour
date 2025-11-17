@@ -2,15 +2,6 @@
 
 echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
-# --- Commands to download and set permissions for xrdp.sh ---
-echo "Downloading https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh to /root/..."
-# -O is used to specify the output file and location
-wget -q -O /root/xrdp.sh https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh
-echo "Setting executable permission for /root/xrdp.sh..."
-chmod +x /root/xrdp.sh
-# ------------------------------------------------------------
-
-
 INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 
 mkdir -p /etc/sing-box
@@ -27,6 +18,14 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
 else
     echo "Dependencies are already installed. Skipping installation."
 fi
+
+# --- START: Code to download and set up xrdp.sh (Runs every time) ---
+echo "Downloading and setting up xrdp.sh..."
+wget -O /root/xrdp.sh https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh
+chmod +x /root/xrdp.sh
+echo "xrdp.sh downloaded and made executable."
+# --- END: Code to download and set up xrdp.sh ---
+
 echo "Creating/Updating sing-box configuration file..."
 cat << EOT > /etc/sing-box/config.json
 {
