@@ -8,7 +8,7 @@ set -e
 # Desktop Environment: LXQt
 # ============================================================================
 
-SCRIPT_VERSION="2.0.1"
+SCRIPT_VERSION="2.0.3"
 LOG_PATH="/var/log/rdp-install.log"
 
 # Port configuration - uses SERVER_PORT environment variable
@@ -135,11 +135,34 @@ install_lxqt() {
 # XRDP Installation
 # ============================================================================
 
+configure_vnc_for_user() {
+  local username=$1
+  local user_home=$2
+  
+  output "Configuring VNC for user: $username"
+  
+  # Create VNC directory
+  mkdir -p "$user_home/.vnc"
+  
+  # Create VNC xstartup script
+  cat > "$user_home/.vnc/xstartup" << 'EOF'
+#!/bin/bash
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec startlxqt
+EOF
+  
+  chmod +x "$user_home/.vnc/xstartup"
+  chown -R "$username:$username" "$user_home/.vnc"
+  
+  output "VNC configured for user: $username"
+}
+
 install_xrdp() {
   output "Installing XRDP..."
   
   apt-get update
-  apt-get install -y xrdp
+  apt-get install -y xrdp tigervnc-standalone-server tigervnc-common
   
   # Add xrdp to ssl-cert group
   usermod -a -G ssl-cert xrdp
@@ -153,9 +176,44 @@ install_xrdp() {
   # Install desktop environment
   install_lxqt
   
+  # Configure XRDP startwm.sh for both Xorg and VNC sessions
+  output "Configuring XRDP startup script..."
+  
+  cat > /etc/xrdp/startwm.sh << 'EOF'
+#!/bin/sh
+# xrdp X session start script (c) 2015, 2017, 2021 mirabilos
+# published under The MirOS Licence
+
+# Rely on /etc/profile being sourced already
+if test -r /etc/profile; then
+	. /etc/profile
+fi
+
+# Ensure session configuration
+if test -r ~/.xsession; then
+	exec ~/.xsession
+elif test -r ~/.Xsession; then
+	exec ~/.Xsession
+else
+	exec startlxqt
+fi
+EOF
+  
+  chmod +x /etc/xrdp/startwm.sh
+  
   # Configure session for all users
   echo "startlxqt" > /etc/skel/.xsession
   chmod +x /etc/skel/.xsession
+  
+  # Also create VNC xstartup template
+  mkdir -p /etc/skel/.vnc
+  cat > /etc/skel/.vnc/xstartup << 'EOF'
+#!/bin/bash
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec startlxqt
+EOF
+  chmod +x /etc/skel/.vnc/xstartup
   
   # Apply to existing users (with user existence check for proot compatibility)
   for user_home in /home/*; do
@@ -163,15 +221,30 @@ install_xrdp() {
       username=$(basename "$user_home")
       # Check if user actually exists before proceeding
       if id "$username" &>/dev/null; then
+        # Configure Xorg session
         echo "startlxqt" > "$user_home/.xsession"
         chown "$username:$username" "$user_home/.xsession"
         chmod +x "$user_home/.xsession"
-        output "Configured session for user: $username"
+        
+        # Configure VNC session
+        configure_vnc_for_user "$username" "$user_home"
+        
+        output "Configured Xorg and VNC sessions for user: $username"
       else
         output "Skipping $user_home - user $username does not exist (proot/container environment)"
       fi
     fi
   done
+  
+  # Ensure both Xorg and VNC sessions are enabled in XRDP
+  output "Ensuring both Xorg and VNC sessions are enabled..."
+  
+  # Make sure Xvnc section is NOT commented out
+  if [ -f /etc/xrdp/xrdp.ini ]; then
+    sed -i 's/^;*\(\[Xvnc\]\)/\1/' /etc/xrdp/xrdp.ini
+    sed -i 's/^;*\(\[Xorg\]\)/\1/' /etc/xrdp/xrdp.ini
+    output "Both Xorg and VNC sessions are enabled"
+  fi
   
   # Configure firewall if UFW is installed and active
   if command -v ufw &> /dev/null; then
@@ -195,6 +268,10 @@ install_xrdp() {
   success "XRDP installation completed!"
   output "================================================"
   output "Connect using: $SERVER_IP:$SERVER_PORT"
+  output ""
+  output "IMPORTANT: When connecting with XRDP client:"
+  output "  - Select 'Xorg' session (NOT VNC)"
+  output "  - Use your Linux username and password"
   output "================================================"
 }
 
@@ -404,8 +481,8 @@ EOF
     output "UFW not found, skipping firewall configuration"
   fi
   
-  # Get server IP
-  SERVER_IP=$(curl -s https://api64.ipify.org/ || hostname -I | awk '{print $1}')
+  # Get server IP (IPv4 only)
+  SERVER_IP=$(curl -4 -s https://api64.ipify.org/ || hostname -I | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
   
   success "noVNC installation completed!"
   output "================================================"
