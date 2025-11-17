@@ -2,14 +2,44 @@
 
 # --- Configuration ---
 # Use the SERVER_PORT environment variable, or fall back to 14212 if not set.
-XRDP_PORT="${SERVER_PORT:-14212}"
-RDP_USER="nour"         # Default RDP user
+XRDP_PORT="${SERVER_PORT}"
+RDP_USER="nour"           # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
 XRDP_INI="/etc/xrdp/xrdp.ini"
+
+# --- Desktop Environment Configuration ---
+# Check if an argument was passed for the DE, otherwise default to lxde
+if [ -n "$1" ]; then
+    DE_CHOICE=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+else
+    DE_CHOICE="lxde" # Default desktop environment
+fi
+
+# Define the installation package and start command based on choice
+case "$DE_CHOICE" in
+    "lxde")
+        DE_PACKAGE="lxde"
+        DE_START_COMMAND="startlxde"
+        ;;
+    "lxqt")
+        DE_PACKAGE="lxqt"
+        DE_START_COMMAND="startlxqt"
+        ;;
+    "xfce4")
+        DE_PACKAGE="xfce4"
+        DE_START_COMMAND="startxfce4"
+        ;;
+    *)
+        echo "ERROR: Invalid Desktop Environment choice: $1"
+        echo "Supported options are: lxde, lxqt, xfce4."
+        exit 1
+        ;;
+esac
 # ---------------------
 
 echo "--- LXDE/XRDP Headless Server Setup Script (NO UFW) ---"
+echo "Selected Desktop Environment: $DE_CHOICE (Package: $DE_PACKAGE)"
 echo "Dedicated RDP User: $RDP_USER"
 echo "Custom XRDP Port: $XRDP_PORT"
 echo "!!! SECURITY WARNING: Default password '$DEFAULT_PASSWORD' is used for the new user. Change it immediately after connecting. !!!"
@@ -17,9 +47,10 @@ echo "WARNING: Local UFW firewall is NOT installed/configured. All ports will be
 echo "-------------------------------------------------------"
 
 # 1. Update system and install necessary packages
-echo "[1/6] Updating system and installing LXDE, XRDP, and D-Bus components..."
+echo "[1/7] Updating system and installing $DE_PACKAGE, XRDP, and D-Bus components..."
 sudo apt update -y
-sudo apt install -y lxde xrdp dbus-x11 lxsession
+# Install the chosen DE package along with XRDP and D-Bus components
+sudo apt install -y $DE_PACKAGE xrdp dbus-x11 lxsession
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Package installation failed. Exiting."
@@ -27,8 +58,21 @@ if [ $? -ne 0 ]; then
 fi
 echo "Packages installed successfully."
 
-# 2. Create the dedicated RDP user and set a password
-echo "[2/6] Checking for user '$RDP_USER' and setting its password (CRUCIAL for XRDP login)."
+# 2. Install Firefox with ESR fallback
+echo "[2/7] Attempting to install web browser (firefox/firefox-esr)..."
+if sudo apt install -y firefox; then
+    echo "Firefox installed successfully."
+else
+    echo "Firefox package not found. Falling back to firefox-esr..."
+    if sudo apt install -y firefox-esr; then
+        echo "Firefox ESR installed successfully."
+    else
+        echo "WARNING: Neither 'firefox' nor 'firefox-esr' could be installed. Proceeding without a browser."
+    fi
+fi
+
+# 3. Create the dedicated RDP user and set a password
+echo "[3/7] Checking for user '$RDP_USER' and setting its password (CRUCIAL for XRDP login)."
 if id "$RDP_USER" &>/dev/null; then
     echo "User '$RDP_USER' already exists. Skipping user creation."
 else
@@ -44,18 +88,18 @@ else
     echo "Default password set for user '$RDP_USER'."
 fi
 
-# 3. Configure XRDP to use the new custom port
-echo "[3/6] Configuring XRDP port to $XRDP_PORT..."
+# 4. Configure XRDP to use the new custom port
+echo "[4/7] Configuring XRDP port to $XRDP_PORT..."
 # Use sed to safely replace the port number in xrdp.ini
-sudo sed -i "s/^port=3389/port=$XRDP_PORT/" $XRDP_INI
+sudo sed -i "s/^port=3389/port=$XRDP_INI/" $XRDP_INI
 echo "XRDP port set to $XRDP_PORT in $XRDP_INI."
 
-# 4. Configure the XRDP session manager (sesman) to start LXDE
-echo "[4/6] Configuring XRDP to launch the LXDE session..."
+# 5. Configure the XRDP session manager (sesman) to start the selected DE
+echo "[5/7] Configuring XRDP to launch the $DE_CHOICE session with command: $DE_START_COMMAND"
 # Backup the original file
 sudo cp $STARTWM_FILE "${STARTWM_FILE}.bak"
 
-# Overwrite the session execution part with a clean LXDE launch
+# Overwrite the session execution part with a clean DE launch
 sudo tee $STARTWM_FILE > /dev/null << EOF
 #!/bin/sh
 
@@ -64,27 +108,25 @@ if [ -r /etc/default/locale ]; then
   export LANG LANGUAGE
 fi
 
-# Launch the LXDE desktop
-startlxde
+# Launch the selected desktop environment
+$DE_START_COMMAND
 EOF
 
 # Ensure the script is executable
 sudo chmod +x $STARTWM_FILE
-echo "LXDE launch configured in $STARTWM_FILE."
+echo "$DE_CHOICE launch configured in $STARTWM_FILE."
 
-# 5. Fix potential D-Bus/Sesman connection permissions
-echo "[5/6] Adding user $RDP_USER to the ssl-cert group for session stability..."
+# 6. Fix potential D-Bus/Sesman connection permissions
+echo "[6/7] Adding user $RDP_USER to the ssl-cert group for session stability..."
 # Use -a to append, -G to specify groups
 sudo usermod -a -G ssl-cert $RDP_USER
 echo "User added to ssl-cert group."
 
-# 6. Restart/Start XRDP services
-echo "[6/6] Stopping, Enabling, and Starting XRDP services to apply all changes..."
-# Stop both services first
+# 7. Restart/Start XRDP services
+echo "[7/7] Stopping, Enabling, and Starting XRDP services to apply all changes..."
 sudo systemctl stop xrdp
-sudo systemctl stop xrdp-sesman 2>/dev/null || true # Ignore error if sesman is not a separate service
+sudo systemctl stop xrdp-sesman 2>/dev/null || true
 
-# Enable and start both services
 sudo systemctl enable xrdp
 sudo systemctl enable xrdp-sesman 2>/dev/null || true
 
