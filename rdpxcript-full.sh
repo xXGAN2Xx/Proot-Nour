@@ -1,5 +1,5 @@
 #!/bin/bash
-# https://github.com/unknownpersonog/RDPXcript
+
 set -e
 
 # ============================================================================
@@ -8,6 +8,7 @@ set -e
 # Desktop Environment: LXQt
 # ============================================================================
 
+SCRIPT_VERSION="2.0"
 LOG_PATH="/var/log/rdp-install.log"
 
 # Port configuration - uses SERVER_PORT environment variable
@@ -99,14 +100,33 @@ install_lxqt() {
   
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y --no-install-recommends \
-    lxqt-core \
-    lxqt-config \
-    openbox \
-    xorg \
-    dbus-x11 \
-    firefox-esr \
-    xterm
+  
+  # Determine which Firefox package to install
+  local firefox_pkg="firefox-esr"
+  if [[ "$OS" == "ubuntu" ]]; then
+    firefox_pkg="firefox"
+  fi
+  
+  # Check if Firefox package exists
+  if ! apt-cache show "$firefox_pkg" &> /dev/null; then
+    output "Warning: $firefox_pkg not available, trying alternative..."
+    if apt-cache show "firefox" &> /dev/null; then
+      firefox_pkg="firefox"
+    elif apt-cache show "firefox-esr" &> /dev/null; then
+      firefox_pkg="firefox-esr"
+    else
+      output "Warning: No Firefox package found, skipping browser installation"
+      firefox_pkg=""
+    fi
+  fi
+  
+  # Build package list
+  local packages="lxqt-core lxqt-config openbox xorg dbus-x11 xterm"
+  if [ -n "$firefox_pkg" ]; then
+    packages="$packages $firefox_pkg"
+  fi
+  
+  apt-get install -y --no-install-recommends $packages
   
   success "LXQt Desktop Environment installed successfully"
 }
@@ -410,6 +430,7 @@ EOF
 main_menu() {
   show_banner
   
+  output "Script Version: $SCRIPT_VERSION"
   output "Configured Port: $SERVER_PORT"
   output ""
   
