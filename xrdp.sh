@@ -141,7 +141,7 @@ sudo systemctl status xrdp-sesman | grep Active 2>/dev/null || echo "xrdp-sesman
 
 echo "----------------------------------------------"
 echo "--- SETUP COMPLETE ---"
-echo "You can now connect to your server via RDP client on: [Server_IP]:$XRDP_PORT"
+echo "You can now connect to your server via RDP client on: ${PUBLIC_IP}:$XRDP_PORT"
 echo "Use Username: $RDP_USER and Password: $DEFAULT_PASSWORD"
 echo "!!! IMMEDIATELY CHANGE THE PASSWORD FOR USER $RDP_USER AFTER CONNECTING !!!"
 echo "----------------------------------------------"
