@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # --- Configuration ---
-# Use the SERVER_PORT environment variable, or fall back to 14212 if not set.
-XRDP_PORT="${SERVER_PORT}"
+# Defaults
+DEFAULT_XRDP_PORT="${SERVER_PORT}"  # Standard RDP port
+DEFAULT_DE="lxde"
+SUPPORTED_DES=("lxde" "lxqt" "xfce4") # List for argument validation
 RDP_USER="nour"           # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
@@ -12,14 +14,90 @@ CHROME_DEB_PATH="/tmp/google-chrome-stable_current_amd64.deb"
 CHROME_PACKAGE="google-chrome-stable"
 CHROME_EXEC="/usr/bin/google-chrome-stable" # Standard installation path for Chrome
 
-# --- Desktop Environment Configuration ---
-# Check if an argument was passed for the DE, otherwise default to lxde
-if [ -n "$1" ]; then
-    DE_CHOICE=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+
+# Function to check if a string is a valid DE
+is_valid_de() {
+    local de_input=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    for de in "${SUPPORTED_DES[@]}"; do
+        if [ "$de_input" == "$de" ]; then
+            echo "$de_input"
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+# --- Argument Parsing: ./script.sh [PORT] [DE] OR ./script.sh [DE] [PORT] OR ./script.sh [SINGLE_ARG] ---
+
+if [ $# -eq 0 ]; then
+    # Case 0: No arguments. Use all defaults.
+    XRDP_PORT="$DEFAULT_XRDP_PORT"
+    DE_CHOICE="$DEFAULT_DE"
+    echo "WARNING: No arguments provided. Using default port ($XRDP_PORT) and DE ($DE_CHOICE)."
+
+elif [ $# -eq 1 ]; then
+    # Case 1: One argument. Check if it's a DE name first, then a port.
+
+    ARG1_LOWER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    VALID_DE_RESULT=$(is_valid_de "$ARG1_LOWER")
+    
+    if [ $? -eq 0 ]; then
+        # Argument 1 is a valid DE (e.g., ./1.sh lxde)
+        DE_CHOICE="$VALID_DE_RESULT"
+        XRDP_PORT="$DEFAULT_XRDP_PORT"
+        echo "Detected DE '$DE_CHOICE' as the only argument. Using default port: $DEFAULT_XRDP_PORT"
+    elif [[ "$1" =~ ^[0-9]+$ ]]; then
+        # Argument 1 is a number (e.g., ./1.sh 25565)
+        XRDP_PORT="$1"
+        DE_CHOICE="$DEFAULT_DE"
+        echo "Detected port '$XRDP_PORT' as the only argument. Using default DE: $DEFAULT_DE"
+    else
+        # Argument 1 is invalid
+        echo "ERROR: Invalid single argument '$1'. Must be a supported DE (${SUPPORTED_DES[*]}) or a port number."
+        exit 1
+    fi
+
+elif [ $# -eq 2 ]; then
+    # Case 2: Two arguments. Check for both [PORT] [DE] and [DE] [PORT] combinations.
+
+    ARG1_LOWER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+    ARG2_LOWER=$(echo "$2" | tr '[:upper:]' '[:lower:]')
+
+    # Helper variables to check argument type
+    IS_PORT1=0; if [[ "$1" =~ ^[0-9]+$ ]]; then IS_PORT1=1; fi
+    IS_PORT2=0; if [[ "$2" =~ ^[0-9]+$ ]]; then IS_PORT2=1; fi
+    
+    IS_DE1=0; VALID_DE1=$(is_valid_de "$ARG1_LOWER"); if [ $? -eq 0 ]; then IS_DE1=1; fi
+    IS_DE2=0; VALID_DE2=$(is_valid_de "$ARG2_LOWER"); if [ $? -eq 0 ]; then IS_DE2=1; fi
+
+    if [ $IS_PORT1 -eq 1 ] && [ $IS_DE2 -eq 1 ]; then
+        # Format 1: [PORT] [DE] (e.g., 25565 lxde)
+        XRDP_PORT="$1"
+        DE_CHOICE="$VALID_DE2"
+        echo "Detected arguments format: [PORT] [DE] ($XRDP_PORT $DE_CHOICE)"
+
+    elif [ $IS_DE1 -eq 1 ] && [ $IS_PORT2 -eq 1 ]; then
+        # Format 2: [DE] [PORT] (e.g., lxqt 25565) <-- FIX FOR USER'S REQUEST
+        DE_CHOICE="$VALID_DE1"
+        XRDP_PORT="$2"
+        echo "Detected arguments format: [DE] [PORT] ($DE_CHOICE $XRDP_PORT)"
+
+    else
+        # Neither combination matches
+        echo "ERROR: Invalid combination of two arguments: '$1' and '$2'."
+        echo "Supported combinations: [PORT] [DE] or [DE] [PORT]."
+        echo "Supported DEs: ${SUPPORTED_DES[*]}"
+        exit 1
+    fi
+
 else
-    DE_CHOICE="lxde" # Default desktop environment
+    # Case 3: Too many arguments
+    echo "ERROR: Too many arguments. Usage: ./script.sh [PORT] [DE] or ./script.sh [DE] [PORT] or ./script.sh [SINGLE_ARG]"
+    exit 1
 fi
 
+# --- Desktop Environment Configuration ---
 # Define the installation package and start command based on choice
 case "$DE_CHOICE" in
     "lxde")
@@ -31,12 +109,12 @@ case "$DE_CHOICE" in
         DE_START_COMMAND="startlxqt"
         ;;
     "xfce4")
-        DE_PACKAGE="xfce4"
+        DE_PACKAGE="xfce4 xfce4-goodies" # Install common XFCE components
         DE_START_COMMAND="startxfce4"
         ;;
     *)
-        echo "ERROR: Invalid Desktop Environment choice: $1"
-        echo "Supported options are: lxde, lxqt, xfce4."
+        # Should be caught by the parsing logic, but here as a safeguard
+        echo "FATAL ERROR: Desktop Environment logic failed."
         exit 1
         ;;
 esac
@@ -109,7 +187,7 @@ else
     fi
 fi
 
-# 4. Configure Google Chrome to autostart in LXDE
+# 4. Configure Google Chrome to autostart in DE
 echo "[4/8] Configuring Google Chrome to autostart for user '$RDP_USER'..."
 CHROME_AUTOSTART_DIR="/home/$RDP_USER/.config/autostart"
 CHROME_AUTOSTART_FILE="$CHROME_AUTOSTART_DIR/google-chrome.desktop"
@@ -134,13 +212,13 @@ sudo chown $RDP_USER:$RDP_USER "$CHROME_AUTOSTART_FILE"
 echo "Google Chrome autostart configured in $CHROME_AUTOSTART_FILE."
 echo "NOTE: '--no-sandbox' is added for compatibility in headless/proot environments."
 
-# 5. Configure XRDP to use the new custom port (was 4/7)
+# 5. Configure XRDP to use the new custom port
 echo "[5/8] Configuring XRDP port to $XRDP_PORT..."
-# Use sed to safely replace the port number in xrdp.ini
+# Replace the port number in xrdp.ini. Using the default port as the target for sed.
 sudo sed -i "s/^port=3389/port=$XRDP_PORT/" $XRDP_INI
 echo "XRDP port set to $XRDP_PORT in $XRDP_INI."
 
-# 6. Configure the XRDP session manager (sesman) to start the selected DE (was 5/7)
+# 6. Configure the XRDP session manager (sesman) to start the selected DE
 echo "[6/8] Configuring XRDP to launch the $DE_CHOICE session with command: $DE_START_COMMAND"
 # Backup the original file
 sudo cp $STARTWM_FILE "${STARTWM_FILE}.bak"
@@ -162,13 +240,13 @@ EOF
 sudo chmod +x $STARTWM_FILE
 echo "$DE_CHOICE launch configured in $STARTWM_FILE."
 
-# 7. Fix potential D-Bus/Sesman connection permissions (was 6/7)
+# 7. Fix potential D-Bus/Sesman connection permissions
 echo "[7/8] Adding user $RDP_USER to the ssl-cert group for session stability..."
 # Use -a to append, -G to specify groups
 sudo usermod -a -G ssl-cert $RDP_USER
 echo "User added to ssl-cert group."
 
-# 8. Restart/Start XRDP services (was 7/7)
+# 8. Restart/Start XRDP services
 echo "[8/8] Stopping, Enabling, and Starting XRDP services to apply all changes..."
 sudo systemctl stop xrdp
 sudo systemctl stop xrdp-sesman 2>/dev/null || true
