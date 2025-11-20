@@ -27,40 +27,6 @@ echo "xrdp.sh downloaded and made executable."
 # --- END: Code to download and set up xrdp.sh ---
 
 echo "Creating/Updating sing-box configuration file..."
-cat << EOT > /etc/sing-box/config.json
-{
-  "log": {
-    "disabled": true,
-    "level": "panic",
-    "timestamp": true
-  },
-  "inbounds": [
-    {
-      "type": "vless",
-      "tag": "vless-in",
-      "listen": "::",
-      "listen_port": ${SERVER_PORT},
-      "tcp_fast_open": true,
-      "users": [
-        {
-          "name": "nour",
-          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661"
-        }
-      ],
-      "transport": {
-        "type": "httpupgrade",
-        "path": "/nour"
-      }
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct"
-    }
-  ],
-  "route": {}
-}
-EOT
 
 echo "--- Starting sing-box service... ---"
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
