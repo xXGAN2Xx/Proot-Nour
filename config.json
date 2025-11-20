@@ -1,0 +1,32 @@
+{
+  "log": {
+    "disabled": true,
+    "level": "panic",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-in",
+      "listen": "::",
+      "listen_port": ${SERVER_PORT},
+      "tcp_fast_open": true,
+      "users": [
+        {
+          "name": "nour",
+          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661"
+        }
+      ],
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/nour"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct"
+    }
+  ],
+  "route": {}
+}
