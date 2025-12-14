@@ -3,7 +3,7 @@ name: Build and commit jars
 on:
   push:
     paths:
-      - 'wrappers/Kotlin/**'
+      - '**/*.kt'
   workflow_dispatch: {}
 
 permissions:
@@ -19,18 +19,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Set up JDK (Temurin, latest patch for chosen major)
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
           check-latest: true
 
-      - name: Build server.jar and serverd.jar
+      - name: Build Jars
         shell: bash
         run: |
           set -eo pipefail
-
           mkdir -p build
 
           # Function to install Kotlin if missing
@@ -43,63 +42,76 @@ jobs:
             fi
           }
 
-          # --- Compile serverd.jar (from maind.kt) ---
-          if [ -f "wrappers/Kotlin/maind.kt" ]; then
+          # 1. Find and Compile maind.kt -> serverd.jar
+          # We use 'find' to locate the file dynamically in case the path changed
+          MAIND_SRC=$(find . -type f -name "maind.kt" | head -n 1)
+
+          if [ -n "$MAIND_SRC" ]; then
             ensure_kotlinc
-            echo "Compiling wrappers/Kotlin/maind.kt -> build/serverd.jar"
-            kotlinc wrappers/Kotlin/maind.kt -include-runtime -d build/serverd.jar
+            echo "Found source: $MAIND_SRC"
+            echo "Compiling $MAIND_SRC -> build/serverd.jar"
+            
+            kotlinc "$MAIND_SRC" -include-runtime -d build/serverd.jar
             
             if [ -f build/serverd.jar ]; then
               cp -f build/serverd.jar ./serverd.jar
-              echo "serverd.jar copied to the root directory"
+              echo "SUCCESS: serverd.jar created."
             else
-              echo "Failed to create serverd.jar"
+              echo "ERROR: Compilation failed for serverd.jar"
+              exit 1
             fi
           else
-            echo "wrappers/Kotlin/maind.kt not found, skipping serverd.jar build."
+            echo "WARNING: maind.kt was not found in the repository. Skipping serverd.jar."
           fi
 
-          # --- Compile server.jar (from main.kt) ---
-          if [ -f "wrappers/Kotlin/main.kt" ]; then
+          # 2. Find and Compile main.kt -> server.jar
+          MAIN_SRC=$(find . -type f -name "main.kt" | head -n 1)
+
+          if [ -n "$MAIN_SRC" ]; then
             ensure_kotlinc
-            echo "Compiling wrappers/Kotlin/main.kt -> build/server.jar"
-            kotlinc wrappers/Kotlin/main.kt -include-runtime -d build/server.jar
+            echo "Found source: $MAIN_SRC"
+            echo "Compiling $MAIN_SRC -> build/server.jar"
+            
+            kotlinc "$MAIN_SRC" -include-runtime -d build/server.jar
             
             if [ -f build/server.jar ]; then
               cp -f build/server.jar ./server.jar
-              echo "server.jar copied to the root directory"
+              echo "SUCCESS: server.jar created."
             else
-              echo "Failed to create server.jar"
+              echo "ERROR: Compilation failed for server.jar"
+              exit 1
             fi
           else
-            echo "wrappers/Kotlin/main.kt not found, skipping server.jar build."
+            echo "WARNING: main.kt was not found in the repository. Skipping server.jar."
           fi
 
-          # Optional: Fail if neither JAR exists in the root now
+          # Final verification
           if [ ! -f ./server.jar ] && [ ! -f ./serverd.jar ]; then
-             echo "ERROR: Neither server.jar nor serverd.jar were built."
+             echo "CRITICAL ERROR: Neither JAR file could be built. Please check repository file structure."
              exit 1
           fi
 
-      - name: Commit and push built jars
+      - name: Commit and push
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Add server.jar if it exists
+          # Force add to ensure ignored files are included if necessary
           if [ -f server.jar ]; then
-            git add server.jar
+            git add -f server.jar
           fi
 
-          # Add serverd.jar if it exists
           if [ -f serverd.jar ]; then
-            git add serverd.jar
+            git add -f serverd.jar
           fi
+
+          # Check status detailed
+          git status
 
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes to commit (JARs are identical to previous version)."
           else
-            git commit -m "Update jars from CI"
+            git commit -m "Update server jars [skip ci]"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
