@@ -1,9 +1,9 @@
 import java.io.File
-import java.net.URL
+import java.io.IOException
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.io.IOException
 
 const val NOUR_SCRIPT_NAME = "nour.sh"
 const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nour.sh"
@@ -34,9 +34,10 @@ fun main() {
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
-    var fileToExecute: File? = null
-    var wasSuccessfullyUpdated = false
-    var isUpToDateAndSkippingPermSet = false
+    // Removed nullable var and forced initialization logic to fix "Condition always true" warning
+    val fileToExecute: File
+    val wasSuccessfullyUpdated: Boolean
+    val isUpToDateAndSkippingPermSet: Boolean
 
     if (scriptFile.exists()) {
         println("Found '${scriptFile.name}'. Checking for updates...")
@@ -46,68 +47,72 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
             if (updatedFile != null) {
                 fileToExecute = updatedFile
                 wasSuccessfullyUpdated = true
+                isUpToDateAndSkippingPermSet = false
                 println("Successfully updated '${scriptFile.name}'.")
             } else {
                 println("Failed to update '${scriptFile.name}'. Will attempt to run the existing local version '${scriptFile.name}'.")
                 fileToExecute = scriptFile
+                wasSuccessfullyUpdated = false
+                isUpToDateAndSkippingPermSet = false
             }
         } else {
             println("'${scriptFile.name}' is up to date.")
             fileToExecute = scriptFile
+            wasSuccessfullyUpdated = false
             isUpToDateAndSkippingPermSet = true
         }
     } else {
         return false
     }
 
-    if (fileToExecute != null) {
-        var canRun = false
+    // Logic Fix: Removed "if (fileToExecute != null)" because the flow above ensures it is never null here.
+    
+    var canRun = false
 
-        if (wasSuccessfullyUpdated) {
+    if (wasSuccessfullyUpdated) {
+        if (fileToExecute.canExecute()) {
+            println("Permissions for updated '${fileToExecute.name}' were set during download.")
+            canRun = true
+        } else {
+            println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update and permissioning process. Cannot run.")
+        }
+    } else if (isUpToDateAndSkippingPermSet) {
+        println("Skipping explicit permission setting for up-to-date file '${fileToExecute.name}'.")
+        if (fileToExecute.canExecute()) {
+            println("'${fileToExecute.name}' is already executable.")
+            canRun = true
+        } else {
+            println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Permission setting was skipped as requested. Script will not be run.")
+            canRun = false
+        }
+    } else {
+        println("Attempting to set/verify permissions for '${fileToExecute.name}' (e.g., fallback or initial run scenario)...")
+        if (setExecutablePermission(fileToExecute)) {
             if (fileToExecute.canExecute()) {
-                println("Permissions for updated '${fileToExecute.name}' were set during download.")
+                println("Permissions set successfully for '${fileToExecute.name}'.")
                 canRun = true
             } else {
-                println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update and permissioning process. Cannot run.")
-            }
-        } else if (isUpToDateAndSkippingPermSet) {
-            println("Skipping explicit permission setting for up-to-date file '${fileToExecute.name}'.")
-            if (fileToExecute.canExecute()) {
-                println("'${fileToExecute.name}' is already executable.")
-                canRun = true
-            } else {
-                println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Permission setting was skipped as requested. Script will not be run.")
-                canRun = false
+                    println("Error: Setting permissions for '${fileToExecute.name}' was reported as successful, but the file is still not executable. Cannot run.")
             }
         } else {
-            println("Attempting to set/verify permissions for '${fileToExecute.name}' (e.g., fallback or initial run scenario)...")
-            if (setExecutablePermission(fileToExecute)) {
-                if (fileToExecute.canExecute()) {
-                    println("Permissions set successfully for '${fileToExecute.name}'.")
-                    canRun = true
-                } else {
-                     println("Error: Setting permissions for '${fileToExecute.name}' was reported as successful, but the file is still not executable. Cannot run.")
-                }
-            } else {
-                println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
-            }
+            println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
         }
-
-        if (canRun) {
-            println("Preparing to run '${fileToExecute.name}'...")
-            runScript(fileToExecute)
-        } else {
-            println("Script '${fileToExecute.name}' will not be run due to permission issues or because it was not made executable.")
-        }
-        return true
     }
-    return false
+
+    if (canRun) {
+        println("Preparing to run '${fileToExecute.name}'...")
+        runScript(fileToExecute)
+    } else {
+        println("Script '${fileToExecute.name}' will not be run due to permission issues or because it was not made executable.")
+    }
+    return true
 }
 
 fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
     println("Comparing local '${localFile.name}' with remote '$remoteUrl'...")
     try {
-        val remoteContent = URL(remoteUrl).readText(Charsets.UTF_8)
+        // Fix: Replace new URL(string) with URI(string).toURL()
+        val remoteContent = URI(remoteUrl).toURL().readText(Charsets.UTF_8)
         val localContent = localFile.readText(Charsets.UTF_8)
         val changed = remoteContent != localContent
         if (changed) {
@@ -127,7 +132,14 @@ fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
 }
 
 fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): File? {
-    val url = URL(scriptUrlString)
+    // Fix: Replace new URL(string) with URI(string).toURL()
+    val url = runCatching { URI(scriptUrlString).toURL() }.getOrNull()
+    
+    if (url == null) {
+        println("Error: Invalid URL format: $scriptUrlString")
+        return null
+    }
+
     val destinationFile = File(scriptFileName)
 
     println("Downloading '$scriptFileName' from $scriptUrlString...")
@@ -209,7 +221,7 @@ fun runScript(scriptFile: File) {
     }
 }
 
-fun downloadFile(url: URL, destination: File) {
+fun downloadFile(url: java.net.URL, destination: File) {
     val tempFile = Files.createTempFile(destination.parentFile?.toPath() ?: Paths.get("."), destination.name, ".tmpdownload").toFile()
     try {
         url.openStream().use { inputStream ->
