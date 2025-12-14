@@ -4,7 +4,6 @@ echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URL for this script (Required for self-update check)
-# REPLACE 'startup.sh' with the actual filename of this script in your repo
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/startup.sh"
 
 # 2. URLs for resources
@@ -29,7 +28,6 @@ if command -v curl >/dev/null 2>&1; then
     # If download succeeded and file is not empty
     if [ -s /tmp/script_update_check ]; then
         # Compare current script ($0) with downloaded script
-        # We use 'cmp' or simple diff. If cmp is missing, we skip check or assume update.
         if command -v cmp >/dev/null 2>&1; then
             if ! cmp -s "$0" /tmp/script_update_check; then
                 echo "New version found! Updating script..."
@@ -43,7 +41,7 @@ if command -v curl >/dev/null 2>&1; then
                 rm -f /tmp/script_update_check
             fi
         else
-            # Fallback if 'cmp' isn't installed yet: just overwrite to be safe
+            # Fallback if 'cmp' isn't installed yet
             mv /tmp/script_update_check "$0"
             chmod +x "$0"
         fi
@@ -56,7 +54,8 @@ fi
 if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "First time setup: Updating package lists..."
     apt-get update > /dev/null 2>&1
-    apt-get install -y wget tmate bash curl nano python3-minimal diffutils > /dev/null 2>&1
+    # Added 'sed' to the list of packages to ensure the replacement in Step 3 works
+    apt-get install -y wget tmate bash curl nano python3-minimal diffutils sed > /dev/null 2>&1
     
     echo "Installing sing-box..."
     curl -fsSL https://sing-box.app/install.sh | sh
@@ -67,12 +66,21 @@ else
     echo "Dependencies are already installed."
 fi
 
-# --- STEP 3: Download config.json to /etc/sing-box/ ---
+# --- STEP 3: Download config.json and Configure Port ---
 echo "Downloading latest config.json..."
 curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
 
 if [ -f "$CONFIG_PATH" ]; then
     echo "Config downloaded successfully to: $CONFIG_PATH"
+    
+    # Check if SERVER_PORT variable exists
+    if [ -n "$SERVER_PORT" ]; then
+        echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
+        # Use sed to replace the literal text "${SERVER_PORT}" with the value of the variable
+        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$CONFIG_PATH"
+    else
+        echo "WARNING: SERVER_PORT environment variable is NOT set. Config file was not modified."
+    fi
 else
     echo "Error: Failed to download config.json"
 fi
@@ -85,6 +93,7 @@ echo "xrdp.sh downloaded and made executable."
 
 # --- STEP 5: Start Services ---
 echo "--- Starting sing-box service... ---"
+# Note: Ensure PUBLIC_IP and SERVER_PORT are set in the environment before running this script
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
 
 echo "systemctl start sing-box"
