@@ -4,7 +4,7 @@ echo "--- [Sing-Box Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URL for this script (Required for self-update check)
-SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/startup.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
 
 # 2. URLs for resources
 CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
