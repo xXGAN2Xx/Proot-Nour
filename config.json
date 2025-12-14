@@ -4,25 +4,23 @@
     "timestamp": true
   },
   "inbounds": [
- {
-  "type": "hysteria2",
-  "tag": "hy2-in",
-  "listen": "::",
-  "listen_port": ${SERVER_PORT},
-  },
-  "users": [
     {
-      "name": "nour",
-      "password": "123456"
+      "type": "hysteria2",
+      "tag": "hy2-in",
+      "listen": "::",
+      "listen_port": 443,
+      "users": [
+        {
+          "password": "123456"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "key_path": "/etc/sing-box/private.key",
+        "certificate_path": "/etc/sing-box/cert.pem",
+        "alpn": ["h3"]
+      }
     }
-  ],
-  "tls": {
-  "enabled": true,
-  "key_path": "/etc/sing-box/private.key",
-  "certificate_path": "/etc/sing-box/cert.pem",
-  "alpn": ["h3"],
-  },
-}
   ],
   "outbounds": [
     {
