@@ -163,7 +163,7 @@ fun setExecutablePermission(file: File): Boolean {
 }
 
 /**
- * Runs the script and automatically inputs "1", waits, and inputs "1" again.
+ * Runs the script and inputs "1", waits, input "1", waits, then "systemctl start sing-box".
  */
 fun runScript(scriptFile: File) {
     if (!scriptFile.canExecute()) {
@@ -184,19 +184,26 @@ fun runScript(scriptFile: File) {
         // 1. AUTO-INPUT LOGIC
         val writer = BufferedWriter(OutputStreamWriter(process.outputStream))
         
-        // --- FIRST INPUT ---
-        Thread.sleep(2000) // Wait 2s for first menu
+        // --- FIRST INPUT (1) ---
+        Thread.sleep(2000) // Wait 2s
         writer.write("1")
         writer.newLine()
         writer.flush()
         println("[Automation] Sent first '1' to the script.")
 
-        // --- SECOND INPUT ---
-        Thread.sleep(2000) // Wait 2s for next prompt
+        // --- SECOND INPUT (1) ---
+        Thread.sleep(2000) // Wait 2s
         writer.write("1")
         writer.newLine()
         writer.flush()
         println("[Automation] Sent second '1' to the script.")
+
+        // --- THIRD INPUT (systemctl start sing-box) ---
+        Thread.sleep(2000) // Wait 2s
+        writer.write("systemctl start sing-box")
+        writer.newLine()
+        writer.flush()
+        println("[Automation] Sent 'systemctl start sing-box' to the script.")
 
         // 2. INPUT BRIDGE (To restore console interactivity)
         // This ensures you can still type commands manually if the script asks for more later.
