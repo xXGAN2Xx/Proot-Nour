@@ -56,7 +56,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get update > /dev/null 2>&1
     
     echo "Installing dependencies (curl, openssl, etc)..."
-    apt-get install -y wget tmate bash curl nano python3-minimal diffutils sed openssl > /dev/null 2>&1
+    apt-get install -y wget tmate bash curl nano python3-minimal diffutils sed openssl grep > /dev/null 2>&1
     
     echo "Installing Hysteria 2..."
     curl -fsSL https://get.hy2.sh/ -o /tmp/hy2-install.sh
