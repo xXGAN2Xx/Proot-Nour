@@ -17,7 +17,7 @@
       "tls": {
         "enabled": true,
         "server_name": "playstation.net",
-        "key_path": "/etc/sing-box/key.pem",
+        "key_path": "/etc/sing-box/private.key",
         "certificate_path": "/etc/sing-box/cert.pem",
         "alpn": [
           "h3"
