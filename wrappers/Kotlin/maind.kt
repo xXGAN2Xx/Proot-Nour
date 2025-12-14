@@ -163,7 +163,7 @@ fun setExecutablePermission(file: File): Boolean {
 }
 
 /**
- * Runs the script and automatically inputs "1" for you.
+ * Runs the script and automatically inputs "1", waits, and inputs "1" again.
  */
 fun runScript(scriptFile: File) {
     if (!scriptFile.canExecute()) {
@@ -176,7 +176,6 @@ fun runScript(scriptFile: File) {
         val pb = ProcessBuilder("bash", scriptFile.absolutePath)
         
         // redirectOutput(INHERIT) lets you see the logs in real-time.
-        // We do NOT inherit 'Input' automatically, because we need to write "1" first.
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT)
         pb.redirectErrorStream(true)
 
@@ -185,18 +184,22 @@ fun runScript(scriptFile: File) {
         // 1. AUTO-INPUT LOGIC
         val writer = BufferedWriter(OutputStreamWriter(process.outputStream))
         
-        // Wait 2 seconds for the menu to appear
-        Thread.sleep(2000)
-        
-        // Type "1" and Enter
-        // --- CHANGE IS HERE ---
+        // --- FIRST INPUT ---
+        Thread.sleep(2000) // Wait 2s for first menu
         writer.write("1")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent '1' to the script process.")
+        println("[Automation] Sent first '1' to the script.")
+
+        // --- SECOND INPUT ---
+        Thread.sleep(2000) // Wait 2s for next prompt
+        writer.write("1")
+        writer.newLine()
+        writer.flush()
+        println("[Automation] Sent second '1' to the script.")
 
         // 2. INPUT BRIDGE (To restore console interactivity)
-        // Since we didn't inherit IO for input, we must manually copy System.in -> Process
+        // This ensures you can still type commands manually if the script asks for more later.
         Thread {
             try {
                 val buffer = ByteArray(1024)
