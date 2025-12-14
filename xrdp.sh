@@ -7,7 +7,7 @@
 # =============================================================================
 
 # --- Configuration Defaults ---
-DEFAULT_PORT="3389"
+DEFAULT_PORT="${SERVER_PORT}"
 DEFAULT_DE="xfce4"
 DEFAULT_USER="nour"
 DEFAULT_PASSWORD="123456" # Back to hardcoded default
