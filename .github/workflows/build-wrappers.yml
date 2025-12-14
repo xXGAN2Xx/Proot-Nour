@@ -1,4 +1,4 @@
-name: Build and commit server.jar
+name: Build and commit jars
 
 on:
   push:
@@ -26,14 +26,14 @@ jobs:
           java-version: '21'
           check-latest: true
 
-      - name: Build server.jar
+      - name: Build server.jar and serverd.jar
         shell: bash
         run: |
           set -eo pipefail
 
           mkdir -p build
-          BUILT_SERVER=false
 
+          # Function to install Kotlin if missing
           ensure_kotlinc() {
             if ! command -v kotlinc >/dev/null 2>&1; then
               echo "kotlinc not found — installing kotlin via sdkman..."
@@ -43,63 +43,63 @@ jobs:
             fi
           }
 
+          # --- Compile serverd.jar (from maind.kt) ---
+          if [ -f "wrappers/Kotlin/maind.kt" ]; then
+            ensure_kotlinc
+            echo "Compiling wrappers/Kotlin/maind.kt -> build/serverd.jar"
+            kotlinc wrappers/Kotlin/maind.kt -include-runtime -d build/serverd.jar
+            
+            if [ -f build/serverd.jar ]; then
+              cp -f build/serverd.jar ./serverd.jar
+              echo "serverd.jar copied to the root directory"
+            else
+              echo "Failed to create serverd.jar"
+            fi
+          else
+            echo "wrappers/Kotlin/maind.kt not found, skipping serverd.jar build."
+          fi
+
+          # --- Compile server.jar (from main.kt) ---
           if [ -f "wrappers/Kotlin/main.kt" ]; then
             ensure_kotlinc
             echo "Compiling wrappers/Kotlin/main.kt -> build/server.jar"
             kotlinc wrappers/Kotlin/main.kt -include-runtime -d build/server.jar
+            
             if [ -f build/server.jar ]; then
-              BUILT_SERVER=true
+              cp -f build/server.jar ./server.jar
+              echo "server.jar copied to the root directory"
+            else
+              echo "Failed to create server.jar"
             fi
+          else
+            echo "wrappers/Kotlin/main.kt not found, skipping server.jar build."
           fi
 
-          if [ "$BUILT_SERVER" = false ] && [ -x "./gradlew" ]; then
-            echo "No explicit main compilation done. Running ./gradlew clean build (or assemble)."
-            chmod +x ./gradlew
-            ./gradlew clean build || ./gradlew clean assemble || true
-            JAR_FOUND=$(find . -type f -name "*.jar" ! -path "*/.gradle/*" ! -path "./build/*/tmp/*" | head -n 1 || true)
-            if [ -n "$JAR_FOUND" ];
-            then
-              mkdir -p build
-              cp "$JAR_FOUND" build/server.jar
-              BUILT_SERVER=true
-            fi
+          # Optional: Fail if neither JAR exists in the root now
+          if [ ! -f ./server.jar ] && [ ! -f ./serverd.jar ]; then
+             echo "ERROR: Neither server.jar nor serverd.jar were built."
+             exit 1
           fi
 
-          if [ "$BUILT_SERVER" = false ]; then
-            echo "Falling back to compiling all Kotlin files into build/server.jar"
-            ensure_kotlinc
-            KT_FILES=$(find wrappers -type f -name "*.kt" -print | tr '\n' ' ' || true)
-            if [ -n "$KT_FILES" ]; then
-              kotlinc $KT_FILES -include-runtime -d build/server.jar
-              if [ -f build/server.jar ]; then
-                BUILT_SERVER=true
-              fi
-            fi
-          fi
-
-          if [ "$BUILT_SERVER" = false ]; then
-            echo "ERROR: No server.jar was built."
-            exit 1
-          fi
-
-          if [ "$BUILT_SERVER" = true ]; then
-            cp -f build/server.jar ./server.jar
-            echo "server.jar copied to the root directory"
-          fi
-
-      - name: Commit and push built jar
+      - name: Commit and push built jars
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Add server.jar if it exists
           if [ -f server.jar ]; then
             git add server.jar
+          fi
+
+          # Add serverd.jar if it exists
+          if [ -f serverd.jar ]; then
+            git add serverd.jar
           fi
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update server.jar from CI"
+            git commit -m "Update jars from CI"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
