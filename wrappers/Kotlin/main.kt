@@ -4,6 +4,7 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import kotlin.system.exitProcess
 
 const val NOUR_SCRIPT_NAME = "nour.sh"
 const val NOUR_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nour.sh"
@@ -211,6 +212,12 @@ fun runScript(scriptFile: File) {
         val process = processBuilder.start()
         val exitCode = process.waitFor()
         println("'${scriptFile.name}' finished with exit code $exitCode.")
+        
+        // Exit the program if script completed successfully
+        if (exitCode == 0) {
+            println("Script completed successfully. Exiting program...")
+            exitProcess(0)
+        }
     } catch (e: IOException) {
         println("IOException while trying to run script '${scriptFile.name}': ${e.message}")
         e.printStackTrace()
