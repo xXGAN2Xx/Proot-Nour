@@ -19,8 +19,6 @@ DEP_FLAG="${HOME}/.dependencies_installed_v2"
 
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 
-# Removed the initial LD_LIBRARY_PATH export here, as ARCH_ALT is not yet set.
-
 error_exit() {
     echo -e "${BR}${1}${NC}" >&2
     exit 1
@@ -69,9 +67,12 @@ install_dependencies() {
             error_exit "Local apt update failed. This is a critical step, cannot proceed."
         fi
 
-        local apt_pkgs_to_download=(bash jq curl ca-certificates iproute2 xz-utils)
+        # FIX 1: Added 'libjq1' and 'libonig5' (common dependency for jq) to the download list
+        local apt_pkgs_to_download=(bash jq libjq1 libonig5 curl ca-certificates iproute2 xz-utils)
+        
         echo -e "${Y}Downloading required .deb packages...${NC}"
-        apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || error_exit "Failed to download .deb packages. Please check network and apt sources."
+        # using || true because some packages might be virtual or pre-installed, preventing hard exit
+        apt-get "${apt_opts[@]}" download "${apt_pkgs_to_download[@]}" || echo -e "${Y}Warning: Some packages failed to download, attempting to proceed...${NC}"
 
         shopt -s nullglob
         local deb_files=("$PWD"/*.deb)
@@ -161,9 +162,10 @@ case "$ARCH" in
   *) error_exit "Unsupported architecture: $ARCH";;
 esac
 
-# FIX: Add local library paths, including the architecture-specific one, to LD_LIBRARY_PATH
-# This is necessary for locally extracted binaries like 'jq' to find their shared libraries.
-export LD_LIBRARY_PATH="${HOME}/.local/usr/lib/${ARCH_ALT}-linux-gnu:${HOME}/.local/usr/lib:${HOME}/.local/lib:${LD_LIBRARY_PATH}"
+# FIX 2: Fixed Library Path logic. 
+# Folder names in /usr/lib use the GNU triplet (e.g., x86_64-linux-gnu), not the Debian arch name (amd64).
+# We use $ARCH (x86_64) instead of $ARCH_ALT (amd64) for the directory path.
+export LD_LIBRARY_PATH="${HOME}/.local/usr/lib/${ARCH}-linux-gnu:${HOME}/.local/usr/lib:${HOME}/.local/lib:${LD_LIBRARY_PATH}"
 
 if [[ ! -f /etc/debian_version ]]; then
     cat /etc/*-release
