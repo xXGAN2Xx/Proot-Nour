@@ -130,5 +130,5 @@ echo "--- Starting Hysteria 2 service... ---"
 # Format: hysteria2://[password]@[server]:[port]/?insecure=1&sni=playstation.net#[name]
 # You need to set a password in your config.yaml
 echo "hy2://your_password@${PUBLIC_IP}:${SERVER_PORT}/?insecure=1&sni=playstation.net#nour-hysteria2"
-# Run Hysteria 2 server with config
+# hysteria server --config /etc/hysteria/config.yaml
 # hysteria server --config "$CONFIG_PATH" &
