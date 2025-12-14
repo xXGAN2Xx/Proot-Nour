@@ -8,7 +8,7 @@
       "type": "hysteria2",
       "tag": "hy2-in",
       "listen": "::",
-      "listen_port": 443,
+      "listen_port": ${SERVER_PORT},
       "users": [
         {
           "password": "123456"
