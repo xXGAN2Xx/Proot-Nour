@@ -1,32 +1,28 @@
 {
   "log": {
-    "level": "warn",
+    "level": "info",
     "timestamp": true
   },
   "inbounds": [
+ {
+  "type": "hysteria2",
+  "tag": "hy2-in",
+  "listen": "::",
+  "listen_port": ${SERVER_PORT},
+  },
+  "users": [
     {
-      "type": "hysteria2",
-      "tag": "hysteria-in",
-      "listen": "::",
-      "listen_port": ${SERVER_PORT},
-      "users": [
-        {
-          "password": "123456"
-        }
-      ],
-      "tls": {
-        "enabled": true,
-        "server_name": "playstation.net",
-        "key_path": "/etc/sing-box/private.key",
-        "certificate_path": "/etc/sing-box/cert.pem",
-        "alpn": [
-          "h3"
-        ]
-      },
-      "congestion_control": "bbr",
-      "up_mbps": 5,
-      "down_mbps": 40
+      "name": "nour",
+      "password": "123456"
     }
+  ],
+  "tls": {
+  "enabled": true,
+  "key_path": "/etc/sing-box/private.key",
+  "certificate_path": "/etc/sing-box/cert.pem",
+  "alpn": ["h3"],
+  },
+}
   ],
   "outbounds": [
     {
