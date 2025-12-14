@@ -1,32 +1,61 @@
 {
   "log": {
-    "disabled": true,
-    "level": "panic",
+    "level": "warn",
     "timestamp": true
   },
   "inbounds": [
     {
-      "type": "vless",
-      "tag": "vless-in",
+      "type": "hysteria2",
+      "tag": "hysteria-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
-      "tcp_fast_open": true,
       "users": [
         {
-          "name": "nour",
-          "uuid": "bf000d23-0752-40b4-affe-68f7707a9661"
+          "password": "123456"
         }
       ],
-      "transport": {
-        "type": "httpupgrade",
-        "path": "/nour"
-      }
+      "tls": {
+        "enabled": true,
+        "server_name": "playstation.net",
+        "key_path": "/etc/sing-box/key.pem",
+        "certificate_path": "/etc/sing-box/cert.pem",
+        "alpn": [
+          "h3"
+        ]
+      },
+      "congestion_control": "bbr",
+      "up_mbps": 5,
+      "down_mbps": 40
     }
   ],
   "outbounds": [
     {
-      "type": "direct"
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
     }
   ],
-  "route": {}
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "direct"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct"
+      }
+    ],
+    "final": "direct",
+    "auto_detect_interface": true
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/var/lib/sing-box/cache.db"
+    }
+  }
 }
