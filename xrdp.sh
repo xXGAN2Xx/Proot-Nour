@@ -4,7 +4,7 @@
 # Defaults
 DEFAULT_XRDP_PORT="${SERVER_PORT}"  # Standard RDP port
 DEFAULT_DE="lxde"
-SUPPORTED_DES=("lxde" "lxqt" "xfce4") # List for argument validation
+SUPPORTED_DES=("lxde" "xfce4") # List for argument validation (lxqt removed)
 RDP_USER="nour"           # Default RDP user
 DEFAULT_PASSWORD="123456" # Default RDP password
 STARTWM_FILE="/etc/xrdp/startwm.sh"
@@ -78,7 +78,7 @@ elif [ $# -eq 2 ]; then
         echo "Detected arguments format: [PORT] [DE] ($XRDP_PORT $DE_CHOICE)"
 
     elif [ $IS_DE1 -eq 1 ] && [ $IS_PORT2 -eq 1 ]; then
-        # Format 2: [DE] [PORT] (e.g., lxqt 25565) <-- FIX FOR USER'S REQUEST
+        # Format 2: [DE] [PORT] (e.g., lxde 25565)
         DE_CHOICE="$VALID_DE1"
         XRDP_PORT="$2"
         echo "Detected arguments format: [DE] [PORT] ($DE_CHOICE $XRDP_PORT)"
@@ -104,10 +104,6 @@ case "$DE_CHOICE" in
         DE_PACKAGE="lxde"
         DE_START_COMMAND="startlxde"
         ;;
-    "lxqt")
-        DE_PACKAGE="lxqt"
-        DE_START_COMMAND="startlxqt"
-        ;;
     "xfce4")
         DE_PACKAGE="xfce4 xfce4-goodies" # Install common XFCE components
         DE_START_COMMAND="startxfce4"
@@ -120,7 +116,7 @@ case "$DE_CHOICE" in
 esac
 # ---------------------
 
-echo "--- LXDE/XRDP Headless Server Setup Script (NO UFW) ---"
+echo "--- LXDE/XFCE/XRDP Headless Server Setup Script (NO UFW) ---"
 echo "Selected Desktop Environment: $DE_CHOICE (Package: $DE_PACKAGE)"
 echo "Dedicated RDP User: $RDP_USER"
 echo "Custom XRDP Port: $XRDP_PORT"
