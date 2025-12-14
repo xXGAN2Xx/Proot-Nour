@@ -17,7 +17,7 @@ XRDP_PATH="/root/xrdp.sh"
 
 # Certificate Paths
 CERT_FILE="/etc/sing-box/cert.pem"
-KEY_FILE="/etc/sing-box/key.pem"
+KEY_FILE="/etc/sing-box/private.key"
 
 # --- PREPARATION ---
 # Ensure the directory for config exists
@@ -66,10 +66,12 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "Generating fake SSL certificate..."
     # This creates a self-signed certificate valid for 3650 days (10 years)
     # Common Name (CN) is set to bing.com (common for fake configs), change if needed.
-    openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-        -subj "/C=US/ST=California/L=San Francisco/O=Bing/CN=bing.com" \
+    openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
+        -subj "/CN=playstation.net" \
+        -days 3650 \
         -keyout "$KEY_FILE" \
         -out "$CERT_FILE" \
+        -addext "subjectAltName=DNS:playstation.net,DNS:*.playstation.net"
         > /dev/null 2>&1
 
     chmod +x "$CERT_FILE" "$KEY_FILE"
