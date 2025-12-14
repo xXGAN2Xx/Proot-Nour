@@ -6,4 +6,4 @@ tls:
 
 auth:
   type: password
-  password: your_password
+  password: 123456
