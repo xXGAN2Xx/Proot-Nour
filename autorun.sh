@@ -66,7 +66,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "Generating fake SSL certificate..."
     # This creates a self-signed certificate valid for 3650 days (10 years)
     # Common Name (CN) is set to bing.com (common for fake configs), change if needed.
-    openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
+    openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
         -subj "/CN=playstation.net" \
         -days 3650 \
         -keyout "$KEY_FILE" \
