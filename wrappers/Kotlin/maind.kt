@@ -163,7 +163,7 @@ fun setExecutablePermission(file: File): Boolean {
 }
 
 /**
- * Runs the script and automatically inputs "0" (Debian) for you.
+ * Runs the script and automatically inputs "1" for you.
  */
 fun runScript(scriptFile: File) {
     if (!scriptFile.canExecute()) {
@@ -176,7 +176,7 @@ fun runScript(scriptFile: File) {
         val pb = ProcessBuilder("bash", scriptFile.absolutePath)
         
         // redirectOutput(INHERIT) lets you see the logs in real-time.
-        // We do NOT inherit 'Input' automatically, because we need to write "0" first.
+        // We do NOT inherit 'Input' automatically, because we need to write "1" first.
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT)
         pb.redirectErrorStream(true)
 
@@ -188,11 +188,12 @@ fun runScript(scriptFile: File) {
         // Wait 2 seconds for the menu to appear
         Thread.sleep(2000)
         
-        // Type "0" (Debian) and Enter
-        writer.write("0")
+        // Type "1" and Enter
+        // --- CHANGE IS HERE ---
+        writer.write("1")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent '0' to the script process.")
+        println("[Automation] Sent '1' to the script process.")
 
         // 2. INPUT BRIDGE (To restore console interactivity)
         // Since we didn't inherit IO for input, we must manually copy System.in -> Process
