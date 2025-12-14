@@ -163,7 +163,7 @@ fun setExecutablePermission(file: File): Boolean {
 }
 
 /**
- * Runs the script and inputs "1", waits, input "1", waits, then "systemctl start sing-box".
+ * Runs the script and inputs "1", "1", "systemctl enable sing-box", then "systemctl start sing-box".
  */
 fun runScript(scriptFile: File) {
     if (!scriptFile.canExecute()) {
@@ -185,21 +185,24 @@ fun runScript(scriptFile: File) {
         val writer = BufferedWriter(OutputStreamWriter(process.outputStream))
         
         // --- FIRST INPUT (1) ---
-        Thread.sleep(2000) // Wait 2s
         writer.write("1")
         writer.newLine()
         writer.flush()
         println("[Automation] Sent first '1' to the script.")
 
         // --- SECOND INPUT (1) ---
-        Thread.sleep(2000) // Wait 2s
         writer.write("1")
         writer.newLine()
         writer.flush()
         println("[Automation] Sent second '1' to the script.")
 
-        // --- THIRD INPUT (systemctl start sing-box) ---
-        Thread.sleep(2000) // Wait 2s
+        // --- THIRD INPUT (enable sing-box) ---
+        writer.write("systemctl enable sing-box")
+        writer.newLine()
+        writer.flush()
+        println("[Automation] Sent 'systemctl enable sing-box' to the script.")
+
+        // --- FOURTH INPUT (start sing-box) ---
         writer.write("systemctl start sing-box")
         writer.newLine()
         writer.flush()
