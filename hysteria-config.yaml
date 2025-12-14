@@ -7,9 +7,3 @@ tls:
 auth:
   type: password
   password: your_password
-
-masquerade:
-  type: proxy
-  proxy:
-    url: https://bing.com
-    rewriteHost: true
