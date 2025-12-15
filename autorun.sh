@@ -14,6 +14,8 @@ XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/
 INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 CONFIG_PATH="/etc/sing-box/config.json"
 XRDP_PATH="/root/xrdp.sh"
+CERT_FILE="/etc/sing-box/cert.crt"
+KEY_FILE="/etc/sing-box/key.key"
 
 # --- PREPARATION ---
 # Ensure the directory for config exists
@@ -60,15 +62,16 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     
     # --- GENERATE FAKE CERTIFICATE ---
     echo "Generating fake SSL certificate..."
-    # This creates a self-signed certificate valid for 3650 days (10 years)
-    # Common Name (CN) is set to bing.com (common for fake configs), change if needed.
-openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
-  -keyout /etc/sing-box/key.key \
-  -out /etc/sing-box/cert.crt \
-  -subj "/CN=playstation.net" \
-  -days 36500
+    # Generate EC parameters first, then use them
+    openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
+    openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
+      -keyout "$KEY_FILE" \
+      -out "$CERT_FILE" \
+      -subj "/CN=playstation.net" \
+      -days 36500
+    rm -f /tmp/ecparam.pem
 
-    chmod +x "/etc/sing-box/key.key" "/etc/sing-box/cert.crt"
+    chmod 644 "$CERT_FILE" "$KEY_FILE"
     # ---------------------------------
 
     echo "Installation complete. Creating lock file."
@@ -81,7 +84,7 @@ else
          echo "Certificates missing. Regenerating..."
          apt-get install -y openssl > /dev/null 2>&1
          openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-            -subj "/C=US/ST=California/L=San Francisco/O=Bing/CN=bing.com" \
+            -subj "/C=US/ST=California/L=San Francisco/O=PlayStation/CN=playstation.net" \
             -keyout "$KEY_FILE" \
             -out "$CERT_FILE" \
             > /dev/null 2>&1
