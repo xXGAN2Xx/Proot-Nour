@@ -15,10 +15,6 @@ INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 CONFIG_PATH="/etc/sing-box/config.json"
 XRDP_PATH="/root/xrdp.sh"
 
-# Certificate Paths
-CERT_FILE="/etc/sing-box/cert.pem"
-KEY_FILE="/etc/sing-box/private.key"
-
 # --- PREPARATION ---
 # Ensure the directory for config exists
 mkdir -p /etc/sing-box
@@ -66,17 +62,13 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "Generating fake SSL certificate..."
     # This creates a self-signed certificate valid for 3650 days (10 years)
     # Common Name (CN) is set to bing.com (common for fake configs), change if needed.
-    openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-        -subj "/CN=playstation.net" \
-        -days 3650 \
-        -keyout "$KEY_FILE" \
-        -out "$CERT_FILE" \
-        -addext "subjectAltName=DNS:playstation.net,DNS:*.playstation.net"
-        > /dev/null 2>&1
+openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
+  -keyout /etc/sing-box/key.key \
+  -out /etc/sing-box/cert.crt \
+  -subj "/CN=playstation.net" \
+  -days 36500
 
-    chmod +x "$CERT_FILE" "$KEY_FILE"
-    echo "Certificate generated at: $CERT_FILE"
-    echo "Private Key generated at: $KEY_FILE"
+    chmod +x "/etc/sing-box/key.key" "/etc/sing-box/cert.crt"
     # ---------------------------------
 
     echo "Installation complete. Creating lock file."
