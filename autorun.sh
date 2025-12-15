@@ -14,8 +14,8 @@ XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/
 INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 CONFIG_PATH="/etc/sing-box/config.json"
 XRDP_PATH="/root/xrdp.sh"
-CERT_FILE="/etc/sing-box/cert.crt"
-KEY_FILE="/etc/sing-box/key.key"
+CERT_FILE="/usr/local/etc/xray/cert.crt"
+KEY_FILE="/usr/local/etc/xray/key.key"
 
 # --- PREPARATION ---
 # Ensure the directory for config exists
