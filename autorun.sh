@@ -121,8 +121,7 @@ echo "xrdp.sh downloaded and made executable."
 # --- STEP 5: Start Services ---
 echo "--- Starting Xray service... ---"
 # Note: Ensure PUBLIC_IP and SERVER_PORT are set in the environment before running this script
-echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
-
+echo "vless://a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&insecure=1&allowInsecure=1&type=tcp&headerType=none#Nour"
 # Start Xray with the configuration
 # xray run -config /usr/local/etc/xray/config.json
 # xray run -config "$CONFIG_PATH" &
