@@ -55,7 +55,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     
     # ADDED 'openssl' here for certificate generation
     echo "Installing dependencies (curl, openssl, etc)..."
-    apt-get install -y wget tmate bash curl nano python3-minimal diffutils sed openssl > /dev/null 2>&1
+    apt-get install -y wget tmate bash curl nano python diffutils sed openssl > /dev/null 2>&1
     
     echo "Installing sing-box..."
     curl -fsSL https://sing-box.app/install.sh | sh
