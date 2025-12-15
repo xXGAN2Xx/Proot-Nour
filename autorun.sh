@@ -55,8 +55,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     
     # ADDED 'openssl' here for certificate generation
     echo "Installing dependencies (curl, openssl, etc)..."
-    apt-get install -y wget tmate bash curl nano python3 diffutils sed openssl > /dev/null 2>&1
-    
+    apt-get install -y curl openssl ca-certificates unzip diffutils sed python3 tmate > /dev/null 2>&1
     echo "Installing Xray..."
     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
     
