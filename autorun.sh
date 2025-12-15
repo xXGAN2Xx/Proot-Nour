@@ -124,10 +124,7 @@ echo "--- Starting Xray service... ---"
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
 
 # Start Xray with the configuration
-xray run -config "$CONFIG_PATH" &
-
-echo "Xray is now running in the background."
-# Note: In a PRoot environment, systemctl may not be available
-# If systemctl is available, you can use:
+xray run -config /usr/local/etc/xray/config.json
+#xray run -config "$CONFIG_PATH" &
 # systemctl enable xray
 # systemctl start xray
