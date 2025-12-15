@@ -138,4 +138,4 @@ echo "systemctl start sing-box"
 # systemctl enable sing-box
 # systemctl start sing-box
 # systemctl kill sing-box
-# sing-box run --config /etc/sing-box/config.json &
+# sing-box check -c /etc/sing-box/config.json &
