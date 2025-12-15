@@ -1,9 +1,0 @@
-listen: :${SERVER_PORT}
-
-tls:
-  cert: /etc/hysteria/cert.pem
-  key: /etc/hysteria/private.key
-
-auth:
-  type: password
-  password: 123456
