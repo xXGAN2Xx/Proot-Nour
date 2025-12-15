@@ -58,20 +58,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get install -y wget tmate bash curl nano python3 diffutils sed openssl > /dev/null 2>&1
     
     echo "Installing sing-box..."
-mkdir -p /etc/apt/keyrings &&
-curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc &&
-chmod a+r /etc/apt/keyrings/sagernet.asc &&
-   echo '
-Types: deb
-URIs: https://deb.sagernet.org/
-Suites: *
-Components: *
-Enabled: yes
-Signed-By: /etc/apt/keyrings/sagernet.asc
-' | tee /etc/apt/sources.list.d/sagernet.sources &&
- apt-get update &&
- apt-get install sing-box # or sing-box-beta
-    
+
     # --- GENERATE FAKE CERTIFICATE ---
     echo "Generating fake SSL certificate..."
     # Generate EC parameters first, then use them
