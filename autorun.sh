@@ -58,7 +58,19 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get install -y wget tmate bash curl nano python3 diffutils sed openssl > /dev/null 2>&1
     
     echo "Installing sing-box..."
-    curl -fsSL https://sing-box.app/install.sh | sh
+mkdir -p /etc/apt/keyrings &&
+curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc &&
+chmod a+r /etc/apt/keyrings/sagernet.asc &&
+   echo '
+Types: deb
+URIs: https://deb.sagernet.org/
+Suites: *
+Components: *
+Enabled: yes
+Signed-By: /etc/apt/keyrings/sagernet.asc
+' | tee /etc/apt/sources.list.d/sagernet.sources &&
+ apt-get update &&
+ apt-get install sing-box # or sing-box-beta
     
     # --- GENERATE FAKE CERTIFICATE ---
     echo "Generating fake SSL certificate..."
@@ -71,7 +83,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
       -days 36500
     rm -f /tmp/ecparam.pem
 
-    chmod 644 "$CERT_FILE" "$KEY_FILE"
+    chmod +x "$CERT_FILE" "$KEY_FILE"
     # ---------------------------------
 
     echo "Installation complete. Creating lock file."
@@ -81,14 +93,14 @@ else
     
     # Check if certs exist, if not (deleted accidentally), regenerate them
     if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-         echo "Certificates missing. Regenerating..."
-         apt-get install -y openssl > /dev/null 2>&1
-         openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-            -subj "/C=US/ST=California/L=San Francisco/O=PlayStation/CN=playstation.net" \
-            -keyout "$KEY_FILE" \
-            -out "$CERT_FILE" \
-            > /dev/null 2>&1
-         chmod 644 "$CERT_FILE" "$KEY_FILE"
+    openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
+    openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
+      -keyout "$KEY_FILE" \
+      -out "$CERT_FILE" \
+      -subj "/CN=playstation.net" \
+      -days 36500
+    rm -f /tmp/ecparam.pem
+    chmod +x "$CERT_FILE" "$KEY_FILE"
          echo "Certificates regenerated."
     fi
 fi
