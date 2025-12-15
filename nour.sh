@@ -3,7 +3,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # Configuration
 export LANG=en_US.UTF-8
-export PUBLIC_IP=$(curl -s ifconfig.me)
+export PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se)
 export HOME="${HOME:-$(pwd)}"
 export DEBIAN_FRONTEND=noninteractive
 
