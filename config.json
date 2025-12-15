@@ -1,7 +1,18 @@
 {
   "log": {
+    "disabled": false,
     "level": "info",
     "timestamp": true
+  },
+  "route": {
+    "rules": [
+      {
+        "inbound": [
+          "hy2-in"
+        ],
+        "outbound": "direct"
+      }
+    ]
   },
   "inbounds": [
     {
@@ -9,16 +20,21 @@
       "tag": "hy2-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
+      "ignore_client_bandwidth": true,
       "users": [
         {
+          "name": "nour",
           "password": "123456"
         }
       ],
       "tls": {
+        "alpn": [
+          "h3"
+        ],
         "enabled": true,
-        "key_path": "/etc/sing-box/private.key",
-        "certificate_path": "/etc/sing-box/cert.pem",
-        "alpn": ["h3"]
+        "server_name": "playstation.net",
+        "certificate_path": "/etc/sing-box/cert.crt",
+        "key_path": "/etc/sing-box/key.key"
       }
     }
   ],
@@ -32,24 +48,9 @@
       "tag": "block"
     }
   ],
-  "route": {
-    "rules": [
-      {
-        "protocol": "dns",
-        "outbound": "direct"
-      },
-      {
-        "ip_is_private": true,
-        "outbound": "direct"
-      }
-    ],
-    "final": "direct",
-    "auto_detect_interface": true
-  },
   "experimental": {
     "cache_file": {
-      "enabled": true,
-      "path": "/var/lib/sing-box/cache.db"
+      "enabled": true
     }
   }
 }
