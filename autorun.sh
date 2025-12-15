@@ -57,8 +57,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "Installing dependencies (curl, openssl, etc)..."
     apt-get install -y curl openssl ca-certificates sed python3-minimal tmate > /dev/null 2>&1
     echo "Installing Xray..."
-    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
-    
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata    
     # --- GENERATE FAKE CERTIFICATE ---
     echo "Generating fake SSL certificate..."
     # Generate EC parameters first, then use them
