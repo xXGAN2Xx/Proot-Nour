@@ -205,7 +205,7 @@ systemctl restart xrdp
 systemctl restart xrdp-sesman
 
 # --- Final Output ---
-PUBLIC_IP=$(curl -s ifconfig.me || echo "SERVER_IP")
+PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se || echo "SERVER_IP")
 
 echo ""
 echo "======================================================="
