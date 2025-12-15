@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "--- [Sing-Box Startup Script Inside PRoot] ---"
+echo "--- [Xray Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URL for this script (Required for self-update check)
@@ -11,15 +11,15 @@ CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
 # 3. Local Paths
-INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
-CONFIG_PATH="/etc/sing-box/config.json"
+INSTALL_LOCK_FILE="/usr/local/etc/xray/install_lock"
+CONFIG_PATH="/usr/local/etc/xray/config.json"
 XRDP_PATH="/root/xrdp.sh"
 CERT_FILE="/usr/local/etc/xray/cert.crt"
 KEY_FILE="/usr/local/etc/xray/key.key"
 
 # --- PREPARATION ---
 # Ensure the directory for config exists
-mkdir -p /etc/sing-box
+mkdir -p /usr/local/etc/xray
 
 # --- STEP 1: Self-Update Check ---
 if command -v curl >/dev/null 2>&1; then
@@ -57,8 +57,9 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "Installing dependencies (curl, openssl, etc)..."
     apt-get install -y wget tmate bash curl nano python3 diffutils sed openssl > /dev/null 2>&1
     
-    echo "Installing sing-box..."
-
+    echo "Installing Xray..."
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+    
     # --- GENERATE FAKE CERTIFICATE ---
     echo "Generating fake SSL certificate..."
     # Generate EC parameters first, then use them
@@ -80,15 +81,16 @@ else
     
     # Check if certs exist, if not (deleted accidentally), regenerate them
     if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-    openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
-    openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
-      -keyout "$KEY_FILE" \
-      -out "$CERT_FILE" \
-      -subj "/CN=playstation.net" \
-      -days 36500
-    rm -f /tmp/ecparam.pem
-    chmod +x "$CERT_FILE" "$KEY_FILE"
-         echo "Certificates regenerated."
+        echo "Certificates missing. Regenerating..."
+        openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
+        openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
+          -keyout "$KEY_FILE" \
+          -out "$CERT_FILE" \
+          -subj "/CN=playstation.net" \
+          -days 36500
+        rm -f /tmp/ecparam.pem
+        chmod +x "$CERT_FILE" "$KEY_FILE"
+        echo "Certificates regenerated."
     fi
 fi
 
@@ -117,12 +119,15 @@ chmod +x "$XRDP_PATH"
 echo "xrdp.sh downloaded and made executable."
 
 # --- STEP 5: Start Services ---
-echo "--- Starting sing-box service... ---"
+echo "--- Starting Xray service... ---"
 # Note: Ensure PUBLIC_IP and SERVER_PORT are set in the environment before running this script
 echo "vless://bf000d23-0752-40b4-affe-68f7707a9661@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=httpupgrade&host=playstation.net&path=%2Fnour#nour-vless"
 
-echo "systemctl start sing-box"
-# systemctl enable sing-box
-# systemctl start sing-box
-# systemctl kill sing-box
-# sing-box check -c /etc/sing-box/config.json &
+# Start Xray with the configuration
+xray run -config "$CONFIG_PATH" &
+
+echo "Xray is now running in the background."
+# Note: In a PRoot environment, systemctl may not be available
+# If systemctl is available, you can use:
+# systemctl enable xray
+# systemctl start xray
