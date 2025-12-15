@@ -163,9 +163,6 @@ fun setExecutablePermission(file: File): Boolean {
     }
 }
 
-/**
- * Runs the script and inputs "1", "1", "systemctl enable sing-box", then "systemctl start sing-box".
- */
 fun runScript(scriptFile: File) {
     if (!scriptFile.canExecute()) {
         println("Cannot run script: '${scriptFile.name}' is not executable.")
@@ -189,26 +186,21 @@ fun runScript(scriptFile: File) {
         writer.write("1")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent first '1' to the script.")
 
         // --- SECOND INPUT (1) ---
         writer.write("1")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent second '1' to the script.")
 
-        // --- THIRD INPUT (enable sing-box) ---
-        writer.write("systemctl enable sing-box")
+        // --- THIRD INPUT (enable xray) ---
+        writer.write("systemctl enable xray")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent 'systemctl enable sing-box' to the script.")
 
-        // --- FOURTH INPUT (start sing-box) ---
-        writer.write("systemctl start sing-box")
+        // --- FOURTH INPUT (start xray) ---
+        writer.write("systemctl start xray")
         writer.newLine()
         writer.flush()
-        println("[Automation] Sent 'systemctl start sing-box' to the script.")
-
         // 2. INPUT BRIDGE (To restore console interactivity)
         // This ensures you can still type commands manually if the script asks for more later.
         Thread {
