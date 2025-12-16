@@ -72,7 +72,7 @@ fi
 # B. Xray-core Installation/Update (RUNS EVERY TIME)
 echo "Checking for Xray-core updates and installing..."
 # This command will update Xray if a new version is available, or reinstall it.
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 
 # C. SSL Certificates (Generate only if missing)
 if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
