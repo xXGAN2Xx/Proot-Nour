@@ -100,8 +100,7 @@ echo "--- Starting Xray (Gaming + Injection Mode)... ---"
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 # VLESS Link Generation (Updated for TCP + HTTP Header Injection)
-# security=none | type=tcp | headerType=http | host=roblox.com
-VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=&type=tcp&headerType=http&host=roblox.com&encryption=none#Nour"
+VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=&type=tcp&headerType=http&host=playstation.net&encryption=none#Nour"
 echo "=========================================================="
 echo " Xray VLESS Link (Tcp + Http Injection)"
 echo " Host: roblox.com (No TLS)"
