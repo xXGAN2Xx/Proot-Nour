@@ -19,8 +19,10 @@
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
       },
-      "sniff": true,
-      "sniff_override_destination": true
+      "transport": {
+        "type": "tcp"
+      },
+      "tcp_fast_open": true
     }
   ],
   "outbounds": [
@@ -28,5 +30,9 @@
       "type": "direct",
       "tag": "direct"
     }
-  ]
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "final": "direct"
+  }
 }
