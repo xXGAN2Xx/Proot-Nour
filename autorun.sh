@@ -130,4 +130,4 @@ echo "=========================================================="
 
 # Start Sing-box
 echo "systemctl enable sing-box && systemctl start sing-box"
-sing-box run -c /etc/sing-box/config.json
+# sing-box run -c /etc/sing-box/config.json
