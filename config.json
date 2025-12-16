@@ -19,9 +19,6 @@
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
       },
-      "transport": {
-        "type": "tcp"
-      },
       "sniff": true,
       "sniff_override_destination": true
     }
