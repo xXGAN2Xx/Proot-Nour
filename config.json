@@ -1,37 +1,35 @@
 {
   "log": {
-    "loglevel": "warning"
+    "level": "info",
+    "timestamp": true
   },
   "inbounds": [
     {
-      "port": ${SERVER_PORT},
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          {
-            "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-            
-          }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "/usr/local/etc/xray/cert.crt",
-              "keyFile": "/usr/local/etc/xray/key.key"
-            }
-          ]
+      "type": "hysteria2",
+      "tag": "hy2-in",
+      "listen": "::",
+      "listen_port": ${SERVER_PORT},
+      "up_mbps": 1000,
+      "down_mbps": 1000,
+      "users": [
+        {
+          "password": "123456"
         }
-      }
+      ],
+      "tls": {
+        "enabled": true,
+        "alpn": [
+          "h3"
+        ],
+        "certificate_path": "/etc/sing-box/cert.pem",
+        "key_path": "/etc/sing-box/key.pem"
+      },
+      "ignore_client_bandwidth": true
     }
   ],
   "outbounds": [
     {
-      "protocol": "freedom",
+      "type": "direct",
       "tag": "direct"
     }
   ]
