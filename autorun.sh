@@ -70,8 +70,6 @@ echo "Checking for Xray-core updates and installing..."
 # This command will update Xray if a new version is available, or reinstall it.
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 
-# C. SSL Certificates section REMOVED (Using plain TCP+HTTP)
-
 # --- STEP 3: Download config.json and Configure ---
 echo "Downloading latest config.json..."
 curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
@@ -109,6 +107,6 @@ echo "$VLESS_LINK"
 echo "=========================================================="
 
 # Start Xray
-echo "Starting Xray core..."
+echo "to start Xray core type the next command in console"
 echo "systemctl enable xray && systemctl start xray"
 # xray run -c /usr/local/etc/xray/config.json
