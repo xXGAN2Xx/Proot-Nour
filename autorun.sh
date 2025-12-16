@@ -120,7 +120,7 @@ chmod +x "$XRDP_PATH"
 echo "--- Starting Sing-box (Gaming Mode)... ---"
 
 # VLESS Link Generation (Gaming optimized tag)
-VLESS_LINK="vless://ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&insecure=1&allowInsecure=1&type=tcp&headerType=none#Nour"
+VLESS_LINK="vless://ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&allowInsecure=1&type=tcp&flow=xtls-rprx-vision&encryption=none#Nour"
 echo "=========================================================="
 echo " Sing-box VLESS Link (Tcp+Tls)"
 echo " Hash marked as #Nour for client optimization"
