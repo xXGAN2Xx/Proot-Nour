@@ -127,7 +127,7 @@ echo "xrdp.sh downloaded and made executable."
 echo "--- Starting Sing-box service... ---"
 
 # Generate Client Link for display
-HY2_LINK="hysteria2://123456@${PUBLIC_IP}:${SERVER_PORT}?peer=playstation.net&insecure=1&mport=${SERVER_PORT}#Nour"
+HY2_LINK="hysteria2://123456@${PUBLIC_IP}:${SERVER_PORT}?sni=playstation.net&alpn=h3&insecure=1&allowInsecure=1#Nour"
 
 echo "=========================================================="
 echo " Sing-box Hysteria2 Link:"
