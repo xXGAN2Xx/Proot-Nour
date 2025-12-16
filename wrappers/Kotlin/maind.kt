@@ -193,12 +193,7 @@ fun runScript(scriptFile: File) {
         writer.flush()
 
         // --- THIRD INPUT (enable xray) ---
-        writer.write("systemctl enable xray")
-        writer.newLine()
-        writer.flush()
-
-        // --- FOURTH INPUT (start xray) ---
-        writer.write("systemctl start xray")
+        writer.write("systemctl enable xray && systemctl start xray")
         writer.newLine()
         writer.flush()
         // 2. INPUT BRIDGE (To restore console interactivity)
