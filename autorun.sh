@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "--- [Sing-box VLESS (Gaming) Startup Script Inside PRoot] ---"
+echo "--- [Xray VLESS (Gaming) Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URLs
@@ -9,18 +9,19 @@ CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
 # 2. Local Paths
-CONFIG_DIR="/etc/sing-box"
+# Standard Xray config path
+CONFIG_DIR="/usr/local/etc/xray"
 INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 XRDP_PATH="/root/xrdp.sh"
 
-# Certificate paths
-CERT_FILE="${CONFIG_DIR}/cert.pem"
-KEY_FILE="${CONFIG_DIR}/key.pem"
+# Certificate paths (Matched to your JSON config: .crt and .key)
+CERT_FILE="${CONFIG_DIR}/cert.crt"
+KEY_FILE="${CONFIG_DIR}/key.key"
 
 # Ensure Public IP is detected
 if [ -z "$PUBLIC_IP" ]; then
-    PUBLIC_IP=$(curl -s https://api.ipify.org)
+    PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se)
 fi
 
 # --- PREPARATION ---
@@ -53,19 +54,29 @@ if command -v curl >/dev/null 2>&1; then
     fi
 fi
 
-# --- STEP 2: Install Dependencies & Setup (First Run Only) ---
+# --- STEP 2: Install Dependencies & Setup ---
+
+# A. OS Dependencies (Only runs once to save time)
 if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "First time setup: Updating package lists..."
     apt-get update > /dev/null 2>&1
     
-    echo "Installing dependencies..."
-    apt-get install -y curl openssl ca-certificates sed python3-minimal tmate > /dev/null 2>&1
-
-    echo "Installing Sing-box..."
-    curl -fsSL https://sing-box.app/install.sh | sh
+    echo "Installing OS dependencies..."
+    apt-get install -y curl openssl ca-certificates sed python3-minimal tmate unzip > /dev/null 2>&1
     
-    # --- GENERATE SSL CERTIFICATE ---
-    echo "Generating self-signed SSL certificate..."
+    touch "$INSTALL_LOCK_FILE"
+else
+    echo "OS dependencies are already installed."
+fi
+
+# B. Xray-core Installation/Update (RUNS EVERY TIME)
+echo "Checking for Xray-core updates and installing..."
+# This command will update Xray if a new version is available, or reinstall it.
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
+
+# C. SSL Certificates (Generate only if missing)
+if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
+    echo "Certificates missing. Generating self-signed SSL certificate..."
     openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
     openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
       -keyout "$KEY_FILE" \
@@ -75,24 +86,8 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     rm -f /tmp/ecparam.pem
     chmod 644 "$CERT_FILE"
     chmod 600 "$KEY_FILE"
-    
-    echo "Setup complete. Creating lock file."
-    touch "$INSTALL_LOCK_FILE"
 else
-    echo "Dependencies are installed."
-    # Regenerate certs if missing
-    if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-        echo "Certificates missing. Regenerating..."
-        openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
-        openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
-          -keyout "$KEY_FILE" \
-          -out "$CERT_FILE" \
-          -subj "/CN=playstation.net" \
-          -days 36500
-        rm -f /tmp/ecparam.pem
-        chmod 644 "$CERT_FILE"
-        chmod 600 "$KEY_FILE"
-    fi
+    echo "SSL Certificates found."
 fi
 
 # --- STEP 3: Download config.json and Configure ---
@@ -117,17 +112,21 @@ curl -fsSL -o "$XRDP_PATH" "$XRDP_URL"
 chmod +x "$XRDP_PATH"
 
 # --- STEP 5: Start Services ---
-echo "--- Starting Sing-box (Gaming Mode)... ---"
+echo "--- Starting Xray (Gaming Mode)... ---"
 
-# VLESS Link Generation (Gaming optimized tag)
-VLESS_LINK="vless://ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&allowInsecure=1&type=tcp&encryption=none#Nour"
+# UUID from your config.json
+UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+
+# VLESS Link Generation (Standard Xray Format)
+VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&type=tcp&encryption=none#Nour"
+
 echo "=========================================================="
-echo " Sing-box VLESS Link (Tcp+Tls)"
-echo " Hash marked as #Nour for client optimization"
+echo " Xray VLESS Link (Tcp+Tls)"
+echo " Hash marked as #Nour"
 echo ""
 echo "$VLESS_LINK"
 echo "=========================================================="
 
-# Start Sing-box
-echo "systemctl enable sing-box && systemctl start sing-box"
-# sing-box run -c /etc/sing-box/config.json
+# Start Xray
+# Using direct binary execution which works better in PRoot than systemctl
+echo "Starting Xray core..."
