@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "--- [Xray VLESS (Gaming) Startup Script Inside PRoot] ---"
+echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URLs
@@ -14,10 +14,6 @@ CONFIG_DIR="/usr/local/etc/xray"
 INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 XRDP_PATH="/root/xrdp.sh"
-
-# Certificate paths (Matched to your JSON config: .crt and .key)
-CERT_FILE="${CONFIG_DIR}/cert.crt"
-KEY_FILE="${CONFIG_DIR}/key.key"
 
 # Ensure Public IP is detected
 if [ -z "$PUBLIC_IP" ]; then
@@ -62,7 +58,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get update > /dev/null 2>&1
     
     echo "Installing OS dependencies..."
-    apt-get install -y curl openssl ca-certificates sed python3-minimal tmate unzip > /dev/null 2>&1
+    apt-get install -y curl sed python3-minimal tmate unzip > /dev/null 2>&1
     
     touch "$INSTALL_LOCK_FILE"
 else
@@ -74,21 +70,7 @@ echo "Checking for Xray-core updates and installing..."
 # This command will update Xray if a new version is available, or reinstall it.
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 
-# C. SSL Certificates (Generate only if missing)
-if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-    echo "Certificates missing. Generating self-signed SSL certificate..."
-    openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
-    openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
-      -keyout "$KEY_FILE" \
-      -out "$CERT_FILE" \
-      -subj "/CN=playstation.net" \
-      -days 36500
-    rm -f /tmp/ecparam.pem
-    chmod 644 "$CERT_FILE"
-    chmod 600 "$KEY_FILE"
-else
-    echo "SSL Certificates found."
-fi
+# C. SSL Certificates section REMOVED (Using plain TCP+HTTP)
 
 # --- STEP 3: Download config.json and Configure ---
 echo "Downloading latest config.json..."
@@ -112,22 +94,23 @@ curl -fsSL -o "$XRDP_PATH" "$XRDP_URL"
 chmod +x "$XRDP_PATH"
 
 # --- STEP 5: Start Services ---
-echo "--- Starting Xray (Gaming Mode)... ---"
+echo "--- Starting Xray (Gaming + Injection Mode)... ---"
 
 # UUID from your config.json
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-# VLESS Link Generation (Standard Xray Format)
-VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&allowInsecure=1&type=tcp&encryption=none#Nour"
+# VLESS Link Generation (Updated for TCP + HTTP Header Injection)
+# security=none | type=tcp | headerType=http | host=roblox.com
+VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=none&type=tcp&headerType=http&host=roblox.com&encryption=none#Nour_NoTLS"
+
 echo "=========================================================="
-echo " Xray VLESS Link (Tcp+Tls)"
-echo " Hash marked as #Nour"
+echo " Xray VLESS Link (Tcp + Http Injection)"
+echo " Host: roblox.com (No TLS)"
 echo ""
 echo "$VLESS_LINK"
 echo "=========================================================="
 
 # Start Xray
-# Using direct binary execution which works better in PRoot than systemctl
 echo "Starting Xray core..."
 echo "systemctl enable xray && systemctl start xray"
 # xray run -c /usr/local/etc/xray/config.json
