@@ -1,6 +1,6 @@
 {
   "log": {
-    "level": "error",
+    "level": "warn",
     "timestamp": true
   },
   "inbounds": [
