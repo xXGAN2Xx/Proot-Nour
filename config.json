@@ -19,10 +19,7 @@
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
       },
-      "transport": {
-        "type": "tcp"
-      },
-      "tcp_fast_open": true
+      "tcp_fast_open": true 
     }
   ],
   "outbounds": [
