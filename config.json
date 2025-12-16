@@ -16,9 +16,6 @@
       ],
       "tls": {
         "enabled": true,
-        "alpn": [
-          "h3"
-        ],
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
       },
