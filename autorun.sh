@@ -125,7 +125,7 @@ echo "=========================================================="
 echo " Sing-box VLESS Link (Tcp+Tls)"
 echo " Hash marked as #Nour for client optimization"
 echo ""
-echo " $VLESS_LINK"
+echo "$VLESS_LINK"
 echo "=========================================================="
 
 # Start Sing-box
