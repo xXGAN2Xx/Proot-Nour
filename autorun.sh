@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "--- [Xray Startup Script Inside PRoot] ---"
+echo "--- [Sing-box Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URL for this script (Required for self-update check)
@@ -11,15 +11,17 @@ CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
 # 3. Local Paths
-INSTALL_LOCK_FILE="/usr/local/etc/xray/install_lock"
-CONFIG_PATH="/usr/local/etc/xray/config.json"
+CONFIG_DIR="/etc/sing-box"
+INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
+CONFIG_PATH="${CONFIG_DIR}/config.json"
 XRDP_PATH="/root/xrdp.sh"
-CERT_FILE="/usr/local/etc/xray/cert.crt"
-KEY_FILE="/usr/local/etc/xray/key.key"
+
+# Certificate paths
+CERT_FILE="${CONFIG_DIR}/cert.pem"
+KEY_FILE="${CONFIG_DIR}/key.pem"
 
 # --- PREPARATION ---
-# Ensure the directory for config exists
-mkdir -p /usr/local/etc/xray
+mkdir -p "$CONFIG_DIR"
 
 # --- STEP 1: Self-Update Check ---
 if command -v curl >/dev/null 2>&1; then
@@ -53,14 +55,17 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "First time setup: Updating package lists..."
     apt-get update > /dev/null 2>&1
     
-    # ADDED 'openssl' here for certificate generation
     echo "Installing dependencies (curl, openssl, etc)..."
     apt-get install -y curl openssl ca-certificates sed python3-minimal tmate > /dev/null 2>&1
-    echo "Installing Xray..."
-    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata    
-    # --- GENERATE FAKE CERTIFICATE ---
-    echo "Generating fake SSL certificate..."
-    # Generate EC parameters first, then use them
+
+    # --- INSTALL SING-BOX (Official Script) ---
+    echo "Installing Sing-box using official script..."
+    curl -fsSL https://sing-box.app/install.sh | sh
+    echo "Sing-box installation finished."
+    # ------------------------------------------
+
+    # --- GENERATE FREAK SSL CERTIFICATE ---
+    echo "Generating self-signed SSL certificate..."
     openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
     openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
       -keyout "$KEY_FILE" \
@@ -68,9 +73,10 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
       -subj "/CN=playstation.net" \
       -days 36500
     rm -f /tmp/ecparam.pem
-
-    chmod +x "$CERT_FILE" "$KEY_FILE"
-    # ---------------------------------
+    
+    chmod 644 "$CERT_FILE"
+    chmod 600 "$KEY_FILE"
+    # --------------------------------------
 
     echo "Installation complete. Creating lock file."
     touch "$INSTALL_LOCK_FILE"
@@ -87,7 +93,8 @@ else
           -subj "/CN=playstation.net" \
           -days 36500
         rm -f /tmp/ecparam.pem
-        chmod +x "$CERT_FILE" "$KEY_FILE"
+        chmod 644 "$CERT_FILE"
+        chmod 600 "$KEY_FILE"
         echo "Certificates regenerated."
     fi
 fi
@@ -97,14 +104,14 @@ echo "Downloading latest config.json..."
 curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
 
 if [ -f "$CONFIG_PATH" ]; then
-    echo "Config downloaded successfully to: $CONFIG_PATH"
+    echo "Config downloaded successfully."
     
     # Check if SERVER_PORT variable exists
     if [ -n "$SERVER_PORT" ]; then
         echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
         sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$CONFIG_PATH"
     else
-        echo "WARNING: SERVER_PORT environment variable is NOT set. Config file was not modified."
+        echo "WARNING: SERVER_PORT environment variable is NOT set."
     fi
 else
     echo "Error: Failed to download config.json"
@@ -117,10 +124,16 @@ chmod +x "$XRDP_PATH"
 echo "xrdp.sh downloaded and made executable."
 
 # --- STEP 5: Start Services ---
-echo "--- Starting Xray service... ---"
-# Note: Ensure PUBLIC_IP and SERVER_PORT are set in the environment before running this script
-echo "vless://a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&insecure=1&allowInsecure=1&type=tcp&headerType=none#Nour"
-echo "systemctl enable xray && systemctl start xray"
-# Start Xray with the configuration
-# xray run -config /usr/local/etc/xray/config.json
-# xray run -config "$CONFIG_PATH" &
+echo "--- Starting Sing-box service... ---"
+
+# Generate Client Link for display
+HY2_LINK="hysteria2://123456@${PUBLIC_IP}:${SERVER_PORT}?peer=playstation.net&insecure=1&mport=${SERVER_PORT}#Gaming-VPS"
+
+echo "=========================================================="
+echo " Sing-box Hysteria2 Link:"
+echo " $HY2_LINK"
+echo "=========================================================="
+
+# Start Sing-box in background
+echo "systemctl enable sing-box && systemctl start sing-box"
+# sing-box run -c /etc/sing-box/config.json
