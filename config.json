@@ -1,6 +1,6 @@
 {
   "log": {
-    "loglevel": "none"
+    "loglevel": "warning"
   },
   "inbounds": [
     {
@@ -9,7 +9,8 @@
       "settings": {
         "clients": [
           {
-            "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+            "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e",
+            "flow": "xtls-rprx-vision"
           }
         ],
         "decryption": "none"
@@ -18,7 +19,6 @@
         "network": "tcp",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "playstation.net",
           "certificates": [
             {
               "certificateFile": "/usr/local/etc/xray/cert.crt",
@@ -31,8 +31,8 @@
   ],
   "outbounds": [
     {
-            "protocol": "freedom",
-            "tag": "direct"
+      "protocol": "freedom",
+      "tag": "direct"
     }
   ]
 }
