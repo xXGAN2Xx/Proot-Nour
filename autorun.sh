@@ -1,16 +1,14 @@
 #!/bin/bash
 
-echo "--- [Sing-box Startup Script Inside PRoot] ---"
+echo "--- [Sing-box VLESS (Gaming) Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
-# 1. URL for this script (Required for self-update check)
+# 1. URLs
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-
-# 2. URLs for resources
 CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
 XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
-# 3. Local Paths
+# 2. Local Paths
 CONFIG_DIR="/etc/sing-box"
 INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -19,6 +17,11 @@ XRDP_PATH="/root/xrdp.sh"
 # Certificate paths
 CERT_FILE="${CONFIG_DIR}/cert.pem"
 KEY_FILE="${CONFIG_DIR}/key.pem"
+
+# Ensure Public IP is detected
+if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(curl -s https://api.ipify.org)
+fi
 
 # --- PREPARATION ---
 mkdir -p "$CONFIG_DIR"
@@ -55,16 +58,13 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     echo "First time setup: Updating package lists..."
     apt-get update > /dev/null 2>&1
     
-    echo "Installing dependencies (curl, openssl, etc)..."
+    echo "Installing dependencies..."
     apt-get install -y curl openssl ca-certificates sed python3-minimal tmate > /dev/null 2>&1
 
-    # --- INSTALL SING-BOX (Official Script) ---
-    echo "Installing Sing-box using official script..."
+    echo "Installing Sing-box..."
     curl -fsSL https://sing-box.app/install.sh | sh
-    echo "Sing-box installation finished."
-    # ------------------------------------------
-
-    # --- GENERATE FREAK SSL CERTIFICATE ---
+    
+    # --- GENERATE SSL CERTIFICATE ---
     echo "Generating self-signed SSL certificate..."
     openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
     openssl req -x509 -nodes -newkey ec:/tmp/ecparam.pem \
@@ -73,17 +73,14 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
       -subj "/CN=playstation.net" \
       -days 36500
     rm -f /tmp/ecparam.pem
-    
     chmod 644 "$CERT_FILE"
     chmod 600 "$KEY_FILE"
-    # --------------------------------------
-
-    echo "Installation complete. Creating lock file."
+    
+    echo "Setup complete. Creating lock file."
     touch "$INSTALL_LOCK_FILE"
 else
-    echo "Dependencies are already installed."
-    
-    # Check if certs exist, if not (deleted accidentally), regenerate them
+    echo "Dependencies are installed."
+    # Regenerate certs if missing
     if [ ! -f "$CERT_FILE" ] || [ ! -f "$KEY_FILE" ]; then
         echo "Certificates missing. Regenerating..."
         openssl ecparam -name prime256v1 -out /tmp/ecparam.pem
@@ -95,23 +92,20 @@ else
         rm -f /tmp/ecparam.pem
         chmod 644 "$CERT_FILE"
         chmod 600 "$KEY_FILE"
-        echo "Certificates regenerated."
     fi
 fi
 
-# --- STEP 3: Download config.json and Configure Port ---
+# --- STEP 3: Download config.json and Configure ---
 echo "Downloading latest config.json..."
 curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
 
 if [ -f "$CONFIG_PATH" ]; then
-    echo "Config downloaded successfully."
-    
-    # Check if SERVER_PORT variable exists
+    # Configure PORT
     if [ -n "$SERVER_PORT" ]; then
         echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
         sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$CONFIG_PATH"
     else
-        echo "WARNING: SERVER_PORT environment variable is NOT set."
+        echo "WARNING: SERVER_PORT variable is NOT set."
     fi
 else
     echo "Error: Failed to download config.json"
@@ -121,19 +115,20 @@ fi
 echo "Downloading latest xrdp.sh..."
 curl -fsSL -o "$XRDP_PATH" "$XRDP_URL"
 chmod +x "$XRDP_PATH"
-echo "xrdp.sh downloaded and made executable."
 
 # --- STEP 5: Start Services ---
-echo "--- Starting Sing-box service... ---"
+echo "--- Starting Sing-box (Gaming Mode)... ---"
 
-# Generate Client Link for display
-HY2_LINK="hysteria2://123456@${PUBLIC_IP}:${SERVER_PORT}?sni=playstation.net&alpn=h3&insecure=1&allowInsecure=1#Nour"
+# VLESS Link Generation (Gaming optimized tag)
+VLESS_LINK="vless://ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14@${PUBLIC_IP}:${SERVER_PORT}?security=tls&encryption=none&type=tcp&fp=chrome#Nour"
 
 echo "=========================================================="
-echo " Sing-box Hysteria2 Link:"
-echo " $HY2_LINK"
+echo " Sing-box VLESS Link (Tcp+Tls)"
+echo " Hash marked as #Nour for client optimization"
+echo ""
+echo " $VLESS_LINK"
 echo "=========================================================="
 
-# Start Sing-box in background
+# Start Sing-box
 echo "systemctl enable sing-box && systemctl start sing-box"
-# sing-box run -c /etc/sing-box/config.json
+sing-box run -c /etc/sing-box/config.json
