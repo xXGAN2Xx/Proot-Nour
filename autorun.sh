@@ -130,3 +130,5 @@ echo "=========================================================="
 # Start Xray
 # Using direct binary execution which works better in PRoot than systemctl
 echo "Starting Xray core..."
+echo "systemctl enable xray && systemctl start xray"
+# xray run -c /usr/local/etc/xray/config.json
