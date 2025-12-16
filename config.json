@@ -31,8 +31,8 @@
   ],
   "outbounds": [
     {
-      "protocol": "freedom",
-      "settings": {}
+            "protocol": "freedom",
+            "tag": "direct"
     }
   ]
 }
