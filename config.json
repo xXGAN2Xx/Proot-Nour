@@ -11,16 +11,14 @@
       "listen_port": ${SERVER_PORT},
       "users": [
         {
-          "uuid": "ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14",
-          "flow": "xtls-rprx-vision"
+          "uuid": "ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14"
         }
       ],
       "tls": {
         "enabled": true,
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
-      },
-      "tcp_fast_open": true
+      }
     }
   ],
   "outbounds": [
@@ -28,9 +26,5 @@
       "type": "direct",
       "tag": "direct"
     }
-  ],
-  "route": {
-    "auto_detect_interface": true,
-    "final": "direct"
-  }
+  ]
 }
