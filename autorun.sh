@@ -118,8 +118,7 @@ echo "--- Starting Xray (Gaming Mode)... ---"
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 # VLESS Link Generation (Standard Xray Format)
-VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&type=tcp&encryption=none#Nour"
-
+VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?security=tls&sni=playstation.net&allowInsecure=1&type=tcp&encryption=none#Nour"
 echo "=========================================================="
 echo " Xray VLESS Link (Tcp+Tls)"
 echo " Hash marked as #Nour"
