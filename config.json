@@ -11,7 +11,8 @@
       "listen_port": ${SERVER_PORT},
       "users": [
         {
-          "uuid": "ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14"
+          "uuid": "ca9a6ff3-c5fa-3eb9-b7c8-2b6bf9252f14",
+          "flow": "xtls-rprx-vision"
         }
       ],
       "tls": {
@@ -19,7 +20,7 @@
         "certificate_path": "/etc/sing-box/cert.pem",
         "key_path": "/etc/sing-box/key.pem"
       },
-      "tcp_fast_open": true 
+      "tcp_fast_open": true
     }
   ],
   "outbounds": [
