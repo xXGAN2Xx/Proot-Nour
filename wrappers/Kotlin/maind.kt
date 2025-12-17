@@ -188,12 +188,10 @@ fun runScript(scriptFile: File) {
         writer.newLine()
         writer.flush()
 
-        writer.write("systemctl enable xray && systemctl start xray")
+        writer.write("systemctl start xray && tmate -F")
         writer.newLine()
         writer.flush()
-        writer.write("tmate -F")
-        writer.newLine()
-        writer.flush()
+
 
         Thread {
             try {
