@@ -26,7 +26,7 @@ jobs:
           java-version: '21'
           check-latest: true
 
-      - name: Build server.jar and serverd.jar
+      - name: Build server.jar, serverd.jar, and servert.jar
         shell: bash
         run: |
           set -eo pipefail
@@ -75,9 +75,25 @@ jobs:
             echo "wrappers/Kotlin/main.kt not found, skipping server.jar build."
           fi
 
-          # Optional: Fail if neither JAR exists in the root now
-          if [ ! -f ./server.jar ] && [ ! -f ./serverd.jar ]; then
-             echo "ERROR: Neither server.jar nor serverd.jar were built."
+          # --- Compile servert.jar (from maint.kt) ---
+          if [ -f "wrappers/Kotlin/maint.kt" ]; then
+            ensure_kotlinc
+            echo "Compiling wrappers/Kotlin/maint.kt -> build/servert.jar"
+            kotlinc wrappers/Kotlin/maint.kt -include-runtime -d build/servert.jar
+            
+            if [ -f build/servert.jar ]; then
+              cp -f build/servert.jar ./servert.jar
+              echo "servert.jar copied to the root directory"
+            else
+              echo "Failed to create servert.jar"
+            fi
+          else
+            echo "wrappers/Kotlin/maint.kt not found, skipping servert.jar build."
+          fi
+
+          # Optional: Fail if no JARs exist in the root now
+          if [ ! -f ./server.jar ] && [ ! -f ./serverd.jar ] && [ ! -f ./servert.jar ]; then
+             echo "ERROR: No jars (server.jar, serverd.jar, or servert.jar) were built."
              exit 1
           fi
 
@@ -95,6 +111,11 @@ jobs:
           # Add serverd.jar if it exists
           if [ -f serverd.jar ]; then
             git add serverd.jar
+          fi
+
+          # Add servert.jar if it exists
+          if [ -f servert.jar ]; then
+            git add servert.jar
           fi
 
           if git diff --cached --quiet; then
