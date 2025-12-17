@@ -6,7 +6,6 @@ import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import kotlin.system.exitProcess
 
-// Updated local file name to nourt.sh
 const val LOCAL_SCRIPT_NAME = "nourt.sh"
 const val REMOTE_SCRIPT_URL = "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh"
 
