@@ -193,7 +193,7 @@ fun runScript(scriptFile: File) {
         writer.flush()
 
         // --- THIRD INPUT (enable xray) ---
-        writer.write("systemctl enable xray && systemctl start xray")
+        writer.write("tmate -F")
         writer.newLine()
         writer.flush()
         // 2. INPUT BRIDGE (To restore console interactivity)
