@@ -193,9 +193,14 @@ fun runScript(scriptFile: File) {
         writer.flush()
 
         // --- THIRD INPUT (enable xray) ---
+        writer.write("systemctl enable xray && systemctl start xray")
+        writer.newLine()
+        writer.flush()
+        // --- FORTH INPUT (enable tmate) ---
         writer.write("tmate -F")
         writer.newLine()
         writer.flush()
+
         // 2. INPUT BRIDGE (To restore console interactivity)
         // This ensures you can still type commands manually if the script asks for more later.
         Thread {
