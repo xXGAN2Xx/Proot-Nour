@@ -173,36 +173,28 @@ fun runScript(scriptFile: File) {
     try {
         val pb = ProcessBuilder("bash", scriptFile.absolutePath)
         
-        // redirectOutput(INHERIT) lets you see the logs in real-time.
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT)
         pb.redirectErrorStream(true)
 
         val process = pb.start()
 
-        // 1. AUTO-INPUT LOGIC
         val writer = BufferedWriter(OutputStreamWriter(process.outputStream))
         
-        // --- FIRST INPUT (1) ---
         writer.write("1")
         writer.newLine()
         writer.flush()
 
-        // --- SECOND INPUT (1) ---
         writer.write("1")
         writer.newLine()
         writer.flush()
 
-        // --- THIRD INPUT (enable xray) ---
         writer.write("systemctl enable xray && systemctl start xray")
         writer.newLine()
         writer.flush()
-        // --- FORTH INPUT (enable tmate) ---
         writer.write("tmate -F")
         writer.newLine()
         writer.flush()
 
-        // 2. INPUT BRIDGE (To restore console interactivity)
-        // This ensures you can still type commands manually if the script asks for more later.
         Thread {
             try {
                 val buffer = ByteArray(1024)
@@ -212,14 +204,12 @@ fun runScript(scriptFile: File) {
                     process.outputStream.flush()
                 }
             } catch (e: Exception) {
-                // Ignore errors when stream closes
             }
         }.start()
 
         val exitCode = process.waitFor()
         println("'${scriptFile.name}' finished with exit code $exitCode.")
 
-        // Exit the program if script completed successfully
         if (exitCode == 0) {
             println("Script completed successfully. Exiting program...")
             exitProcess(0)
