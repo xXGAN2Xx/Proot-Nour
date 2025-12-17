@@ -101,7 +101,6 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 echo "=========================================================="
 echo "Xray VLESS Link (Tcp + Http Injection)"
-echo ""
 echo "$VLESS_LINK"
 echo "=========================================================="
 
