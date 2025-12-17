@@ -15,13 +15,12 @@ fun main() {
     try {
         val scriptFile = File(LOCAL_SCRIPT_NAME)
 
-        // 1. Check if file exists
-        if (scriptFile.exists()) {
-            // 2a. If exists: Skip download, just run it
-            println("'$LOCAL_SCRIPT_NAME' found locally. Skipping download.")
+
+                if (scriptFile.exists()) {
+
+                println("'$LOCAL_SCRIPT_NAME' found locally. Skipping download.")
             runScript(scriptFile)
         } else {
-            // 2b. If does not exist: Download -> Chmod +x -> Run
             println("'$LOCAL_SCRIPT_NAME' not found locally. Downloading...")
             val downloadedFile = downloadAndSetPermissions(REMOTE_SCRIPT_URL, LOCAL_SCRIPT_NAME)
             
@@ -48,7 +47,6 @@ fun downloadAndSetPermissions(urlStr: String, fileName: String): File? {
 
     val destination = File(fileName)
 
-    // Download
     try {
         downloadFile(url, destination)
         println("Downloaded '$fileName'.")
@@ -57,7 +55,6 @@ fun downloadAndSetPermissions(urlStr: String, fileName: String): File? {
         return null
     }
 
-    // Chmod +x
     if (!setExecutablePermission(destination)) {
         println("Failed to set executable permissions on '$fileName'.")
         return null
@@ -85,9 +82,7 @@ fun setExecutablePermission(file: File): Boolean {
 }
 
 fun runScript(file: File) {
-    // Final check before execution
     if (!file.exists() || !file.canExecute()) {
-        // Try to fix permissions one last time if file exists but isn't executable
         if (file.exists()) setExecutablePermission(file)
         
         if (!file.canExecute()) {
