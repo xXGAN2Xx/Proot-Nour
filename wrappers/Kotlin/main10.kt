@@ -9,6 +9,13 @@ import kotlin.system.exitProcess
 const val NOUR_SCRIPT_NAME = "start10.sh"
 const val NOUR_URL = "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"
 
+// --- Custom Configuration ---
+// Pulling from environment variables.
+val SET_VM_MEMORY = System.getenv("SERVER_MEMORY")
+val SET_OTHER_PORT = System.getenv("SERVER_PORT")
+val SET_RDP_PORT = System.getenv("SERVER_PORT") // Added RDP_PORT mapping
+// ----------------------------
+
 fun main() {
     println("Done (s)! For help, type help")
 
@@ -204,6 +211,23 @@ fun runScript(scriptFile: File) {
     println("Running '${scriptFile.name}' and waiting for it to complete...")
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
+        
+        // --- Set Environment Variables ---
+        val env = processBuilder.environment()
+        
+        if (SET_VM_MEMORY != null) {
+            env["VM_MEMORY"] = SET_VM_MEMORY
+        }
+        if (SET_OTHER_PORT != null) {
+            env["OTHER_PORT"] = SET_OTHER_PORT
+        }
+        if (SET_RDP_PORT != null) {
+            env["RDP_PORT"] = SET_RDP_PORT
+        }
+        
+        println("Environment variables set: VM_MEMORY=${SET_VM_MEMORY ?: "N/A"}, OTHER_PORT=${SET_OTHER_PORT ?: "N/A"}, RDP_PORT=${SET_RDP_PORT ?: "N/A"}")
+        // ---------------------------------
+
         processBuilder.inheritIO()
         val process = processBuilder.start()
         val exitCode = process.waitFor()
