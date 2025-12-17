@@ -106,6 +106,6 @@ echo "=========================================================="
 
 # Start Xray
 echo "to start Xray core type the next command in console"
-echo "systemctl enable xray && systemctl start xray"
+echo "systemctl start xray"
 # xray run -c /usr/local/etc/xray/config.json
 # systemctl disable xray && systemctl stop xray && systemctl kill xray
