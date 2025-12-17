@@ -26,12 +26,10 @@ jobs:
           java-version: '21'
           check-latest: true
 
-      - name: Build server.jar, serverd.jar, and servert.jar
+      - name: Build dynamic server jars
         shell: bash
         run: |
-          set -eo pipefail
-
-          mkdir -p build
+          set -e
 
           # Function to install Kotlin if missing
           ensure_kotlinc() {
@@ -43,57 +41,50 @@ jobs:
             fi
           }
 
-          # --- Compile serverd.jar (from maind.kt) ---
-          if [ -f "wrappers/Kotlin/maind.kt" ]; then
-            ensure_kotlinc
-            echo "Compiling wrappers/Kotlin/maind.kt -> build/serverd.jar"
-            kotlinc wrappers/Kotlin/maind.kt -include-runtime -d build/serverd.jar
-            
-            if [ -f build/serverd.jar ]; then
-              cp -f build/serverd.jar ./serverd.jar
-              echo "serverd.jar copied to the root directory"
-            else
-              echo "Failed to create serverd.jar"
-            fi
-          else
-            echo "wrappers/Kotlin/maind.kt not found, skipping serverd.jar build."
-          fi
+          ensure_kotlinc
 
-          # --- Compile server.jar (from main.kt) ---
-          if [ -f "wrappers/Kotlin/main.kt" ]; then
-            ensure_kotlinc
-            echo "Compiling wrappers/Kotlin/main.kt -> build/server.jar"
-            kotlinc wrappers/Kotlin/main.kt -include-runtime -d build/server.jar
-            
-            if [ -f build/server.jar ]; then
-              cp -f build/server.jar ./server.jar
-              echo "server.jar copied to the root directory"
-            else
-              echo "Failed to create server.jar"
-            fi
-          else
-            echo "wrappers/Kotlin/main.kt not found, skipping server.jar build."
-          fi
+          # Flag to track if we actually built anything
+          BUILT_ANY=false
 
-          # --- Compile servert.jar (from maint.kt) ---
-          if [ -f "wrappers/Kotlin/maint.kt" ]; then
-            ensure_kotlinc
-            echo "Compiling wrappers/Kotlin/maint.kt -> build/servert.jar"
-            kotlinc wrappers/Kotlin/maint.kt -include-runtime -d build/servert.jar
-            
-            if [ -f build/servert.jar ]; then
-              cp -f build/servert.jar ./servert.jar
-              echo "servert.jar copied to the root directory"
-            else
-              echo "Failed to create servert.jar"
+          # 1. Find all files matching 'main*.kt' in wrappers/Kotlin
+          # 2. Loop through them
+          for file in wrappers/Kotlin/main*.kt; do
+            # Check if file exists (handles case where glob returns nothing)
+            if [ ! -f "$file" ]; then
+              echo "No files matching wrappers/Kotlin/main*.kt found."
+              break
             fi
-          else
-            echo "wrappers/Kotlin/maint.kt not found, skipping servert.jar build."
-          fi
 
-          # Optional: Fail if no JARs exist in the root now
-          if [ ! -f ./server.jar ] && [ ! -f ./serverd.jar ] && [ ! -f ./servert.jar ]; then
-             echo "ERROR: No jars (server.jar, serverd.jar, or servert.jar) were built."
+            echo "Processing $file..."
+            
+            # Extract filename (e.g., "maind.kt" or "main.kt")
+            filename=$(basename "$file")
+            
+            # Remove extension to get base (e.g., "maind" or "main")
+            base="${filename%.*}"
+            
+            # Remove "main" prefix to get suffix (e.g., "d" or "")
+            suffix="${base#main}"
+            
+            # Construct target jar name (e.g., "serverd.jar" or "server.jar")
+            target="server${suffix}.jar"
+
+            echo "Compiling $file -> $target"
+            
+            # Compile
+            kotlinc "$file" -include-runtime -d "$target"
+
+            if [ -f "$target" ]; then
+              echo "Successfully built $target"
+              BUILT_ANY=true
+            else
+              echo "Failed to build $target"
+              exit 1
+            fi
+          done
+
+          if [ "$BUILT_ANY" = false ]; then
+             echo "ERROR: No jars were built."
              exit 1
           fi
 
@@ -103,20 +94,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Add server.jar if it exists
-          if [ -f server.jar ]; then
-            git add server.jar
-          fi
-
-          # Add serverd.jar if it exists
-          if [ -f serverd.jar ]; then
-            git add serverd.jar
-          fi
-
-          # Add servert.jar if it exists
-          if [ -f servert.jar ]; then
-            git add servert.jar
-          fi
+          # Add any file matching server*.jar in the root
+          # This covers server.jar, serverd.jar, servert.jar, etc.
+          git add server*.jar
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
