@@ -11,12 +11,13 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 # Paths
 LOCAL_BIN="${HOME}/.local/bin"
 PROOT_BIN="${HOME}/usr/local/bin/proot"
-DEP_FLAG="${HOME}/.deps_v4"
+# Changed DEP_FLAG to /.deps as requested
+DEP_FLAG="${HOME}/.deps"
 
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
-# --- 1. Tool Setup (Updated with requested packages) ---
+# --- 1. Tool Setup (BusyBox 1.35.0 & core tools) ---
 setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
@@ -32,12 +33,11 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    echo -e "${Y}Installing BusyBox and core tools (bash, wget, curl, iproute2)...${NC}"
+    echo -e "${Y}Installing BusyBox 1.35.0 and core tools...${NC}"
     curl -Ls "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
     
-    # Create symlinks for the requested tools using BusyBox
-    # This provides bash, wget, curl, and ip (part of iproute2) functionality
+    # Symlinks for core tools including bash, wget, curl, and ip (iproute2)
     for tool in xz tar unxz gzip bzip2 bash wget curl ip; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
@@ -50,7 +50,7 @@ setup_tools() {
     curl -Ls "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     
-    # Handle ca-certificates for SSL/TLS connections
+    # Setup ca-certificates for SSL
     echo -e "${Y}Setting up ca-certificates...${NC}"
     mkdir -p "${HOME}/etc/ssl/certs"
     curl -Ls https://curl.se/ca/cacert.pem -o "${HOME}/etc/ssl/certs/ca-certificates.crt"
@@ -85,11 +85,14 @@ sync_scripts() {
     # Maintenance of Patches
     if [ -f "${HOME}/entrypoint.sh" ]; then
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
+        # Fix rootfs link and add essential binds
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
+        # BusyBox 1.35.0 tar fix
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
+        # Force local path to find our tools first
         sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
 }
