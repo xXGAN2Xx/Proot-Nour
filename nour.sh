@@ -103,6 +103,10 @@ cd "${HOME}"
 sync_scripts
 apply_guest_configs
 
+if [ -f "${HOME}/server.jar" ]; then
+    chmod +x "${HOME}/server.jar"
+fi
+
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
     echo -e "${G}Booting environment...${NC}"
     exec /bin/sh "${HOME}/entrypoint.sh"
