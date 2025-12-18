@@ -16,7 +16,7 @@ DEP_FLAG="${HOME}/.deps_v4"
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
-# --- 1. Tool Setup (Using 1.35.0 as requested) ---
+# --- 1. Tool Setup (Updated with requested packages) ---
 setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
@@ -32,10 +32,13 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
+    echo -e "${Y}Installing BusyBox and core tools (bash, wget, curl, iproute2)...${NC}"
     curl -Ls "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
-    for tool in xz tar unxz gzip bzip2; do
+    
+    # Create symlinks for the requested tools using BusyBox
+    # This provides bash, wget, curl, and ip (part of iproute2) functionality
+    for tool in xz tar unxz gzip bzip2 bash wget curl ip; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
 
@@ -46,6 +49,12 @@ setup_tools() {
     echo -e "${Y}Installing PRoot...${NC}"
     curl -Ls "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
+    
+    # Handle ca-certificates for SSL/TLS connections
+    echo -e "${Y}Setting up ca-certificates...${NC}"
+    mkdir -p "${HOME}/etc/ssl/certs"
+    curl -Ls https://curl.se/ca/cacert.pem -o "${HOME}/etc/ssl/certs/ca-certificates.crt"
+
     touch "$DEP_FLAG"
 }
 
@@ -57,7 +66,6 @@ sync_scripts() {
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
     
-    # Files block as requested
     declare -A scripts=(
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
@@ -77,14 +85,11 @@ sync_scripts() {
     # Maintenance of Patches
     if [ -f "${HOME}/entrypoint.sh" ]; then
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
-        # Fix rootfs link and add essential binds
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
-        # BusyBox 1.35.0 tar fix
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
-        # Force local jq path to fix "Permission Denied"
         sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
 }
@@ -107,7 +112,7 @@ sync_scripts
 apply_guest_configs
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
-    echo -e "${G}Launching VPS with BusyBox 1.35.0...${NC}"
+    echo -e "${G}Launching VPS...${NC}"
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
