@@ -2,8 +2,8 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
-# BusyBox wget uses -q for quiet, never -s
-export PUBLIC_IP=$(wget -qO- checkip.pterodactyl-installer.se || echo "0.0.0.0")
+# Using curl to get public IP
+export PUBLIC_IP=$(curl -s checkip.pterodactyl-installer.se || echo "0.0.0.0")
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
@@ -21,44 +21,55 @@ setup_tools() {
         x86_64)  
             BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
             JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
+            CURL_URL="https://github.com/moparisthebest/static-curl/releases/latest/download/curl-amd64"
             ;;
         aarch64) 
             BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-armv8l-linux-musl/busybox"
             JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-arm64"
+            CURL_URL="https://github.com/moparisthebest/static-curl/releases/latest/download/curl-aarch64"
             ;;
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
+    # 1. Install Static Curl first so we can use it for the rest
+    echo -e "${Y}Installing static curl...${NC}"
+    # Use existing system curl or wget just for this first step
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSL "$CURL_URL" -o "${LOCAL_BIN}/curl"
+    else
+        wget -q "$CURL_URL" -O "${LOCAL_BIN}/curl"
+    fi
+    chmod +x "${LOCAL_BIN}/curl"
+
+    # 2. Install BusyBox using our new curl
     echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
-    wget -q "$BBOX_URL" -O "${LOCAL_BIN}/busybox"
+    "${LOCAL_BIN}/curl" -sSL "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
     
-    for tool in xz tar unxz gzip bzip2 bash wget ip; do
+    for tool in xz tar unxz gzip bzip2 bash ip; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
 
-    # Fixed curl wrapper for compatibility
-    echo '#!/bin/sh' > "${LOCAL_BIN}/curl"
-    echo 'wget -qO- "$@"' >> "${LOCAL_BIN}/curl"
-    chmod +x "${LOCAL_BIN}/curl"
-
+    # 3. Install JQ
     echo -e "${Y}Installing static jq...${NC}"
-    wget -q "$JQ_URL" -O "${LOCAL_BIN}/jq"
+    "${LOCAL_BIN}/curl" -sSL "$JQ_URL" -o "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
 
-    echo -e "${Y}Installing PRoot...${NC}"
-    wget -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
+    # 4. Install PRoot
+    echo -e "${Y}Installing PRoot engine...${NC}"
+    "${LOCAL_BIN}/curl" -sSL "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     
-    echo -e "${Y}Setting up SSL...${NC}"
+    # 5. SSL Certs
+    echo -e "${Y}Configuring SSL...${NC}"
     mkdir -p "${HOME}/etc/ssl/certs"
-    wget -q https://curl.se/ca/cacert.pem -O "${HOME}/etc/ssl/certs/ca-certificates.crt"
+    "${LOCAL_BIN}/curl" -sSL https://curl.se/ca/cacert.pem -o "${HOME}/etc/ssl/certs/ca-certificates.crt"
 
     touch "$DEP_FLAG"
 }
 
 sync_scripts() {
-    echo -e "${B}Syncing and patching scripts...${NC}"
+    echo -e "${B}Synchronizing scripts with curl...${NC}"
     
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
@@ -76,14 +87,8 @@ sync_scripts() {
 
     for path in "${!scripts[@]}"; do
         mkdir -p "$(dirname "${HOME}/${path}")"
-        wget -q "${scripts[$path]}" -O "${HOME}/${path}"
+        curl -sSLf "${scripts[$path]}" -o "${HOME}/${path}"
         chmod +x "${HOME}/${path}"
-        
-        # --- THE FIX: Universal Flag Scrubbing ---
-        # Remove -s, -S, -L, -f from any wget or curl calls inside the downloaded scripts
-        sed -i 's/wget -qO- -s/wget -qO-/g' "${HOME}/${path}"
-        sed -i 's/curl -sSLf/wget -qO-/g' "${HOME}/${path}"
-        sed -i 's/wget -s/wget -q/g' "${HOME}/${path}"
     done
 
     if [ -f "${HOME}/entrypoint.sh" ]; then
