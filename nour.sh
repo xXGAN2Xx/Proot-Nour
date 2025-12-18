@@ -46,7 +46,7 @@ sync_scripts() {
     # Base URLs
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
-    local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
+    local NOUR_URL="https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh"
     
     # The Block you requested
     declare -A scripts=(
@@ -56,7 +56,7 @@ sync_scripts() {
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
         ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
-        ["autorun.sh"]="$AUTORUN_URL"
+        ["autorun.sh"]="$NOUR_URL/autorun.sh"
     )
 
     for path in "${!scripts[@]}"; do
