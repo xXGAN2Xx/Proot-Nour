@@ -11,12 +11,12 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 # Paths
 LOCAL_BIN="${HOME}/.local/bin"
 PROOT_BIN="${HOME}/usr/local/bin/proot"
-DEP_FLAG="${HOME}/.deps_v3"
+DEP_FLAG="${HOME}/.deps_v4"
 
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
-# --- 1. Tool Setup ---
+# --- 1. Tool Setup (Using 1.35.0 as requested) ---
 setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
@@ -32,7 +32,7 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    echo -e "${Y}Installing BusyBox...${NC}"
+    echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
     curl -Ls "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
     for tool in xz tar unxz gzip bzip2; do
@@ -57,6 +57,7 @@ sync_scripts() {
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
     
+    # Files block as requested
     declare -A scripts=(
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
@@ -75,15 +76,15 @@ sync_scripts() {
 
     # Maintenance of Patches
     if [ -f "${HOME}/entrypoint.sh" ]; then
-        # Ensure PATH is inherited so it finds our local jq
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
+        # Fix rootfs link and add essential binds
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
-        # BusyBox tar fix
+        # BusyBox 1.35.0 tar fix
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
-        # Force the script to use our specific jq path to avoid "Permission Denied" from host /usr/bin/jq
+        # Force local jq path to fix "Permission Denied"
         sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
 }
@@ -106,7 +107,7 @@ sync_scripts
 apply_guest_configs
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
-    echo -e "${G}Launching...${NC}"
+    echo -e "${G}Launching VPS with BusyBox 1.35.0...${NC}"
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
