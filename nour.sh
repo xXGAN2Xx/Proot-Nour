@@ -61,7 +61,7 @@ install_dependencies() {
 
         # Core packages only (removed ca-certificates, iproute2 as they don't work well unpacked)
         # libjq1 and libonig5 are jq dependencies
-        local packages=(bash jq libjq1 libonig5 curl xz-utils)
+        local packages=(bash jq libjq1 libonig5 curl xz-utils ca-certificates iproute2 wget)
         
         echo -e "${Y}Downloading packages...${NC}"
         cd "${HOME}/.local"
