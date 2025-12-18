@@ -2,6 +2,7 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
+# Fix: BusyBox wget uses -q instead of -s
 export PUBLIC_IP=$(wget -qO- checkip.pterodactyl-installer.se || echo "0.0.0.0")
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
@@ -28,17 +29,17 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    echo -e "${Y}Installing BusyBox 1.35.0 (Core Tools)...${NC}"
-    # Use wget as a fallback for the initial setup
-    wget -q "$BBOX_URL" -O "${LOCAL_BIN}/busybox" || curl -Ls "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
+    echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
+    # Using basic wget flags supported by BusyBox
+    wget -q "$BBOX_URL" -O "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
     
-    # Symlink core tools. Removed 'curl' here because BusyBox 1.35.0 lacks it.
     for tool in xz tar unxz gzip bzip2 bash wget ip; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
 
-    # Create a curl wrapper that uses wget (BusyBox curl is often missing)
+    # Fixed curl wrapper: Removed unsupported -sSLf flags
+    # BusyBox wget automatically follows redirects and is quiet with -q
     echo '#!/bin/sh' > "${LOCAL_BIN}/curl"
     echo 'wget -qO- "$@"' >> "${LOCAL_BIN}/curl"
     chmod +x "${LOCAL_BIN}/curl"
@@ -78,16 +79,21 @@ sync_scripts() {
 
     for path in "${!scripts[@]}"; do
         mkdir -p "$(dirname "${HOME}/${path}")"
+        # Using basic wget flags
         wget -q "${scripts[$path]}" -O "${HOME}/${path}"
         chmod +x "${HOME}/${path}"
     done
 
     if [ -f "${HOME}/entrypoint.sh" ]; then
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
+        # Fixed curl usage inside entrypoint by using our wrapper
+        sed -i 's/curl -sSLf/wget -qO-/g' "${HOME}/entrypoint.sh"
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
+        # Fix curl inside install.sh
+        sed -i 's/curl -sSLf/wget -qO-/g' "${HOME}/install.sh"
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
         sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
