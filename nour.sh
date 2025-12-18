@@ -1,23 +1,18 @@
 #!/bin/bash
 
-# --- Configuration ---
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
 export PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se)
 
-# Colors
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
-# Paths
 LOCAL_BIN="${HOME}/.local/bin"
 PROOT_BIN="${HOME}/usr/local/bin/proot"
-# Changed DEP_FLAG to /.deps as requested
 DEP_FLAG="${HOME}/.deps"
 
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
-# --- 1. Tool Setup (BusyBox 1.35.0 & core tools) ---
 setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
@@ -33,34 +28,31 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    echo -e "${Y}Installing BusyBox 1.35.0 and core tools...${NC}"
+    echo -e "${Y}Installing BusyBox 1.35.0 (Core Tools)...${NC}"
     curl -Ls "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     chmod +x "${LOCAL_BIN}/busybox"
     
-    # Symlinks for core tools including bash, wget, curl, and ip (iproute2)
     for tool in xz tar unxz gzip bzip2 bash wget curl ip; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
 
-    echo -e "${Y}Installing jq...${NC}"
+    echo -e "${Y}Installing static jq...${NC}"
     curl -Ls "$JQ_URL" -o "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
 
-    echo -e "${Y}Installing PRoot...${NC}"
+    echo -e "${Y}Installing PRoot engine...${NC}"
     curl -Ls "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     
-    # Setup ca-certificates for SSL
-    echo -e "${Y}Setting up ca-certificates...${NC}"
+    echo -e "${Y}Configuring SSL certificates...${NC}"
     mkdir -p "${HOME}/etc/ssl/certs"
     curl -Ls https://curl.se/ca/cacert.pem -o "${HOME}/etc/ssl/certs/ca-certificates.crt"
 
     touch "$DEP_FLAG"
 }
 
-# --- 2. Script Sync & Logic ---
 sync_scripts() {
-    echo -e "${B}Syncing core scripts...${NC}"
+    echo -e "${B}Synchronizing control scripts from GitHub...${NC}"
     
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
@@ -82,24 +74,20 @@ sync_scripts() {
         chmod +x "${HOME}/${path}"
     done
 
-    # Maintenance of Patches
     if [ -f "${HOME}/entrypoint.sh" ]; then
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
-        # Fix rootfs link and add essential binds
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
-        # BusyBox 1.35.0 tar fix
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
-        # Force local path to find our tools first
         sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
 }
 
-# --- 3. Optimization ---
 apply_guest_configs() {
-    echo -e "${B}Applying environment fixes...${NC}"
+    echo -e "${B}Optimizing Guest OS environment...${NC}"
+    
     mkdir -p "${HOME}/etc/apt/apt.conf.d"
     echo 'APT::Sandbox::User "root";' > "${HOME}/etc/apt/apt.conf.d/99proot"
     
@@ -108,15 +96,17 @@ apply_guest_configs() {
     fi
 }
 
-# --- Execution ---
 cd "${HOME}"
+
 [[ -f "$DEP_FLAG" ]] || setup_tools
+
 sync_scripts
 apply_guest_configs
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
-    echo -e "${G}Launching VPS...${NC}"
+    echo -e "${G}Booting environment...${NC}"
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
-    echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
+    echo -e "${R}Critical Error: entrypoint.sh not found.${NC}"
+    exit 1
 fi
