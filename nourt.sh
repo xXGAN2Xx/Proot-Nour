@@ -73,7 +73,11 @@ APT::Get::Download-Only "true";
 APT::Install-Recommends "false";
 Acquire::Languages "none";
 EOF
-        echo "deb [trusted=yes] http://ftp.us.debian.org/debian bookworm main" > apt/etc/sources.list
+        # Try to detect OS for sources.list, default to bookworm
+        if [ -f /etc/os-release ]; then . /etc/os-release; fi
+        OS_CODENAME="${VERSION_CODENAME:-bookworm}"
+        
+        echo "deb [trusted=yes] http://ftp.us.debian.org/debian ${OS_CODENAME} main" > apt/etc/sources.list
         export APT_CONFIG="${HOME}/.local/apt/etc/apt.conf"
 
         # Attempt update and download
@@ -91,41 +95,55 @@ EOF
              USE_MANUAL="true"
         fi
     else
+        echo -e "${Y}apt-get not found. Switching to manual...${NC}"
         USE_MANUAL="true"
     fi
 
-    # 3. MANUAL FALLBACK
+    # 3. MANUAL FALLBACK (Dynamic Search)
     if [ "$USE_MANUAL" = "true" ]; then
-        echo -e "${Y}Downloading packages manually (wget)...${NC}"
+        echo -e "${Y}Detecting OS and searching for packages...${NC}"
         cd "${HOME}/.local/tmp"
 
-        MIRROR="http://ftp.us.debian.org/debian/pool/main"
-        
-        # Bookworm Stable versions (Late 2025 Corrected)
-        # Updated xz-utils from 5.4.1-0.2 to 5.4.1-1
-        if [ "$DEB_ARCH" = "amd64" ]; then
-            DEB_URLS=(
-                "$MIRROR/b/bash/bash_5.2.15-2+b9_amd64.deb"
-                "$MIRROR/j/jq/jq_1.6-2.1+deb12u1_amd64.deb"
-                "$MIRROR/j/jq/libjq1_1.6-2.1+deb12u1_amd64.deb"
-                "$MIRROR/libo/libonig/libonig5_6.9.8-1_amd64.deb"
-                "$MIRROR/c/curl/curl_7.88.1-10+deb12u14_amd64.deb"
-                "$MIRROR/c/curl/libcurl4_7.88.1-10+deb12u14_amd64.deb"
-                "$MIRROR/x/xz-utils/xz-utils_5.4.1-1_amd64.deb"
-                "$MIRROR/w/wget/wget_1.21.3-1+deb12u1_amd64.deb"
-            )
-        elif [ "$DEB_ARCH" = "arm64" ]; then
-            DEB_URLS=(
-                "$MIRROR/b/bash/bash_5.2.15-2+b9_arm64.deb"
-                "$MIRROR/j/jq/jq_1.6-2.1+deb12u1_arm64.deb"
-                "$MIRROR/j/jq/libjq1_1.6-2.1+deb12u1_arm64.deb"
-                "$MIRROR/libo/libonig/libonig5_6.9.8-1_arm64.deb"
-                "$MIRROR/c/curl/curl_7.88.1-10+deb12u14_arm64.deb"
-                "$MIRROR/c/curl/libcurl4_7.88.1-10+deb12u14_arm64.deb"
-                "$MIRROR/x/xz-utils/xz-utils_5.4.1-1_arm64.deb"
-                "$MIRROR/w/wget/wget_1.21.3-1+deb12u1_arm64.deb"
-            )
+        # Detect OS
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+        else
+            ID="debian"
+            VERSION_CODENAME="bookworm"
         fi
+        
+        # Fallbacks if detection yields empty strings
+        : "${ID:=debian}"
+        : "${VERSION_CODENAME:=bookworm}"
+
+        echo -e "${Y}Detected System: $ID ($VERSION_CODENAME)${NC}"
+
+        # Packages to download
+        PACKAGES=(bash jq libjq1 libonig5 curl libcurl4 xz-utils wget)
+
+        # Helper function to find download URL
+        get_deb_url() {
+            local pkg="$1"
+            local search_url=""
+            
+            if [[ "$ID" == "ubuntu" ]]; then
+                search_url="https://packages.ubuntu.com/${VERSION_CODENAME}/${DEB_ARCH}/${pkg}/download"
+            else
+                # Default to Debian for others
+                search_url="https://packages.debian.org/${VERSION_CODENAME}/${DEB_ARCH}/${pkg}/download"
+            fi
+
+            local page_content=""
+            if command -v curl >/dev/null; then
+                page_content=$(curl -sL --connect-timeout 10 "$search_url" 2>/dev/null)
+            else
+                page_content=$(wget -qO- --timeout=10 "$search_url" 2>/dev/null)
+            fi
+
+            # Extract the first valid http/https .deb link
+            # We look for href="http...deb" and take the first one (usually a valid mirror)
+            echo "$page_content" | grep -oE 'href="http[s]?://[^"]+\.deb"' | head -n1 | cut -d'"' -f2
+        }
 
         # Download loop
         DL_CMD="wget -q -N"
@@ -133,8 +151,16 @@ EOF
             if command -v curl >/dev/null; then DL_CMD="curl -L -O -s"; else echo "No download tool found"; exit 1; fi
         fi
 
-        for url in "${DEB_URLS[@]}"; do
-            $DL_CMD "$url" || echo -e "${R}Failed to download $(basename "$url")${NC}"
+        for pkg in "${PACKAGES[@]}"; do
+            echo -n "Searching for $pkg... "
+            url=$(get_deb_url "$pkg")
+            
+            if [ -n "$url" ]; then
+                echo "Found: $(basename "$url")"
+                $DL_CMD "$url" || echo -e "${R}Failed to download $pkg${NC}"
+            else
+                echo -e "${R}Not found for $ID $VERSION_CODENAME${NC}"
+            fi
         done
         
         mv *.deb "${HOME}/.local/" 2>/dev/null
