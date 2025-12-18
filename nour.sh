@@ -2,7 +2,8 @@
 
 # Configuration
 export LANG=en_US.UTF-8
-export PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se 2>/dev/null || echo "127.0.0.1")
+# Use insecure curl initially for IP check to avoid certificate issues before setup
+export PUBLIC_IP=$(curl --insecure --silent -L checkip.pterodactyl-installer.se 2>/dev/null || echo "127.0.0.1")
 export HOME="${HOME:-$(pwd)}"
 
 # Color codes
@@ -11,8 +12,10 @@ G='\033[0;32m'
 Y='\033[0;33m'
 NC='\033[0m'
 
-DEP_FLAG="${HOME}/.dependencies_installed_v2"
+DEP_FLAG="${HOME}/.dependencies_installed_v6"
 export PATH="${HOME}/.local/bin:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
+# Set temp library path, but allow system libraries to take precedence
+export LD_LIBRARY_PATH="${HOME}/.local/usr/lib:${HOME}/.local/usr/lib/${ARCH}-linux-gnu:${HOME}/.local/lib:${LD_LIBRARY_PATH:-}"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -22,60 +25,84 @@ case "$ARCH" in
   *) echo -e "${R}Unsupported architecture: $ARCH${NC}" >&2; exit 1 ;;
 esac
 
-export LD_LIBRARY_PATH="${HOME}/.local/usr/lib:${HOME}/.local/usr/lib/${ARCH}-linux-gnu:${HOME}/.local/lib:${LD_LIBRARY_PATH:-}"
-
 install_dependencies() {
-    echo -e "${Y}First time setup: Installing base packages and PRoot...${NC}"
-    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" "${HOME}/.local/tmp"
+    echo -e "${Y}First time setup: Installing base packages...${NC}"
+    
+    # Setup directories
+    mkdir -p "${HOME}/.local/bin" "${HOME}/usr/local/bin" "${HOME}/.local/tmp" "${HOME}/.local/ssl"
+    
+    # 1. SETUP CERTIFICATE BUNDLE
+    # Download a fresh bundle to ensure we don't rely on broken container paths
+    if [ ! -f "${HOME}/.local/ssl/cert.pem" ]; then
+        echo -e "${Y}Setting up SSL certificates...${NC}"
+        if command -v curl >/dev/null; then
+            curl --insecure -L -o "${HOME}/.local/ssl/cert.pem" "https://curl.se/ca/cacert.pem" 2>/dev/null
+        else
+            wget --no-check-certificate -q -O "${HOME}/.local/ssl/cert.pem" "https://curl.se/ca/cacert.pem" 2>/dev/null
+        fi
+    fi
+    
+    # Use if download succeeded
+    if [[ -f "${HOME}/.local/ssl/cert.pem" ]]; then
+        export SSL_CERT_FILE="${HOME}/.local/ssl/cert.pem"
+    fi
+
+    # 2. ATTEMPT APT-GET (Sandboxed)
+    USE_MANUAL="false"
     cd "${HOME}/.local"
-
-    # 1. ATTEMPT APT-GET DOWNLOAD
+    
     if command -v apt-get >/dev/null 2>&1; then
-        echo -e "${Y}Attempting download via apt-get...${NC}"
+        echo -e "${Y}Attempting sandboxed apt-get download...${NC}"
         
-        # Setup local apt directories
-        local apt_dir="${HOME}/.local/apt"
-        mkdir -p "${apt_dir}/lists/partial" "${apt_dir}/archives/partial" "${apt_dir}/dpkg/updates"
-        touch "${apt_dir}/dpkg/status"
-
-        local apt_opts=(
-            "-o" "Dir::State=${apt_dir}"
-            "-o" "Dir::State::status=${apt_dir}/dpkg/status"
-            "-o" "Dir::Cache=${apt_dir}"
-            "-o" "Dir::Etc::SourceList=/dev/null"
-            "-o" "Dir::Etc::SourceParts=/dev/null"
-        )
+        # Setup pure local APT config
+        mkdir -p apt/state/lists/partial apt/state/status apt/cache/archives/partial apt/etc apt/log
+        touch apt/state/status
         
-        # Determine sources based on Debian release or default to bookworm
-        # We manually add a source line to ensure we have a repo to download from
-        echo "deb [trusted=yes] http://ftp.us.debian.org/debian bookworm main" > "${apt_dir}/sources.list"
-        apt_opts+=("-o" "Dir::Etc::SourceList=${apt_dir}/sources.list")
+        cat <<EOF > apt/etc/apt.conf
+Dir "${HOME}/.local/apt";
+Dir::State "state";
+Dir::State::status "state/status";
+Dir::Cache "cache";
+Dir::Etc "etc";
+Dir::Etc::SourceList "etc/sources.list";
+Dir::Etc::SourceParts "/dev/null";
+Dir::Etc::Preferences "/dev/null";
+Dir::Log "log";
+Dir::Log::Terminal "/dev/null";
+APT::Get::Download-Only "true";
+APT::Install-Recommends "false";
+Acquire::Languages "none";
+EOF
+        echo "deb [trusted=yes] http://ftp.us.debian.org/debian bookworm main" > apt/etc/sources.list
+        export APT_CONFIG="${HOME}/.local/apt/etc/apt.conf"
 
-        if apt-get "${apt_opts[@]}" update >/dev/null 2>&1; then
-            local packages=(bash jq libjq1 libonig5 curl libcurl4 xz-utils ca-certificates iproute2 wget)
-            if apt-get "${apt_opts[@]}" download "${packages[@]}" >/dev/null 2>&1; then
-                echo -e "${G}Successfully downloaded packages via apt-get.${NC}"
-                USE_MANUAL="false"
+        # Attempt update and download
+        if apt-get update -o Dir::Log::Terminal="/dev/null" >/dev/null 2>&1; then
+            local packages=(bash jq libjq1 libonig5 curl libcurl4 xz-utils iproute2 wget)
+            if apt-get install --download-only -y "${packages[@]}" >/dev/null 2>&1; then
+                echo -e "${G}APT download successful!${NC}"
+                mv apt/cache/archives/*.deb . 2>/dev/null
             else
-                echo -e "${R}apt-get download failed.${NC}"
+                echo -e "${Y}APT download failed. Switching to manual...${NC}"
                 USE_MANUAL="true"
             fi
         else
-            echo -e "${R}apt-get update failed.${NC}"
-            USE_MANUAL="true"
+             echo -e "${Y}APT update failed. Switching to manual...${NC}"
+             USE_MANUAL="true"
         fi
     else
         USE_MANUAL="true"
     fi
 
-    # 2. FALLBACK TO MANUAL DOWNLOAD
+    # 3. MANUAL FALLBACK
     if [ "$USE_MANUAL" = "true" ]; then
-        echo -e "${Y}Switching to manual download (wget)...${NC}"
-        cd "${HOME}/.local/tmp" # Download to temp first
+        echo -e "${Y}Downloading packages manually (wget)...${NC}"
+        cd "${HOME}/.local/tmp"
 
         MIRROR="http://ftp.us.debian.org/debian/pool/main"
         
-        # UPDATED VERSIONS (Debian Bookworm Stable - Late 2025)
+        # Bookworm Stable versions (Late 2025 Corrected)
+        # Updated xz-utils from 5.4.1-0.2 to 5.4.1-1
         if [ "$DEB_ARCH" = "amd64" ]; then
             DEB_URLS=(
                 "$MIRROR/b/bash/bash_5.2.15-2+b9_amd64.deb"
@@ -85,42 +112,36 @@ install_dependencies() {
                 "$MIRROR/c/curl/curl_7.88.1-10+deb12u14_amd64.deb"
                 "$MIRROR/c/curl/libcurl4_7.88.1-10+deb12u14_amd64.deb"
                 "$MIRROR/x/xz-utils/xz-utils_5.4.1-1_amd64.deb"
-                "$MIRROR/c/ca-certificates/ca-certificates_20230311+deb12u1_all.deb"
                 "$MIRROR/w/wget/wget_1.21.3-1+deb12u1_amd64.deb"
-                "$MIRROR/i/iproute2/iproute2_6.1.0-3_amd64.deb"
             )
         elif [ "$DEB_ARCH" = "arm64" ]; then
             DEB_URLS=(
-                "$MIRROR/b/bash/bash_5.2.15-2+b7_arm64.deb"
+                "$MIRROR/b/bash/bash_5.2.15-2+b9_arm64.deb"
                 "$MIRROR/j/jq/jq_1.6-2.1+deb12u1_arm64.deb"
                 "$MIRROR/j/jq/libjq1_1.6-2.1+deb12u1_arm64.deb"
                 "$MIRROR/libo/libonig/libonig5_6.9.8-1_arm64.deb"
                 "$MIRROR/c/curl/curl_7.88.1-10+deb12u14_arm64.deb"
                 "$MIRROR/c/curl/libcurl4_7.88.1-10+deb12u14_arm64.deb"
                 "$MIRROR/x/xz-utils/xz-utils_5.4.1-1_arm64.deb"
-                "$MIRROR/c/ca-certificates/ca-certificates_20230311+deb12u1_all.deb"
                 "$MIRROR/w/wget/wget_1.21.3-1+deb12u1_arm64.deb"
-                "$MIRROR/i/iproute2/iproute2_6.1.0-3_arm64.deb"
             )
         fi
 
-        # Download tool check
+        # Download loop
         DL_CMD="wget -q -N"
         if ! command -v wget >/dev/null; then
             if command -v curl >/dev/null; then DL_CMD="curl -L -O -s"; else echo "No download tool found"; exit 1; fi
         fi
 
         for url in "${DEB_URLS[@]}"; do
-            echo -e "${Y}Downloading $(basename "$url")...${NC}"
             $DL_CMD "$url" || echo -e "${R}Failed to download $(basename "$url")${NC}"
         done
         
-        # Move downloaded debs to .local for unpacking
         mv *.deb "${HOME}/.local/" 2>/dev/null
         cd "${HOME}/.local"
     fi
 
-    # 3. UNPACK DEBS
+    # Unpack
     echo -e "${Y}Unpacking packages...${NC}"
     shopt -s nullglob
     local deb_files=(*.deb)
@@ -128,19 +149,16 @@ install_dependencies() {
 
     if [[ ${#deb_files[@]} -gt 0 ]]; then
         for deb_file in "${deb_files[@]}"; do
-            echo -e "${G}Unpacking $deb_file${NC}"
-            dpkg -x "$deb_file" .
-            rm "$deb_file"
+            dpkg -x "$deb_file" . >/dev/null 2>&1
+            rm -f "$deb_file"
         done
+        echo -e "${G}Packages unpacked.${NC}"
     else
-        echo -e "${R}Warning: No .deb files found to unpack.${NC}"
+        echo -e "${R}Warning: No packages found to unpack.${NC}"
     fi
 
-    # Setup CA Certs
-    if [ -d "${HOME}/.local/usr/share/ca-certificates" ]; then
-        export SSL_CERT_FILE="${HOME}/.local/usr/share/ca-certificates/ca-certificates.crt"
-    fi
-
+    # Cleanup
+    rm -rf "${HOME}/.local/apt" "${HOME}/.local/tmp"
     cd "${HOME}"
     
     # 4. INSTALL PROOT
@@ -152,21 +170,28 @@ install_dependencies() {
         wget -qO "${HOME}/usr/local/bin/proot" "$proot_url"
     fi
     chmod +x "${HOME}/usr/local/bin/proot"
-
-    echo -e "${G}Dependencies installed successfully${NC}"
+    
     touch "$DEP_FLAG"
 }
 
 update_scripts() {
     echo -e "${Y}Updating scripts...${NC}"
+    
+    # Use the cert bundle if we downloaded it
+    if [[ -f "${HOME}/.local/ssl/cert.pem" ]]; then
+        export SSL_CERT_FILE="${HOME}/.local/ssl/cert.pem"
+    else
+        unset SSL_CERT_FILE
+    fi
+
     declare -A scripts=(
-        ["common.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/common.sh"
-        ["entrypoint.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/entrypoint.sh"
-        ["helper.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/helper.sh"
-        ["install.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/install.sh"
-        ["run.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/run.sh"
-        ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
-        ["autorun.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
+        ["common.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/main/scripts/common.sh"
+        ["entrypoint.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/main/scripts/entrypoint.sh"
+        ["helper.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/main/scripts/helper.sh"
+        ["install.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/main/scripts/install.sh"
+        ["run.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/main/scripts/run.sh"
+        ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/master/files/docker/systemctl3.py"
+        ["autorun.sh"]="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/main/autorun.sh"
     )
 
     for path in "${!scripts[@]}"; do
@@ -176,19 +201,23 @@ update_scripts() {
         
         mkdir -p "$(dirname "$file")"
         
+        # Download logic with retry
+        local SUCCESS=false
         if command -v curl >/dev/null; then
-             curl -sSLf --connect-timeout 10 --retry 2 -o "$temp" "$url" 2>/dev/null
-        else
-             wget -q -O "$temp" "$url"
+             curl -sSLf --connect-timeout 10 --retry 2 -o "$temp" "$url" && SUCCESS=true
+        elif command -v wget >/dev/null; then
+             wget -q -O "$temp" "$url" && SUCCESS=true
         fi
 
-        if [[ -f "$temp" ]]; then
+        if [ "$SUCCESS" = "true" ] && [ -s "$temp" ]; then
             mv "$temp" "$file"
             chmod +x "$file"
             echo -e "${G}Updated ${path}${NC}"
         else
             rm -f "$temp"
-            [[ -f "$file" ]] || echo -e "${R}Warning: Failed to download ${path}${NC}"
+            if [ ! -f "$file" ]; then
+                echo -e "${R}Failed to download ${path}${NC}"
+            fi
         fi
     done
 }
@@ -201,10 +230,9 @@ update_scripts
 echo -e "${G}Installation complete!${NC}"
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
-    echo -e "${G}Starting entrypoint...${NC}"
     chmod +x "${HOME}/entrypoint.sh"
     exec "${HOME}/entrypoint.sh"
 else
-    echo -e "${R}Error: entrypoint.sh not found${NC}" >&2
+    echo -e "${R}Error: entrypoint.sh not found. Download failed.${NC}" >&2
     exit 1
 fi
