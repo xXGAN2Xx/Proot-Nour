@@ -21,8 +21,14 @@ setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
     case "$ARCH" in
-        x86_64)  BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox" ;;
-        aarch64) BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-armv8l-linux-musl/busybox" ;;
+        x86_64)  
+            BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+            JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
+            ;;
+        aarch64) 
+            BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-armv8l-linux-musl/busybox"
+            JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-arm64"
+            ;;
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
@@ -32,6 +38,10 @@ setup_tools() {
     for tool in xz tar unxz gzip bzip2; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
+
+    echo -e "${Y}Installing jq...${NC}"
+    curl -Ls "$JQ_URL" -o "${LOCAL_BIN}/jq"
+    chmod +x "${LOCAL_BIN}/jq"
 
     echo -e "${Y}Installing PRoot...${NC}"
     curl -Ls "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
@@ -43,12 +53,10 @@ setup_tools() {
 sync_scripts() {
     echo -e "${B}Syncing core scripts...${NC}"
     
-    # Base URLs
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
-    local NOUR_URL="https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/xrdp.sh"
+    local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
     
-    # The Block you requested
     declare -A scripts=(
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
@@ -56,7 +64,7 @@ sync_scripts() {
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
         ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
-        ["autorun.sh"]="$NOUR_URL/autorun.sh"
+        ["autorun.sh"]="$AUTORUN_URL"
     )
 
     for path in "${!scripts[@]}"; do
@@ -67,13 +75,16 @@ sync_scripts() {
 
     # Maintenance of Patches
     if [ -f "${HOME}/entrypoint.sh" ]; then
+        # Ensure PATH is inherited so it finds our local jq
         sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
         sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
     fi
 
     if [ -f "${HOME}/install.sh" ]; then
+        # BusyBox tar fix
         sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
-        sed -i "2i export PATH=\"$PATH\"" "${HOME}/install.sh"
+        # Force the script to use our specific jq path to avoid "Permission Denied" from host /usr/bin/jq
+        sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
     fi
 }
 
