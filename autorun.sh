@@ -58,7 +58,7 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get update > /dev/null 2>&1
     
     echo "Installing OS dependencies..."
-    apt-get install -y curl sed python3-minimal tmate > /dev/null 2>&1
+    apt-get install -y curl sed python3-minimal tmate unzip ca-certificates > /dev/null 2>&1
     
     touch "$INSTALL_LOCK_FILE"
 else
