@@ -57,6 +57,7 @@ setup_tools() {
 
     # 4. Install PRoot
     echo -e "${Y}Installing PRoot engine...${NC}"
+    rm -f "$PROOT_BIN" # Remove old binary if partial
     "${LOCAL_BIN}/curl" -sSL "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     
@@ -113,7 +114,15 @@ apply_guest_configs() {
 }
 
 cd "${HOME}"
-[[ -f "$DEP_FLAG" ]] || setup_tools
+
+# --- FIX START ---
+# Only run setup if PROOT is missing OR the dep flag is missing
+if [[ ! -f "$PROOT_BIN" ]] || [[ ! -f "$DEP_FLAG" ]]; then
+    echo -e "${Y}Tools missing or incomplete. Starting installation...${NC}"
+    setup_tools
+fi
+# --- FIX END ---
+
 sync_scripts
 apply_guest_configs
 
