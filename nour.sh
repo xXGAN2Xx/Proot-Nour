@@ -57,8 +57,6 @@ setup_tools() {
 
     # 4. Install PRoot
     echo -e "${Y}Installing PRoot engine...${NC}"
-    # Ensure directory exists explicitly here
-    mkdir -p "$(dirname "$PROOT_BIN")"
     "${LOCAL_BIN}/curl" -sSL "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -o "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     
@@ -115,16 +113,7 @@ apply_guest_configs() {
 }
 
 cd "${HOME}"
-
-# --- FIX START ---
-# Only skip setup_tools if PROOT_BIN actually exists and has size > 0
-if [[ -s "$PROOT_BIN" ]] && [[ -f "$DEP_FLAG" ]]; then
-    echo -e "${G}Dependencies found, skipping download.${NC}"
-else
-    setup_tools
-fi
-# --- FIX END ---
-
+[[ -f "$DEP_FLAG" ]] || setup_tools
 sync_scripts
 apply_guest_configs
 
