@@ -11,6 +11,8 @@ println("Done (s)! For help, type help")
 
 // All scripts will be saved as this filename locally
 const val TARGET_SCRIPT_NAME = "nourwin.sh"
+// The file that stores your choice
+const val CONFIG_FILE = "selected_version.txt"
 
 // --- Custom Configuration ---
 val VM_MEMORY = System.getenv("SERVER_MEMORY")
@@ -34,45 +36,64 @@ fun main() {
         ScriptOption("Windows XP", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
     )
 
-    println("==========================================")
-    println("   Select a version to install/run:")
-    println("   (All will be saved as $TARGET_SCRIPT_NAME)")
-    println("==========================================")
-    
-    options.forEachIndexed { index, option ->
-        println("${index + 1}. ${option.name}")
-    }
-    println("==========================================")
-    print("Enter number (1-${options.size}): ")
+    var selectedOption: ScriptOption? = loadSavedChoice(options)
 
-    var selectedOption: ScriptOption? = null
-
-    while (selectedOption == null) {
-        if (scanner.hasNextInt()) {
-            val choice = scanner.nextInt()
-            if (choice in 1..options.size) {
-                selectedOption = options[choice - 1]
-            } else {
-                print("Invalid selection. Enter 1-${options.size}: ")
+    // If a choice was saved, give the user a moment to change it if they want
+    if (selectedOption != null) {
+        println("==========================================")
+        println("Saved Choice: ${selectedOption.name}")
+        println("Starting in 3 seconds... (Press 'c' and Enter to change version)")
+        println("==========================================")
+        
+        // Non-blocking way to check for input (simplistic for script)
+        val input = System.`in`.available()
+        if (input > 0) {
+            val next = scanner.next()
+            if (next.lowercase() == "c") {
+                selectedOption = null // Force menu
             }
         } else {
-            scanner.next() 
-            print("Invalid input. Please enter a number: ")
+            // Wait a bit for user input
+            Thread.sleep(1000) 
         }
     }
 
-    val scriptUrl = selectedOption.url
+    // If no choice saved or user wants to change
+    if (selectedOption == null) {
+        println("==========================================")
+        println("   Select a version to install/run:")
+        println("==========================================")
+        
+        options.forEachIndexed { index, option ->
+            println("${index + 1}. ${option.name}")
+        }
+        println("==========================================")
+        print("Enter number (1-${options.size}): ")
 
-    println("\nSelected: ${selectedOption.name}")
+        while (selectedOption == null) {
+            if (scanner.hasNextInt()) {
+                val choice = scanner.nextInt()
+                if (choice in 1..options.size) {
+                    selectedOption = options[choice - 1]
+                    saveChoice(selectedOption!!)
+                } else {
+                    print("Invalid selection. Enter 1-${options.size}: ")
+                }
+            } else {
+                scanner.next() 
+                print("Invalid input. Please enter a number: ")
+            }
+        }
+    }
+
+    val scriptUrl = selectedOption!!.url
+    println("\nSelected: ${selectedOption!!.name}")
 
     try {
-        // handleScript checks if start.sh exists and if it matches the selected URL
-        // If it's different (e.g. you switched from Win10 to Win11), it will re-download.
         if (handleScript(TARGET_SCRIPT_NAME, scriptUrl)) {
             return
         }
 
-        // Fallback if file didn't exist at all
         println("'$TARGET_SCRIPT_NAME' not found. Downloading...")
         val downloadedFile = downloadAndSetPermissions(scriptUrl, TARGET_SCRIPT_NAME)
         if (downloadedFile != null) {
@@ -86,6 +107,33 @@ fun main() {
         e.printStackTrace()
     }
 }
+
+// --- Persistence Logic ---
+
+fun saveChoice(option: ScriptOption) {
+    try {
+        File(CONFIG_FILE).writeText("${option.name}\n${option.url}")
+    } catch (e: Exception) {
+        println("Warning: Could not save choice to disk.")
+    }
+}
+
+fun loadSavedChoice(options: List<ScriptOption>): ScriptOption? {
+    val file = File(CONFIG_FILE)
+    if (!file.exists()) return null
+    
+    return try {
+        val lines = file.readLines()
+        if (lines.size >= 2) {
+            // We return a new ScriptOption based on what's in the file
+            ScriptOption(lines[0], lines[1])
+        } else null
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// --- Existing Logic ---
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
@@ -145,7 +193,7 @@ fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
         val localContent = localFile.readText(Charsets.UTF_8)
         return remoteContent.trim() != localContent.trim()
     } catch (e: Exception) {
-        return true // Assume changed if we can't check
+        return true 
     }
 }
 
