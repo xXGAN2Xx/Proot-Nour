@@ -10,7 +10,7 @@ XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/
 
 # 2. Local Paths
 # CONFIG_DIR and CONFIG_PATH variables removed
-INSTALL_LOCK_FILE="/usr/local/etc/sing-box/install_lock"
+INSTALL_LOCK_FILE="/etc/sing-box/install_lock"
 XRDP_PATH="/root/xrdp.sh"
 
 # Ensure Public IP is detected
@@ -19,7 +19,7 @@ if [ -z "$PUBLIC_IP" ]; then
 fi
 
 # --- PREPARATION ---
-mkdir -p "/usr/local/etc/sing-box"
+mkdir -p "/etc/sing-box"
 
 # --- STEP 1: Self-Update Check ---
 if command -v curl >/dev/null 2>&1; then
@@ -69,13 +69,13 @@ curl -fsSL https://sing-box.app/install.sh | sh
 
 # --- STEP 3: Download config.json and Configure ---
 echo "Downloading latest config.json..."
-curl -fsSL -o "/usr/local/etc/sing-box/config.json" "$CONFIG_URL"
+curl -fsSL -o "/etc/sing-box/config.json" "$CONFIG_URL"
 
-if [ -f "/usr/local/etc/sing-box/config.json" ]; then
+if [ -f "/etc/sing-box/config.json" ]; then
     # Configure PORT
     if [ -n "$SERVER_PORT" ]; then
         echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
-        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "/usr/local/etc/sing-box/config.json"
+        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "/etc/sing-box/config.json"
     else
         echo "WARNING: SERVER_PORT variable is NOT set."
     fi
@@ -103,6 +103,6 @@ echo "=========================================================="
 
 # Start Sing-box
 echo "to start Sing-box core type the next command in console"
-echo "sing-box run -c /usr/local/etc/sing-box/config.json"
+echo "sing-box run -c /etc/sing-box/config.json"
 # systemctl enable sing-box && systemctl start sing-box
 # systemctl stop sing-box && systemctl kill sing-box
