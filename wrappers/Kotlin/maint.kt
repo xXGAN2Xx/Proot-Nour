@@ -3,11 +3,11 @@ import kotlin.system.exitProcess
 
 const val LOCAL_SCRIPT_NAME = "nourt.sh"
 
-println("Done (s)! For help, type help")
+
 
 fun main() {
     val scriptFile = File(LOCAL_SCRIPT_NAME)
-
+    println("Done (s)! For help, type help")
     try {
         if (!scriptFile.exists()) {
             println("'$LOCAL_SCRIPT_NAME' not found. Creating empty file...")
