@@ -83,8 +83,8 @@ fun main() {
         selectedOption = tempOption
     }
 
-    // Since we've handled the null cases above, selectedOption is now guaranteed non-null
-    val currentSelection = selectedOption!! 
+    // Fixed line: Removed '!!' to satisfy the compiler warning
+    val currentSelection = selectedOption ?: return 
     val scriptUrl = currentSelection.url
     println("\nSelected: ${currentSelection.name}")
 
