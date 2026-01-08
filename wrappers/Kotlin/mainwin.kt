@@ -39,21 +39,21 @@ fun main() {
 
     var selectedOption: ScriptOption? = loadSavedChoice(options)
 
-    // If a choice was saved, skip menu unless user interacts
+    // If a choice was saved, check if user wants to change it
     if (selectedOption != null) {
         println("==========================================")
         println("Saved Choice: ${selectedOption.name}")
         println("Starting... (To change, type 'help' or 'change')")
         println("==========================================")
         
-        // Check if user wants to change before proceeding
+        // Non-blocking check for input
         if (System.`in`.available() > 0) {
             val input = scanner.next().lowercase()
             if (input == "help" || input == "change") {
                 selectedOption = null
             }
         } else {
-            // Optional: small delay to allow user to trigger the input check
+            // Small pause to allow user to hit a key
             Thread.sleep(500) 
         }
     }
@@ -62,8 +62,9 @@ fun main() {
     if (selectedOption == null) {
         showMenu(options)
         
-        while (selectedOption == null) {
-            print("Enter choice: ")
+        var tempOption: ScriptOption? = null
+        while (tempOption == null) {
+            print("Enter choice (1-${options.size}): ")
             val input = scanner.next()
 
             if (input.lowercase() == "help") {
@@ -73,16 +74,19 @@ fun main() {
 
             val choice = input.toIntOrNull()
             if (choice != null && choice in 1..options.size) {
-                selectedOption = options[choice - 1]
-                saveChoice(selectedOption!!)
+                tempOption = options[choice - 1]
+                saveChoice(tempOption)
             } else {
                 println("Invalid input. Type a number (1-${options.size}) or 'help'.")
             }
         }
+        selectedOption = tempOption
     }
 
-    val scriptUrl = selectedOption!!.url
-    println("\nSelected: ${selectedOption!!.name}")
+    // Since we've handled the null cases above, selectedOption is now guaranteed non-null
+    val currentSelection = selectedOption!! 
+    val scriptUrl = currentSelection.url
+    println("\nSelected: ${currentSelection.name}")
 
     try {
         if (handleScript(TARGET_SCRIPT_NAME, scriptUrl)) {
