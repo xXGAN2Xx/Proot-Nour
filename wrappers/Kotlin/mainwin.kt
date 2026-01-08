@@ -7,6 +7,8 @@ import java.nio.file.StandardCopyOption
 import java.util.Scanner
 import kotlin.system.exitProcess
 
+println("Done (s)! For help, type help")
+
 // All scripts will be saved as this filename locally
 const val TARGET_SCRIPT_NAME = "nourwin.sh"
 
