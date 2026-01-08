@@ -206,9 +206,7 @@ systemctl restart xrdp-sesman
 
 # 9. start Services
 log_info "starting the Service..."
-systemctl enable xrdp
-systemctl start xrdp
-systemctl status xrdp
+xrdp
 
 # --- Final Output ---
 PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se || echo "SERVER_IP")
