@@ -24,8 +24,11 @@ data class ScriptOption(
 )
 
 fun main() {
-    val scanner = Scanner(System.`in`)
+    // Added your requested line at the start
     println("Done (s)! For help, type help")
+
+    val scanner = Scanner(System.`in`)
+    
     val options = listOf(
         ScriptOption("Windows 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"),
         ScriptOption("Windows 11", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
@@ -36,50 +39,44 @@ fun main() {
 
     var selectedOption: ScriptOption? = loadSavedChoice(options)
 
-    // If a choice was saved, give the user a moment to change it if they want
+    // If a choice was saved, skip menu unless user interacts
     if (selectedOption != null) {
         println("==========================================")
         println("Saved Choice: ${selectedOption.name}")
-        println("Starting in 3 seconds... (Press 'c' and Enter to change version)")
+        println("Starting... (To change, type 'help' or 'change')")
         println("==========================================")
         
-        // Non-blocking way to check for input (simplistic for script)
-        val input = System.`in`.available()
-        if (input > 0) {
-            val next = scanner.next()
-            if (next.lowercase() == "c") {
-                selectedOption = null // Force menu
+        // Check if user wants to change before proceeding
+        if (System.`in`.available() > 0) {
+            val input = scanner.next().lowercase()
+            if (input == "help" || input == "change") {
+                selectedOption = null
             }
         } else {
-            // Wait a bit for user input
-            Thread.sleep(1000) 
+            // Optional: small delay to allow user to trigger the input check
+            Thread.sleep(500) 
         }
     }
 
-    // If no choice saved or user wants to change
+    // Menu logic if no choice is saved or user wants to change
     if (selectedOption == null) {
-        println("==========================================")
-        println("   Select a version to install/run:")
-        println("==========================================")
+        showMenu(options)
         
-        options.forEachIndexed { index, option ->
-            println("${index + 1}. ${option.name}")
-        }
-        println("==========================================")
-        print("Enter number (1-${options.size}): ")
-
         while (selectedOption == null) {
-            if (scanner.hasNextInt()) {
-                val choice = scanner.nextInt()
-                if (choice in 1..options.size) {
-                    selectedOption = options[choice - 1]
-                    saveChoice(selectedOption!!)
-                } else {
-                    print("Invalid selection. Enter 1-${options.size}: ")
-                }
+            print("Enter choice: ")
+            val input = scanner.next()
+
+            if (input.lowercase() == "help") {
+                showMenu(options)
+                continue
+            }
+
+            val choice = input.toIntOrNull()
+            if (choice != null && choice in 1..options.size) {
+                selectedOption = options[choice - 1]
+                saveChoice(selectedOption!!)
             } else {
-                scanner.next() 
-                print("Invalid input. Please enter a number: ")
+                println("Invalid input. Type a number (1-${options.size}) or 'help'.")
             }
         }
     }
@@ -96,14 +93,20 @@ fun main() {
         val downloadedFile = downloadAndSetPermissions(scriptUrl, TARGET_SCRIPT_NAME)
         if (downloadedFile != null) {
             runScript(downloadedFile)
-        } else {
-            println("Failed to prepare '$TARGET_SCRIPT_NAME'.")
         }
-
     } catch (e: Exception) {
         println("An error occurred: ${e.message}")
-        e.printStackTrace()
     }
+}
+
+fun showMenu(options: List<ScriptOption>) {
+    println("==========================================")
+    println("   Select a version to install/run:")
+    println("==========================================")
+    options.forEachIndexed { index, option ->
+        println("${index + 1}. ${option.name}")
+    }
+    println("==========================================")
 }
 
 // --- Persistence Logic ---
@@ -112,107 +115,71 @@ fun saveChoice(option: ScriptOption) {
     try {
         File(CONFIG_FILE).writeText("${option.name}\n${option.url}")
     } catch (e: Exception) {
-        println("Warning: Could not save choice to disk.")
+        // Silently fail if we can't save
     }
 }
 
 fun loadSavedChoice(options: List<ScriptOption>): ScriptOption? {
     val file = File(CONFIG_FILE)
     if (!file.exists()) return null
-    
     return try {
         val lines = file.readLines()
-        if (lines.size >= 2) {
-            // We return a new ScriptOption based on what's in the file
-            ScriptOption(lines[0], lines[1])
-        } else null
+        if (lines.size >= 2) ScriptOption(lines[0], lines[1]) else null
     } catch (e: Exception) {
         null
     }
 }
 
-// --- Existing Logic ---
+// --- Script Handling Logic ---
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
-    val fileToExecute: File
-    val wasSuccessfullyUpdated: Boolean
-    val isUpToDateAndSkippingPermSet: Boolean
-
     if (scriptFile.exists()) {
         println("Checking if existing '$scriptName' matches selection...")
+        val fileToExecute: File
         if (isFileChanged(scriptFile, scriptUrl)) {
-            println("Local file differs from selection. Downloading correct version...")
-            val updatedFile = downloadAndSetPermissions(scriptUrl, scriptName)
-            if (updatedFile != null) {
-                fileToExecute = updatedFile
-                wasSuccessfullyUpdated = true
-                isUpToDateAndSkippingPermSet = false
-            } else {
-                println("Update failed. Trying to run existing file anyway...")
-                fileToExecute = scriptFile
-                wasSuccessfullyUpdated = false
-                isUpToDateAndSkippingPermSet = false
-            }
+            println("Version changed. Downloading update...")
+            fileToExecute = downloadAndSetPermissions(scriptUrl, scriptName) ?: scriptFile
         } else {
-            println("Existing '$scriptName' is already the correct version.")
+            println("Existing version is up to date.")
             fileToExecute = scriptFile
-            wasSuccessfullyUpdated = false
-            isUpToDateAndSkippingPermSet = true
         }
-    } else {
-        return false
-    }
-
-    var canRun = false
-    if (wasSuccessfullyUpdated) {
-        canRun = fileToExecute.canExecute()
-    } else if (isUpToDateAndSkippingPermSet) {
-        if (fileToExecute.canExecute()) {
-            canRun = true
-        } else {
-            canRun = setExecutablePermission(fileToExecute)
-        }
-    } else {
-        canRun = setExecutablePermission(fileToExecute)
-    }
-
-    if (canRun) {
+        
+        setExecutablePermission(fileToExecute)
         runScript(fileToExecute)
-    } else {
-        println("Error: Cannot execute '$scriptName'. Check permissions.")
+        return true
     }
-    return true
+    return false
 }
 
 fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
-    try {
-        val remoteContent = URI(remoteUrl).toURL().readText(Charsets.UTF_8)
-        val localContent = localFile.readText(Charsets.UTF_8)
-        return remoteContent.trim() != localContent.trim()
+    return try {
+        val remoteContent = URI(remoteUrl).toURL().readText(Charsets.UTF_8).trim()
+        val localContent = localFile.readText(Charsets.UTF_8).trim()
+        remoteContent != localContent
     } catch (e: Exception) {
-        return true 
+        true 
     }
 }
 
 fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): File? {
-    val url = runCatching { URI(scriptUrlString).toURL() }.getOrNull() ?: return null
-    val destinationFile = File(scriptFileName)
-
-    try {
-        downloadFile(url, destinationFile)
-        setExecutablePermission(destinationFile)
-        return destinationFile
+    return try {
+        val url = URI(scriptUrlString).toURL()
+        val destination = File(scriptFileName)
+        url.openStream().use { inputStream ->
+            Files.copy(inputStream, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        setExecutablePermission(destination)
+        destination
     } catch (e: Exception) {
         println("Download error: ${e.message}")
-        return null
+        null
     }
 }
 
 fun setExecutablePermission(file: File): Boolean {
     return try {
-        val process = ProcessBuilder("chmod", "+x", file.absolutePath).start()
-        process.waitFor() == 0
+        ProcessBuilder("chmod", "+x", file.absolutePath).start().waitFor() == 0
     } catch (e: Exception) {
         false
     }
@@ -223,23 +190,15 @@ fun runScript(scriptFile: File) {
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
         val env = processBuilder.environment()
-        
-        if (VM_MEMORY != null) env["VM_MEMORY"] = VM_MEMORY
-        if (OTHER_PORT != null) env["OTHER_PORT"] = OTHER_PORT
-        if (RDP_PORT != null) env["RDP_PORT"] = RDP_PORT
+        VM_MEMORY?.let { env["VM_MEMORY"] = it }
+        OTHER_PORT?.let { env["OTHER_PORT"] = it }
+        RDP_PORT?.let { env["RDP_PORT"] = it }
         
         processBuilder.inheritIO()
         val process = processBuilder.start()
         val exitCode = process.waitFor()
-        
         if (exitCode == 0) exitProcess(0)
     } catch (e: Exception) {
         println("Execution error: ${e.message}")
-    }
-}
-
-fun downloadFile(url: java.net.URL, destination: File) {
-    url.openStream().use { inputStream ->
-        Files.copy(inputStream, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 }
