@@ -4,33 +4,80 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.util.Scanner
 import kotlin.system.exitProcess
-
-const val NOUR_SCRIPT_NAME = "start10.sh"
-const val NOUR_URL = "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"
 
 // --- Custom Configuration ---
 // Pulling from environment variables.
 val SET_VM_MEMORY = System.getenv("SERVER_MEMORY")
 val SET_OTHER_PORT = System.getenv("SERVER_PORT")
-val SET_RDP_PORT = System.getenv("SERVER_PORT") // Added RDP_PORT mapping
+// Fixed variable name to match usage in runScript
+val SET_RDP_PORT = System.getenv("RDP_PORT") ?: System.getenv("SERVER_PORT") 
 // ----------------------------
 
+data class ScriptOption(
+    val name: String,
+    val fileName: String,
+    val url: String
+)
+
 fun main() {
-    println("Done (s)! For help, type help")
+    val scanner = Scanner(System.`in`)
+    
+    val options = listOf(
+        ScriptOption("Windows 10 (LemeM-10)", "start10.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"),
+        ScriptOption("Windows Server 2016", "start.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemembox-windows-server-2016/refs/heads/main/start.sh"),
+        ScriptOption("Windows (LemeM Windows)", "start.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
+        ScriptOption("Tiny 10", "tiny10.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/tiny10.sh"),
+        ScriptOption("Windows XP", "xp.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
+    )
+
+    println("==========================================")
+    println("   Select a version to install/run:")
+    println("==========================================")
+    
+    options.forEachIndexed { index, option ->
+        println("${index + 1}. ${option.name} [${option.fileName}]")
+    }
+    println("==========================================")
+    print("Enter number (1-${options.size}): ")
+
+    var selectedOption: ScriptOption? = null
+
+    while (selectedOption == null) {
+        if (scanner.hasNextInt()) {
+            val choice = scanner.nextInt()
+            if (choice in 1..options.size) {
+                selectedOption = options[choice - 1]
+            } else {
+                print("Invalid selection. Please enter a number between 1 and ${options.size}: ")
+            }
+        } else {
+            scanner.next() // consume invalid input
+            print("Invalid input. Please enter a number: ")
+        }
+    }
+
+    val scriptName = selectedOption.fileName
+    val scriptUrl = selectedOption.url
+
+    println("\nSelected: ${selectedOption.name}")
+    println("Checking '$scriptName'...")
 
     try {
-        if (handleScript(NOUR_SCRIPT_NAME, NOUR_URL)) {
+        // Attempt to handle existing script or update it
+        if (handleScript(scriptName, scriptUrl)) {
             return
         }
 
-        println("'$NOUR_SCRIPT_NAME' not found locally. Attempting to download...")
-        val downloadedFile = downloadAndSetPermissions(NOUR_URL, NOUR_SCRIPT_NAME)
+        // If handleScript returned false (file didn't exist), download it now
+        println("'$scriptName' not found locally. Attempting to download...")
+        val downloadedFile = downloadAndSetPermissions(scriptUrl, scriptName)
         if (downloadedFile != null) {
             println("Preparing to run downloaded '${downloadedFile.name}'...")
             runScript(downloadedFile)
         } else {
-            println("Failed to download or set permissions for '$NOUR_SCRIPT_NAME'. Script will not be run.")
+            println("Failed to download or set permissions for '$scriptName'. Script will not be run.")
         }
 
     } catch (e: Exception) {
