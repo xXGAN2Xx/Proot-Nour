@@ -7,17 +7,17 @@ import java.nio.file.StandardCopyOption
 import java.util.Scanner
 import kotlin.system.exitProcess
 
+// All scripts will be saved as this filename locally
+const val TARGET_SCRIPT_NAME = "start.sh"
+
 // --- Custom Configuration ---
-// Pulling from environment variables.
 val SET_VM_MEMORY = System.getenv("SERVER_MEMORY")
 val SET_OTHER_PORT = System.getenv("SERVER_PORT")
-// Fixed variable name to match usage in runScript
-val SET_RDP_PORT = System.getenv("RDP_PORT") ?: System.getenv("SERVER_PORT") 
+val SET_RDP_PORT = System.getenv("SERVER_PORT") 
 // ----------------------------
 
 data class ScriptOption(
     val name: String,
-    val fileName: String,
     val url: String
 )
 
@@ -25,19 +25,20 @@ fun main() {
     val scanner = Scanner(System.`in`)
     
     val options = listOf(
-        ScriptOption("Windows 10 (LemeM-10)", "start10.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"),
-        ScriptOption("Windows Server 2016", "start.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemembox-windows-server-2016/refs/heads/main/start.sh"),
-        ScriptOption("Windows (LemeM Windows)", "start.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
-        ScriptOption("Tiny 10", "tiny10.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/tiny10.sh"),
-        ScriptOption("Windows XP", "xp.sh", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
+        ScriptOption("Windows 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"),
+        ScriptOption("Windows Server 2016", "https://raw.githubusercontent.com/mrbeeenopro/lemembox-windows-server-2016/refs/heads/main/start.sh"),
+        ScriptOption("Windows 11", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
+        ScriptOption("Tiny 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/tiny10.sh"),
+        ScriptOption("Windows XP", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
     )
 
     println("==========================================")
     println("   Select a version to install/run:")
+    println("   (All will be saved as $TARGET_SCRIPT_NAME)")
     println("==========================================")
     
     options.forEachIndexed { index, option ->
-        println("${index + 1}. ${option.name} [${option.fileName}]")
+        println("${index + 1}. ${option.name}")
     }
     println("==========================================")
     print("Enter number (1-${options.size}): ")
@@ -50,42 +51,39 @@ fun main() {
             if (choice in 1..options.size) {
                 selectedOption = options[choice - 1]
             } else {
-                print("Invalid selection. Please enter a number between 1 and ${options.size}: ")
+                print("Invalid selection. Enter 1-${options.size}: ")
             }
         } else {
-            scanner.next() // consume invalid input
+            scanner.next() 
             print("Invalid input. Please enter a number: ")
         }
     }
 
-    val scriptName = selectedOption.fileName
     val scriptUrl = selectedOption.url
 
     println("\nSelected: ${selectedOption.name}")
-    println("Checking '$scriptName'...")
 
     try {
-        // Attempt to handle existing script or update it
-        if (handleScript(scriptName, scriptUrl)) {
+        // handleScript checks if start.sh exists and if it matches the selected URL
+        // If it's different (e.g. you switched from Win10 to Win11), it will re-download.
+        if (handleScript(TARGET_SCRIPT_NAME, scriptUrl)) {
             return
         }
 
-        // If handleScript returned false (file didn't exist), download it now
-        println("'$scriptName' not found locally. Attempting to download...")
-        val downloadedFile = downloadAndSetPermissions(scriptUrl, scriptName)
+        // Fallback if file didn't exist at all
+        println("'$TARGET_SCRIPT_NAME' not found. Downloading...")
+        val downloadedFile = downloadAndSetPermissions(scriptUrl, TARGET_SCRIPT_NAME)
         if (downloadedFile != null) {
-            println("Preparing to run downloaded '${downloadedFile.name}'...")
             runScript(downloadedFile)
         } else {
-            println("Failed to download or set permissions for '$scriptName'. Script will not be run.")
+            println("Failed to prepare '$TARGET_SCRIPT_NAME'.")
         }
 
     } catch (e: Exception) {
-        println("An unexpected error occurred in main: ${e.message}")
+        println("An error occurred: ${e.message}")
         e.printStackTrace()
     }
 }
-
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
@@ -94,23 +92,22 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val isUpToDateAndSkippingPermSet: Boolean
 
     if (scriptFile.exists()) {
-        println("Found '${scriptFile.name}'. Checking for updates...")
+        println("Checking if existing '$scriptName' matches selection...")
         if (isFileChanged(scriptFile, scriptUrl)) {
-            println("'${scriptFile.name}' has changed or an error occurred during check. Attempting to download the new version...")
+            println("Local file differs from selection. Downloading correct version...")
             val updatedFile = downloadAndSetPermissions(scriptUrl, scriptName)
             if (updatedFile != null) {
                 fileToExecute = updatedFile
                 wasSuccessfullyUpdated = true
                 isUpToDateAndSkippingPermSet = false
-                println("Successfully updated '${scriptFile.name}'.")
             } else {
-                println("Failed to update '${scriptFile.name}'. Will attempt to run the existing local version '${scriptFile.name}'.")
+                println("Update failed. Trying to run existing file anyway...")
                 fileToExecute = scriptFile
                 wasSuccessfullyUpdated = false
                 isUpToDateAndSkippingPermSet = false
             }
         } else {
-            println("'${scriptFile.name}' is up to date.")
+            println("Existing '$scriptName' is already the correct version.")
             fileToExecute = scriptFile
             wasSuccessfullyUpdated = false
             isUpToDateAndSkippingPermSet = true
@@ -119,204 +116,82 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
         return false
     }
 
-    
     var canRun = false
-
     if (wasSuccessfullyUpdated) {
-        if (fileToExecute.canExecute()) {
-            println("Permissions for updated '${fileToExecute.name}' were set during download.")
-            canRun = true
-        } else {
-            println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update and permissioning process. Cannot run.")
-        }
+        canRun = fileToExecute.canExecute()
     } else if (isUpToDateAndSkippingPermSet) {
-        println("Skipping explicit permission setting for up-to-date file '${fileToExecute.name}'.")
         if (fileToExecute.canExecute()) {
-            println("'${fileToExecute.name}' is already executable.")
             canRun = true
         } else {
-            println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Permission setting was skipped as requested. Script will not be run.")
-            canRun = false
+            canRun = setExecutablePermission(fileToExecute)
         }
     } else {
-        println("Attempting to set/verify permissions for '${fileToExecute.name}' (e.g., fallback or initial run scenario)...")
-        if (setExecutablePermission(fileToExecute)) {
-            if (fileToExecute.canExecute()) {
-                println("Permissions set successfully for '${fileToExecute.name}'.")
-                canRun = true
-            } else {
-                    println("Error: Setting permissions for '${fileToExecute.name}' was reported as successful, but the file is still not executable. Cannot run.")
-            }
-        } else {
-            println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
-        }
+        canRun = setExecutablePermission(fileToExecute)
     }
 
     if (canRun) {
-        println("Preparing to run '${fileToExecute.name}'...")
         runScript(fileToExecute)
     } else {
-        println("Script '${fileToExecute.name}' will not be run due to permission issues or because it was not made executable.")
+        println("Error: Cannot execute '$scriptName'. Check permissions.")
     }
     return true
 }
 
 fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
-    println("Comparing local '${localFile.name}' with remote '$remoteUrl'...")
     try {
         val remoteContent = URI(remoteUrl).toURL().readText(Charsets.UTF_8)
         val localContent = localFile.readText(Charsets.UTF_8)
-        val changed = remoteContent != localContent
-        if (changed) {
-            println("Contents differ for '${localFile.name}'.")
-        } else {
-            println("Contents are the same for '${localFile.name}'.")
-        }
-        return changed
-    } catch (e: IOException) {
-        println("IOException during comparison for '${localFile.name}': ${e.message}. Assuming it has changed to be safe.")
-        return true
+        return remoteContent.trim() != localContent.trim()
     } catch (e: Exception) {
-        println("Unexpected error comparing file '${localFile.name}' with remote: ${e.message}. Assuming it has changed.")
-        e.printStackTrace()
-        return true
+        return true // Assume changed if we can't check
     }
 }
 
 fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): File? {
-    val url = runCatching { URI(scriptUrlString).toURL() }.getOrNull()
-    
-    if (url == null) {
-        println("Error: Invalid URL format: $scriptUrlString")
-        return null
-    }
-
+    val url = runCatching { URI(scriptUrlString).toURL() }.getOrNull() ?: return null
     val destinationFile = File(scriptFileName)
 
-    println("Downloading '$scriptFileName' from $scriptUrlString...")
     try {
         downloadFile(url, destinationFile)
-        println("Download completed for '$scriptFileName'.")
+        setExecutablePermission(destinationFile)
+        return destinationFile
     } catch (e: Exception) {
-        println("Error downloading '$scriptFileName': ${e.message}")
-        e.printStackTrace()
+        println("Download error: ${e.message}")
         return null
     }
-
-    if (!setExecutablePermission(destinationFile)) {
-        println("Download of '$scriptFileName' succeeded but setting permissions failed.")
-        return null
-    }
-    println("Successfully downloaded and ensured permissions for '$scriptFileName'.")
-    return destinationFile
 }
 
 fun setExecutablePermission(file: File): Boolean {
-    if (!file.exists()) {
-        println("Cannot set permissions: File '${file.name}' does not exist at path '${file.absolutePath}'.")
-        return false
-    }
-    println("Setting executable permission on '${file.name}'...")
-    try {
-        val chmod = ProcessBuilder("chmod", "+x", file.absolutePath)
-        val chmodProcess = chmod.start()
-        val chmodExitCode = chmodProcess.waitFor()
-
-        if (chmodExitCode != 0) {
-            val errorOutput = chmodProcess.errorStream.bufferedReader().readText().trim()
-            val stdOutput = chmodProcess.inputStream.bufferedReader().readText().trim()
-            println("Error setting executable permission for '${file.name}' (chmod exit code: $chmodExitCode).")
-            if (errorOutput.isNotEmpty()) println("chmod stderr: $errorOutput")
-            if (stdOutput.isNotEmpty()) println("chmod stdout: $stdOutput")
-            return false
-        } else {
-            println("Executable permission set for '${file.name}'.")
-            return true
-        }
-    } catch (e: IOException) {
-        println("IOException while trying to run chmod for '${file.name}': ${e.message}")
-        e.printStackTrace()
-        return false
-    } catch (e: InterruptedException) {
-        println("Process 'chmod' for '${file.name}' was interrupted: ${e.message}")
-        e.printStackTrace()
-        Thread.currentThread().interrupt()
-        return false
+    return try {
+        val process = ProcessBuilder("chmod", "+x", file.absolutePath).start()
+        process.waitFor() == 0
+    } catch (e: Exception) {
+        false
     }
 }
 
 fun runScript(scriptFile: File) {
-    if (!scriptFile.exists()) {
-        println("Cannot run script: '${scriptFile.name}' does not exist at ${scriptFile.absolutePath}.")
-        return
-    }
-    if (!scriptFile.canExecute()) {
-        println("Cannot run script: '${scriptFile.name}' is not executable. Path: ${scriptFile.absolutePath}")
-        return
-    }
-
-    println("Running '${scriptFile.name}' and waiting for it to complete...")
+    println("Starting execution of ${scriptFile.name}...")
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
-        
-        // --- Set Environment Variables ---
         val env = processBuilder.environment()
         
-        if (SET_VM_MEMORY != null) {
-            env["VM_MEMORY"] = SET_VM_MEMORY
-        }
-        if (SET_OTHER_PORT != null) {
-            env["OTHER_PORT"] = SET_OTHER_PORT
-        }
-        if (SET_RDP_PORT != null) {
-            env["RDP_PORT"] = SET_RDP_PORT
-        }
+        if (SET_VM_MEMORY != null) env["VM_MEMORY"] = SET_VM_MEMORY
+        if (SET_OTHER_PORT != null) env["OTHER_PORT"] = SET_OTHER_PORT
+        if (SET_RDP_PORT != null) env["RDP_PORT"] = SET_RDP_PORT
         
-        println("Environment variables set: VM_MEMORY=${SET_VM_MEMORY ?: "N/A"}, OTHER_PORT=${SET_OTHER_PORT ?: "N/A"}, RDP_PORT=${SET_RDP_PORT ?: "N/A"}")
-        // ---------------------------------
-
         processBuilder.inheritIO()
         val process = processBuilder.start()
         val exitCode = process.waitFor()
-        println("'${scriptFile.name}' finished with exit code $exitCode.")
         
-        if (exitCode == 0) {
-            println("Script completed successfully. Exiting program...")
-            exitProcess(0)
-        }
-    } catch (e: IOException) {
-        println("IOException while trying to run script '${scriptFile.name}': ${e.message}")
-        e.printStackTrace()
-    } catch (e: InterruptedException) {
-        println("Script execution for '${scriptFile.name}' was interrupted: ${e.message}")
-        e.printStackTrace()
-        Thread.currentThread().interrupt()
+        if (exitCode == 0) exitProcess(0)
+    } catch (e: Exception) {
+        println("Execution error: ${e.message}")
     }
 }
 
 fun downloadFile(url: java.net.URL, destination: File) {
-    val tempFile = Files.createTempFile(destination.parentFile?.toPath() ?: Paths.get("."), destination.name, ".tmpdownload").toFile()
-    try {
-        url.openStream().use { inputStream ->
-            Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-        Files.move(tempFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-    } catch (e: Exception) {
-        if (tempFile.exists() && !tempFile.delete()) {
-            println("Warning: Failed to delete temporary file: ${tempFile.absolutePath}")
-        }
-        throw IOException("Failed to download or replace file '${destination.name}' from $url: ${e.message}", e)
-    } finally {
-        if (tempFile.exists() && tempFile.length() > 0 && !destination.exists()) {
-            if (!tempFile.delete()) {
-                 println("Warning: Temporary file ${tempFile.absolutePath} could not be deleted after failed operation.")
-            }
-        } else if (tempFile.exists() && (!destination.exists() || destination.length() != tempFile.length())) {
-            if (!tempFile.delete()) {
-                 println("Warning: Temporary file ${tempFile.absolutePath} may still exist and could not be cleaned up.")
-            }
-        } else if (tempFile.exists()) {
-            tempFile.delete()
-        }
+    url.openStream().use { inputStream ->
+        Files.copy(inputStream, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 }
