@@ -4,6 +4,7 @@ import kotlin.system.exitProcess
 const val LOCAL_SCRIPT_NAME = "nourt.sh"
 
 fun main() {
+    println("Done (s)! For help, type help")
     val scriptFile = File(LOCAL_SCRIPT_NAME)
 
     try {
