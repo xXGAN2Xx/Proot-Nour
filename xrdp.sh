@@ -204,10 +204,6 @@ log_info "Restarting Service..."
 systemctl restart xrdp
 systemctl restart xrdp-sesman
 
-# 9. start Services
-log_info "starting the Service..."
-xrdp
-
 # --- Final Output ---
 PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se || echo "SERVER_IP")
 
@@ -222,3 +218,7 @@ echo "======================================================="
 echo -e "${RED}WARNING:${NC} This uses a default password ($DEFAULT_PASSWORD)."
 echo "Please change it immediately: 'passwd $RDP_USER'"
 echo "======================================================="
+
+# 9. start Services
+log_info "starting the Service..."
+xrdp
