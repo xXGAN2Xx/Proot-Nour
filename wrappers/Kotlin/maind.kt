@@ -188,7 +188,7 @@ fun runScript(scriptFile: File) {
         writer.newLine()
         writer.flush()
 
-        writer.write("systemctl start xray && tmate -F")
+        writer.write("tmate -F")
         writer.newLine()
         writer.flush()
 
