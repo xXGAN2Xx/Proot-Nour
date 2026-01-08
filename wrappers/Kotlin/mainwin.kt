@@ -7,8 +7,6 @@ import java.nio.file.StandardCopyOption
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-println("Done (s)! For help, type help")
-
 // All scripts will be saved as this filename locally
 const val TARGET_SCRIPT_NAME = "nourwin.sh"
 // The file that stores your choice
@@ -27,7 +25,7 @@ data class ScriptOption(
 
 fun main() {
     val scanner = Scanner(System.`in`)
-    
+    println("Done (s)! For help, type help")
     val options = listOf(
         ScriptOption("Windows 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-10/refs/heads/main/start10.sh"),
         ScriptOption("Windows 11", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
