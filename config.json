@@ -1,17 +1,14 @@
 {
-  "inbounds": [
-    {
-      "port": ${SERVER_PORT},
-      "protocol": "vless",
-      "settings": {
-        "clients": [{ "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e" }],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": { "header": { "type": "http" } }
-      }
+  "inbounds": [{
+    "port": ${SERVER_PORT},
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e" }],
+      "decryption": "none"
+    },
+    "streamSettings": {
+      "tcpSettings": { "header": { "type": "http" } }
     }
-  ],
+  }],
   "outbounds": [{ "protocol": "freedom" }]
 }
