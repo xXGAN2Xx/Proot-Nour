@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script Inside PRoot] ---"
+echo "--- [Sing-box VLESS (TCP+HTTP Injection) Startup Script Inside PRoot] ---"
 
 # --- CONFIGURATION ---
 # 1. URLs
@@ -9,10 +9,8 @@ CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
 # 2. Local Paths
-# Standard Xray config path
-CONFIG_DIR="/usr/local/etc/xray"
-INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
-CONFIG_PATH="${CONFIG_DIR}/config.json"
+# CONFIG_DIR and CONFIG_PATH variables removed
+INSTALL_LOCK_FILE="/usr/local/etc/sing-box/install_lock"
 XRDP_PATH="/root/xrdp.sh"
 
 # Ensure Public IP is detected
@@ -21,7 +19,7 @@ if [ -z "$PUBLIC_IP" ]; then
 fi
 
 # --- PREPARATION ---
-mkdir -p "$CONFIG_DIR"
+mkdir -p "/usr/local/etc/sing-box"
 
 # --- STEP 1: Self-Update Check ---
 if command -v curl >/dev/null 2>&1; then
@@ -58,27 +56,26 @@ if [ ! -f "$INSTALL_LOCK_FILE" ]; then
     apt-get update > /dev/null 2>&1
     
     echo "Installing OS dependencies..."
-    apt-get install -y curl sed python3-minimal tmate unzip ca-certificates > /dev/null 2>&1
+    apt-get install -y curl sed python3-minimal tmate ca-certificates > /dev/null 2>&1
     
     touch "$INSTALL_LOCK_FILE"
 else
     echo "OS dependencies are already installed."
 fi
 
-# B. Xray-core Installation/Update (RUNS EVERY TIME)
-echo "Checking for Xray-core updates and installing..."
-# This command will update Xray if a new version is available, or reinstall it.
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
+# B. Sing-box Installation/Update (RUNS EVERY TIME)
+echo "Checking for Sing-box updates and installing..."
+curl -fsSL https://sing-box.app/install.sh | sh
 
 # --- STEP 3: Download config.json and Configure ---
 echo "Downloading latest config.json..."
-curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
+curl -fsSL -o "/usr/local/etc/sing-box/config.json" "$CONFIG_URL"
 
-if [ -f "$CONFIG_PATH" ]; then
+if [ -f "/usr/local/etc/sing-box/config.json" ]; then
     # Configure PORT
     if [ -n "$SERVER_PORT" ]; then
         echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
-        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$CONFIG_PATH"
+        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "/usr/local/etc/sing-box/config.json"
     else
         echo "WARNING: SERVER_PORT variable is NOT set."
     fi
@@ -92,20 +89,20 @@ curl -fsSL -o "$XRDP_PATH" "$XRDP_URL"
 chmod +x "$XRDP_PATH"
 
 # --- STEP 5: Start Services ---
-echo "--- Starting Xray (Gaming + Injection Mode)... ---"
+echo "--- Starting Sing-box (Gaming + Injection Mode)... ---"
 
 # UUID from your config.json
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-# VLESS Link Generation (Updated for TCP + HTTP Header Injection)
+# VLESS Link Generation
 VLESS_LINK="vless://${UUID}@${PUBLIC_IP}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 echo "=========================================================="
-echo "Xray VLESS Link (Tcp + Http Injection)"
+echo "Sing-box VLESS Link (Tcp + Http Injection)"
 echo "$VLESS_LINK"
 echo "=========================================================="
 
-# Start Xray
-echo "to start Xray core type the next command in console"
-echo "xray run -c /usr/local/etc/xray/config.json"
-# systemctl start xray
-# systemctl disable xray && systemctl stop xray && systemctl kill xray
+# Start Sing-box
+echo "to start Sing-box core type the next command in console"
+echo "sing-box run -c /usr/local/etc/sing-box/config.json"
+# systemctl enable sing-box && systemctl start sing-box
+# systemctl stop sing-box && systemctl kill sing-box
