@@ -11,9 +11,9 @@ import kotlin.system.exitProcess
 const val TARGET_SCRIPT_NAME = "nourwin.sh"
 
 // --- Custom Configuration ---
-val SET_VM_MEMORY = System.getenv("SERVER_MEMORY")
-val SET_OTHER_PORT = System.getenv("SERVER_PORT")
-val SET_RDP_PORT = System.getenv("SERVER_PORT") 
+val VM_MEMORY = System.getenv("SERVER_MEMORY")
+val OTHER_PORT = System.getenv("SERVER_PORT")
+val RDP_PORT = System.getenv("SERVER_PORT") 
 // ----------------------------
 
 data class ScriptOption(
@@ -176,9 +176,9 @@ fun runScript(scriptFile: File) {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
         val env = processBuilder.environment()
         
-        if (SET_VM_MEMORY != null) env["VM_MEMORY"] = SET_VM_MEMORY
-        if (SET_OTHER_PORT != null) env["OTHER_PORT"] = SET_OTHER_PORT
-        if (SET_RDP_PORT != null) env["RDP_PORT"] = SET_RDP_PORT
+        if (VM_MEMORY != null) env["VM_MEMORY"] = VM_MEMORY
+        if (OTHER_PORT != null) env["OTHER_PORT"] = OTHER_PORT
+        if (RDP_PORT != null) env["RDP_PORT"] = RDP_PORT
         
         processBuilder.inheritIO()
         val process = processBuilder.start()
