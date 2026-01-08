@@ -91,7 +91,7 @@ echo "-------------------------------------------------------"
 log_info "Updating system and installing components..."
 export DEBIAN_FRONTEND=noninteractive
 # Removed 'ufw' from installation list
-apt update -y && apt install -y xrdp lxsession wget sudo curl
+apt update -y && apt install -y xrdp dbus-x11 lxsession wget sudo curl
 check_status "System Update"
 
 # Install DE specific packages
