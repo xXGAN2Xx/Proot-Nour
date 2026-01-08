@@ -55,19 +55,13 @@ setup_tools() {
     echo -e "${Y}Installing PRoot engine...${NC}"
     "${LOCAL_BIN}/wget" -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
-    
-    # 4. SSL Certs
-    echo -e "${Y}Configuring SSL...${NC}"
-    mkdir -p "${HOME}/etc/ssl/certs"
-    "${LOCAL_BIN}/wget" -q https://curl.se/ca/cacert.pem -O "${HOME}/etc/ssl/certs/ca-certificates.crt"
-
     touch "$DEP_FLAG"
 }
 
 sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
     
-    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
+    local BASE="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
     
@@ -87,32 +81,49 @@ sync_scripts() {
         wget -q "${scripts[$path]}" -O "${HOME}/${path}"
         chmod +x "${HOME}/${path}"
     done
-
-    if [ -f "${HOME}/entrypoint.sh" ]; then
-        sed -i "2i export PATH=\"$PATH\"" "${HOME}/entrypoint.sh"
-        sed -i 's|--rootfs="/"|--rootfs="/" -b /etc/resolv.conf -b /dev -b /proc -b /sys -b /tmp -b '"$HOME"':'"$HOME"'|g' "${HOME}/entrypoint.sh"
-    fi
-
-    if [ -f "${HOME}/install.sh" ]; then
-        sed -i 's/tar -xf/tar --overwrite -o --no-same-permissions -xf/g' "${HOME}/install.sh"
-        sed -i "2i export PATH=\"$LOCAL_BIN:\$PATH\"" "${HOME}/install.sh"
-    fi
 }
 
-apply_guest_configs() {
-    echo -e "${B}Applying environment fixes...${NC}"
-    mkdir -p "${HOME}/etc/apt/apt.conf.d"
-    echo 'APT::Sandbox::User "root";' > "${HOME}/etc/apt/apt.conf.d/99proot"
-    
-    if [ -f "${HOME}/etc/apt/sources.list" ]; then
-        sed -i 's/questing/noble/g' "${HOME}/etc/apt/sources.list"
-    fi
+modify_scripts() {
+    echo -e "${B}Applying patches to scripts...${NC}"
+
+    # --- entrypoint.sh patches ---
+    # 1. Change proot path to use $HOME
+    sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/entrypoint.sh"
+    # 2. Change install.sh execution to use $HOME
+    sed -i 's|/bin/sh "/install.sh"|/bin/sh "$HOME/install.sh"|g' "${HOME}/entrypoint.sh"
+    # 3. Change helper.sh execution to use $HOME
+    sed -i 's|sh /helper.sh|sh $HOME/helper.sh|g' "${HOME}/entrypoint.sh"
+
+    # --- helper.sh patches ---
+    # 1. Change cp destination for common.sh (remove $HOME prefix)
+    sed -i 's|cp /common.sh "\$HOME/common.sh"|cp /common.sh "/common.sh"|g' "${HOME}/helper.sh"
+    # 2. Change cp destination for run.sh (remove $HOME prefix)
+    sed -i 's|cp /run.sh "\$HOME/run.sh"|cp /run.sh "/run.sh"|g' "${HOME}/helper.sh"
+    # 3. Change config_file path (remove $HOME prefix)
+    sed -i 's|config_file="\$HOME/vps.config"|config_file="/vps.config"|g' "${HOME}/helper.sh"
+    # 4. Change proot path in exec_proot
+    sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/helper.sh"
+    # 5. Change proot working directory from ${HOME} to /root
+    sed -i 's|-0 -w "\${HOME}"|-0 -w "/root"|g' "${HOME}/helper.sh"
+
+    # --- install.sh patches ---
+    # 1. Change source common.sh to use $HOME
+    sed -i 's|\. /common.sh|. $HOME/common.sh|g' "${HOME}/install.sh"
+    # 2. Add LD_LIBRARY_PATH export after PATH export
+    sed -i '/export PATH=/a export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:~/.local/usr/lib:~/.local/usr/lib64"' "${HOME}/install.sh"
+
+    # --- run.sh patches ---
+    # 1. Change HISTORY_FILE path (remove ${HOME})
+    sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
+    # 2. Replace the "sudo/su" check block with "stop/restart" cleanup block
+    # We match the range from the sudo case to the return 0, and replace it with the new logic.
+    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        "stop"*|"restart"*)\n            cleanup' "${HOME}/run.sh"
 }
 
 cd "${HOME}"
 [[ -f "$DEP_FLAG" ]] || setup_tools
 sync_scripts
-apply_guest_configs
+modify_scripts
 
 if [ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
