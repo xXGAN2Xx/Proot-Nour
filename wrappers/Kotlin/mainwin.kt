@@ -8,7 +8,7 @@ import java.util.Scanner
 import kotlin.system.exitProcess
 
 // All scripts will be saved as this filename locally
-const val TARGET_SCRIPT_NAME = "start.sh"
+const val TARGET_SCRIPT_NAME = "nourwin.sh"
 
 // --- Custom Configuration ---
 val SET_VM_MEMORY = System.getenv("SERVER_MEMORY")
