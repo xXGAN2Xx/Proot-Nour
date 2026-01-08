@@ -24,7 +24,7 @@ data class ScriptOption(
 )
 
 fun main() {
-    // Added your requested line at the start
+    // Print requested help message at start
     println("Done (s)! For help, type help")
 
     val scanner = Scanner(System.`in`)
@@ -39,7 +39,7 @@ fun main() {
 
     var selectedOption: ScriptOption? = loadSavedChoice(options)
 
-    // If a choice was saved, check if user wants to change it
+    // If a choice was saved, give a brief moment to change it
     if (selectedOption != null) {
         println("==========================================")
         println("Saved Choice: ${selectedOption.name}")
@@ -53,7 +53,7 @@ fun main() {
                 selectedOption = null
             }
         } else {
-            // Small pause to allow user to hit a key
+            // Half-second pause to allow user to interrupt
             Thread.sleep(500) 
         }
     }
@@ -83,10 +83,9 @@ fun main() {
         selectedOption = tempOption
     }
 
-    // Fixed line: Removed '!!' to satisfy the compiler warning
-    val currentSelection = selectedOption ?: return 
-    val scriptUrl = currentSelection.url
-    println("\nSelected: ${currentSelection.name}")
+    // Fixed: The compiler knows selectedOption is not null here, so no !! or ?: needed.
+    val scriptUrl = selectedOption.url
+    println("\nSelected: ${selectedOption.name}")
 
     try {
         if (handleScript(TARGET_SCRIPT_NAME, scriptUrl)) {
