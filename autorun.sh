@@ -6,14 +6,12 @@ echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script Inside PRoot] ---"
 # 1. URLs
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
 CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
-XRDP_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/xrdp.sh"
 
 # 2. Local Paths
 # Standard Xray config path
 CONFIG_DIR="/usr/local/etc/xray"
 INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-XRDP_PATH="/root/xrdp.sh"
 
 # Ensure Public IP is detected
 if [ -z "$PUBLIC_IP" ]; then
@@ -86,12 +84,7 @@ else
     echo "Error: Failed to download config.json"
 fi
 
-# --- STEP 4: Download xrdp.sh ---
-echo "Downloading latest xrdp.sh..."
-curl -fsSL -o "$XRDP_PATH" "$XRDP_URL"
-chmod +x "$XRDP_PATH"
-
-# --- STEP 5: Start Services ---
+# --- STEP 4: Start Services ---
 echo "--- Starting Xray (Gaming + Injection Mode)... ---"
 
 # UUID from your config.json
