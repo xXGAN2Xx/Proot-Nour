@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # =============================================================================
-# XRDP & Headless Browser Setup Script (No-Force UFW / Standard Password)
+# XRDP & Headless Browser Setup Script (Proot/Container Friendly)
 # Supports: LXDE, XFCE4
-# Features: Auto-Swap, Chrome Autostart, Conditional Firewall
+# Features: Chrome Autostart, Proot Compatibility
 # =============================================================================
 
 # --- Configuration Defaults ---
-DEFAULT_PORT="${SERVER_PORT}"
+DEFAULT_PORT="${SERVER_PORT:-3389}" # Default to 3389 if SERVER_PORT not set
 DEFAULT_DE="xfce4"
 DEFAULT_USER="nour"
-DEFAULT_PASSWORD="123456" # Back to hardcoded default
+DEFAULT_PASSWORD="123456" 
 SUPPORTED_DES=("lxde" "xfce4")
 XRDP_INI="/etc/xrdp/xrdp.ini"
 STARTWM_FILE="/etc/xrdp/startwm.sh"
@@ -35,7 +35,8 @@ check_status() {
 }
 
 check_root() {
-    if [ "$EUID" -ne 0 ]; then
+    # In proot, you are effectively root (uid 0) inside the container
+    if [ "$(id -u)" -ne 0 ]; then
         log_err "Please run as root (sudo ./script.sh)"
         exit 1
     fi
@@ -43,7 +44,7 @@ check_root() {
 
 usage() {
     echo "Usage: $0 [-p PORT] [-d DE] [-u USER]"
-    echo "  -p  XRDP Port (default: 3389)"
+    echo "  -p  XRDP Port (default: $DEFAULT_PORT)"
     echo "  -d  Desktop Environment: 'lxde' or 'xfce4' (default: xfce4)"
     echo "  -u  RDP Username (default: nour)"
     echo "  -h  Show this help"
@@ -83,15 +84,16 @@ fi
 check_root
 
 echo "-------------------------------------------------------"
-echo -e "   ${GREEN}Starting XRDP Setup${NC}"
+echo -e "   ${GREEN}Starting XRDP Setup (Proot Mode)${NC}"
 echo -e "   DE: $DE_CHOICE | Port: $XRDP_PORT | User: $RDP_USER"
 echo "-------------------------------------------------------"
 
 # 1. System Update & Dependencies
 log_info "Updating system and installing components..."
 export DEBIAN_FRONTEND=noninteractive
-# Removed 'ufw' from installation list
-apt update -y && apt install -y xrdp dbus-x11 lxsession wget sudo curl
+
+# Removed 'ufw' and added 'net-tools' for netstat if needed
+apt update -y && apt install -y xrdp dbus-x11 lxsession wget sudo curl net-tools
 check_status "System Update"
 
 # Install DE specific packages
@@ -104,37 +106,27 @@ elif [ "$DE_CHOICE" == "xfce4" ]; then
 fi
 check_status "DE Installation"
 
-# 2. Swap File Check (Crucial for Chrome on small VPS)
-log_info "Checking memory resources..."
-SWAP_SIZE=$(free -m | grep Swap | awk '{print $2}')
-if [ "$SWAP_SIZE" -eq 0 ]; then
-    log_warn "No swap detected. Creating 2GB swap file to prevent Chrome crashes..."
-    fallocate -l 2G /swapfile
-    chmod 600 /swapfile
-    mkswap /swapfile
-    swapon /swapfile
-    echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
-    log_info "Swap created successfully."
-else
-    log_info "Swap already exists ($SWAP_SIZE MB). Skipping."
-fi
+# 2. Swap Creation (SKIPPED FOR PROOT)
+log_warn "Running in proot environment: Skipping Swap creation (not supported)."
+log_warn "Skipping Firewall configuration (handled by host)."
 
 # 3. User Creation & Password
 log_info "Configuring user '$RDP_USER'..."
 if id "$RDP_USER" &>/dev/null; then
     log_warn "User exists. Updating password to default."
 else
-    adduser --disabled-password --gecos "" $RDP_USER
+    # Ensure home dir is created
+    useradd -m -s /bin/bash "$RDP_USER"
     check_status "User Creation"
-    usermod -aG sudo $RDP_USER
+    usermod -aG sudo "$RDP_USER"
 fi
 
-# Set the Default Password (NOT RANDOM)
+# Set the Default Password
 echo "$RDP_USER:$DEFAULT_PASSWORD" | chpasswd
 check_status "Password Set"
 
 # Add to ssl-cert for xRDP stability
-usermod -a -G ssl-cert $RDP_USER
+usermod -a -G ssl-cert "$RDP_USER"
 
 # 4. Chrome Installation
 log_info "Installing Google Chrome..."
@@ -150,9 +142,10 @@ fi
 # 5. Chrome Autostart
 log_info "Configuring Autostart..."
 AUTOSTART_DIR="/home/$RDP_USER/.config/autostart"
-sudo -u $RDP_USER mkdir -p "$AUTOSTART_DIR"
+mkdir -p "$AUTOSTART_DIR"
 
-cat <<EOF | sudo -u $RDP_USER tee "$AUTOSTART_DIR/google-chrome.desktop" > /dev/null
+# Note: In proot, --no-sandbox is absolutely mandatory for Chrome
+cat <<EOF > "$AUTOSTART_DIR/google-chrome.desktop"
 [Desktop Entry]
 Type=Application
 Name=Google Chrome
@@ -161,12 +154,14 @@ Terminal=false
 Hidden=false
 X-GNOME-Autostart-enabled=true
 EOF
-chown -R $RDP_USER:$RDP_USER "/home/$RDP_USER/.config"
+
+chown -R "$RDP_USER:$RDP_USER" "/home/$RDP_USER/.config"
+chmod +x "$AUTOSTART_DIR/google-chrome.desktop"
 
 # 6. XRDP Configuration
 log_info "Configuring XRDP internals..."
 
-# Configure Port (Regex to catch existing port=XXXX)
+# Configure Port
 sed -i "s/^port=[0-9]*/port=$XRDP_PORT/" $XRDP_INI
 
 # Configure StartWM
@@ -177,32 +172,40 @@ if [ -r /etc/default/locale ]; then
   . /etc/default/locale
   export LANG LANGUAGE
 fi
+# Fix for some proot DBUS issues
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+
 # Start DE
 exec $DE_START
 EOF
 chmod +x $STARTWM_FILE
 
-# 7. Conditional Firewall (UFW)
-log_info "Checking for Firewall (UFW)..."
+# 7. Restart Services (PROOT METHOD)
+log_info "Starting XRDP manually (Systemd not available)..."
 
-if command -v ufw > /dev/null; then
-    log_info "UFW detected. Configuring ports..."
-    # Ensure SSH isn't blocked (assuming standard 22)
-    ufw allow 22/tcp
-    ufw allow $XRDP_PORT/tcp
-    
-    # Enable UFW non-interactively if not active
-    if ! ufw status | grep -q "Status: active"; then
-        echo "y" | ufw enable
-    fi
+# Kill existing processes (if re-running script)
+pkill -u root xrdp
+pkill -u root xrdp-sesman
+
+# Clean up stale pid files (Common issue in containers)
+rm -rf /var/run/xrdp.pid
+rm -rf /var/run/xrdp-sesman.pid
+rm -rf /var/run/xrdp/xrdp-sesman.pid
+rm -rf /var/run/xrdp/xrdp.pid
+
+# Start SESMAN first, then XRDP
+# We run them in the background
+/usr/sbin/xrdp-sesman &
+sleep 2
+/usr/sbin/xrdp &
+sleep 2
+
+# Check if running
+if pgrep -x "xrdp" > /dev/null; then
+    log_info "XRDP started successfully."
 else
-    log_warn "UFW is NOT installed. Skipping firewall configuration."
+    log_err "XRDP failed to start. Check /var/log/xrdp.log"
 fi
-
-# 8. Restart Services
-log_info "Restarting Service..."
-systemctl restart xrdp
-systemctl restart xrdp-sesman
 
 # --- Final Output ---
 PUBLIC_IP=$(curl --silent -L checkip.pterodactyl-installer.se || echo "SERVER_IP")
@@ -215,6 +218,6 @@ echo -e "Connection Address : ${YELLOW}${PUBLIC_IP}:${XRDP_PORT}${NC}"
 echo -e "Username           : ${YELLOW}${RDP_USER}${NC}"
 echo -e "Password           : ${YELLOW}${DEFAULT_PASSWORD}${NC}"
 echo "======================================================="
-echo -e "${RED}WARNING:${NC} This uses a default password ($DEFAULT_PASSWORD)."
-echo "Please change it immediately: 'passwd $RDP_USER'"
+echo -e "${RED}IMPORTANT:${NC} If you restart this container, XRDP will stop."
+echo -e "To start it again, run: ${YELLOW}/usr/sbin/xrdp-sesman && /usr/sbin/xrdp${NC}"
 echo "======================================================="
