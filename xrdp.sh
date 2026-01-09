@@ -218,7 +218,3 @@ echo "======================================================="
 echo -e "${RED}WARNING:${NC} This uses a default password ($DEFAULT_PASSWORD)."
 echo "Please change it immediately: 'passwd $RDP_USER'"
 echo "======================================================="
-
-# 9. start Services
-log_info "starting the Service..."
-xrdp
