@@ -191,22 +191,7 @@ exec $DE_START
 EOF
 chmod +x $STARTWM_FILE
 
-# 7. Conditional Firewall (UFW)
-log_info "Checking for Firewall (UFW)..."
-
-if command -v ufw > /dev/null; then
-    log_info "UFW detected. Configuring ports..."
-    ufw allow 22/tcp
-    ufw allow $XRDP_PORT/tcp
-    
-    if ! ufw status | grep -q "Status: active"; then
-        echo "y" | ufw enable
-    fi
-else
-    log_warn "UFW is NOT installed. Skipping firewall configuration."
-fi
-
-# 8. Restart Services
+# 7. Restart Services
 log_info "Restarting Service..."
 systemctl restart xrdp
 systemctl restart xrdp-sesman
