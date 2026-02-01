@@ -66,6 +66,7 @@ sync_scripts() {
     local AUTORUN_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
     
     declare -A scripts=(
+        ["vnc/install.sh"]="$BASE/vnc/install.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
