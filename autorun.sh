@@ -14,8 +14,8 @@ INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 
 # Ensure Public IP is detected
-if [ -z "$SERVER_IP" ]; then
-    SERVER_IP=$(curl --silent -L checkip.pterodactyl-installer.se)
+if [ -z "$server_ip" ]; then
+    server_ip=$(curl --silent -L checkip.pterodactyl-installer.se)
 fi
 
 # --- PREPARATION ---
@@ -91,7 +91,7 @@ echo "--- Starting Xray (Gaming + Injection Mode)... ---"
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 # VLESS Link Generation (Updated for TCP + HTTP Header Injection)
-VLESS_LINK="vless://${UUID}@${SERVER-IP}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 echo "=========================================================="
 echo "Xray VLESS Link (Tcp + Http Injection)"
 echo "$VLESS_LINK"
