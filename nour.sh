@@ -2,8 +2,6 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
-
-# Define server_ip here
 export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
@@ -30,7 +28,6 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
-    # 1. Install BusyBox first (using system tools) to get a consistent wget
     echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
     if command -v wget >/dev/null 2>&1; then
         wget -q "$BBOX_URL" -O "${LOCAL_BIN}/busybox"
@@ -42,17 +39,14 @@ setup_tools() {
     fi
     chmod +x "${LOCAL_BIN}/busybox"
     
-    # Symlink tools, including wget
     for tool in xz tar unxz gzip bzip2 bash ip wget; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
 
-    # 2. Install JQ
     echo -e "${Y}Installing static jq...${NC}"
     "${LOCAL_BIN}/wget" -q "$JQ_URL" -O "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
 
-    # 3. Install PRoot
     echo -e "${Y}Installing PRoot engine...${NC}"
     "${LOCAL_BIN}/wget" -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
@@ -79,7 +73,6 @@ sync_scripts() {
 
     for path in "${!scripts[@]}"; do
         mkdir -p "$(dirname "${HOME}/${path}")"
-        # Using the wget we just installed/symlinked
         wget -q "${scripts[$path]}" -O "${HOME}/${path}"
         chmod +x "${HOME}/${path}"
     done
@@ -88,47 +81,31 @@ sync_scripts() {
 modify_scripts() {
     echo -e "${B}Applying patches to scripts...${NC}"
 
-    # --- entrypoint.sh patches ---
     sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/entrypoint.sh"
     sed -i 's|/bin/sh "/install.sh"|/bin/sh "$HOME/install.sh"|g' "${HOME}/entrypoint.sh"
     sed -i 's|sh /helper.sh|sh $HOME/helper.sh|g' "${HOME}/entrypoint.sh"
 
-    # --- helper.sh patches ---
     sed -i 's|cp /common.sh "\$HOME/common.sh"|cp /common.sh "/common.sh"|g' "${HOME}/helper.sh"
     sed -i 's|cp /run.sh "\$HOME/run.sh"|cp /run.sh "/run.sh"|g' "${HOME}/helper.sh"
     sed -i 's|config_file="\$HOME/vps.config"|config_file="/vps.config"|g' "${HOME}/helper.sh"
     sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/helper.sh"
     sed -i 's|-0 -w "\${HOME}"|-0 -w "/root"|g' "${HOME}/helper.sh"
 
-    # --- install.sh patches ---
     sed -i 's|\. /common.sh|. $HOME/common.sh|g' "${HOME}/install.sh"
     sed -i '/export PATH=/a export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:~/.local/usr/lib:~/.local/usr/lib64"' "${HOME}/install.sh"
 
-    # --- run.sh patches ---
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
     sed -i '/"sudo"\*|"su"\*)/,/;;/d' "${HOME}/run.sh"
     sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
-    
-    # Replace "stopped" strings and <server-ip> in run.sh
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
-    
-    # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
-    sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/run.sh"
-
-    # ==============================================================================
-    # NEW PATCH: Replace 'sleep 5' with a wait loop for the tunnel in run.sh
-    # This looks for 'sleep 5' specifically between the cloudflared command and the URL grep
-    # ==============================================================================
+    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
     sed -i '/cloudflared tunnel --url/,/TUNNEL_URL=/s|sleep 5|count=0; while [ $count -lt 20 ]; do if grep -q "trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; count=$((count+1)); done|' "${HOME}/run.sh"
 
-    # --- vnc_install.sh patches ---
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
-        
-        # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
-        sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/vnc_install.sh"
+        sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
     fi
 }
 
