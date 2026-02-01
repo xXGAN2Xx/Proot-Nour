@@ -116,9 +116,14 @@ modify_scripts() {
     # --- run.sh patches ---
     # 1. Change HISTORY_FILE path (remove ${HOME})
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
-    # 2. Replace the "sudo/su" check block with "stop/restart" cleanup block
-    # We match the range from the sudo case to the return 0, and replace it with the new logic.
-    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        "stop"*|"restart"*)\n            cleanup' "${HOME}/run.sh"
+    
+    # 2. Remove the "sudo/su" check block (replace with comment to keep syntax valid with trailing ;;)
+    # This prevents the wildcard match from being too high in the list
+    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        # Sudo block removed' "${HOME}/run.sh"
+
+    # 3. Add "stop/restart" cleanup block before "help" 
+    # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
+    sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
 }
 
 cd "${HOME}"
