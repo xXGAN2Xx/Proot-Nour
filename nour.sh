@@ -112,95 +112,23 @@ modify_scripts() {
     # Replace "stopped" strings and <server-ip> in run.sh
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
+    
+    # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
     sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/run.sh"
+
+    # ==============================================================================
+    # NEW PATCH: Replace 'sleep 5' with a wait loop for the tunnel in run.sh
+    # This looks for 'sleep 5' specifically between the cloudflared command and the URL grep
+    # ==============================================================================
+    sed -i '/cloudflared tunnel --url/,/TUNNEL_URL=/s|sleep 5|count=0; while [ $count -lt 20 ]; do if grep -q "trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; count=$((count+1)); done|' "${HOME}/run.sh"
 
     # --- vnc_install.sh patches ---
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
-        sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/vnc_install.sh"
-
-        # ============================================================
-        # INJECT NEW START_TUNNEL FUNCTION (Replaces sleep 5 with wait loop)
-        # ============================================================
         
-        # 1. Delete the existing start_tunnel function from the file
-        sed -i '/start_tunnel() {/,/^}/d' "${HOME}/vnc_install.sh"
-
-        # 2. Create a temporary file with the new function definition
-        cat << 'EOF' > "${HOME}/tunnel_patch.tmp"
-start_tunnel() {
-    if [ ! -f "$GUI_CONFIG_FILE" ]; then
-        log "ERROR" "GUI not installed. Run 'install-gui' first." "$RED"
-        return 1
-    fi
-    
-    if pgrep -f "cloudflared.*tunnel" > /dev/null 2>&1; then
-        log "WARNING" "Tunnel is already running." "$YELLOW"
-        return 0
-    fi
-    
-    install_cloudflared || return 1
-    
-    parse_gui_config
-    
-    if ! pgrep -f "websockify" > /dev/null 2>&1; then
-        start_novnc
-        sleep 3
-    fi
-    
-    retries=0
-    while [ $retries -lt 10 ]; do
-        if netstat -tln 2>/dev/null | grep -q ":$NOVNC_PORT " || ss -tln 2>/dev/null | grep -q ":$NOVNC_PORT "; then
-            break
-        fi
-        sleep 1
-        retries=$((retries + 1))
-    done
-    
-    if [ $retries -eq 10 ]; then
-        log "ERROR" "noVNC not listening on port $NOVNC_PORT after 10 seconds" "$RED"
-        return 1
-    fi
-    
-    log "INFO" "Starting Cloudflare tunnel for noVNC (port $NOVNC_PORT)..." "$YELLOW"
-    
-    TUNNEL_LOG="/tmp/cloudflared.log"
-    rm -f "$TUNNEL_LOG"
-    cloudflared tunnel --url "http://localhost:$NOVNC_PORT" > "$TUNNEL_LOG" 2>&1 &
-    
-    log "INFO" "Waiting for tunnel URL to generate..." "$YELLOW"
-    
-    TUNNEL_URL=""
-    MAX_WAIT=30
-    count=0
-    
-    while [ -z "$TUNNEL_URL" ] && [ $count -lt $MAX_WAIT ]; do
-        sleep 1
-        count=$((count + 1))
-        if [ -f "$TUNNEL_LOG" ]; then
-            TUNNEL_URL=$(grep -o 'https://[^[:space:]]*\.trycloudflare\.com' "$TUNNEL_LOG" | head -1)
-        fi
-    done
-    
-    if [ -n "$TUNNEL_URL" ]; then
-        log "SUCCESS" "Tunnel started!" "$GREEN"
-        printf "\n${CYAN}========================================${NC}\n"
-        printf "${GREEN}noVNC URL: ${WHITE}${TUNNEL_URL}/vnc.html${NC}\n"
-        printf "${CYAN}========================================${NC}\n\n"
-        log "INFO" "Share this URL to access your desktop from anywhere" "$YELLOW"
-    else
-        log "ERROR" "Timed out waiting for Tunnel URL (waited ${MAX_WAIT}s)" "$RED"
-        log "INFO" "Check $TUNNEL_LOG for errors" "$YELLOW"
-        pkill -f "cloudflared.*tunnel"
-        return 1
-    fi
-}
-EOF
-        # 3. Insert the new function at line 2 (after shebang) to ensure it's defined before use
-        sed -i '2r '"${HOME}/tunnel_patch.tmp" "${HOME}/vnc_install.sh"
-        rm "${HOME}/tunnel_patch.tmp"
-        # ============================================================
+        # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
+        sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/vnc_install.sh"
     fi
 }
 
