@@ -107,10 +107,9 @@ modify_scripts() {
     # 1. Change HISTORY_FILE path
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
     
-    # 2. Remove the "sudo/su" check block.
-    # FIX: Added '\n        ;;' to the replacement. This ensures the case statement is properly closed
-    # even if the original ';;' was on the same line as 'return 0'.
-    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        # Sudo block removed\n        ;;' "${HOME}/run.sh"
+    # 2. Remove the "sudo/su" check block ENTIRELY (from pattern to ;;)
+    # This prevents syntax errors by removing the whole block cleanly
+    sed -i '/"sudo"\*|"su"\*)/,/;;/d' "${HOME}/run.sh"
 
     # 3. Add "stop/restart" cleanup block before "help" 
     # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
