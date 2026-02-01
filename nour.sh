@@ -100,6 +100,7 @@ modify_scripts() {
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
+    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
 
     # ==============================================================================
     # FIX: Patch start_tunnel in run.sh
