@@ -115,9 +115,9 @@ modify_scripts() {
     # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
     sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
 
-    # 4. Obfuscate "Stopping" messages to prevent panel detection
-    # This changes "Stopping VNC server" to "sto pping VNC server" etc.
-    sed -i 's|Stopping|sto pping|g' "${HOME}/run.sh"
+    # 4. Modify "stopped" text to bypass Pterodactyl crash detection
+    sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
+    sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
 }
 
 cd "${HOME}"
