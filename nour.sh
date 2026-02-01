@@ -102,21 +102,10 @@ modify_scripts() {
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
 
-    # ==============================================================================
-    # FIX: Patch start_tunnel in run.sh
-    # ==============================================================================
     if [[ -f "${HOME}/run.sh" ]]; then
-        # 1. Clear the log file before starting
         sed -i '/TUNNEL_LOG="\/tmp\/cloudflared.log"/a \    > "$TUNNEL_LOG"' "${HOME}/run.sh"
-
-        # 2. Add --protocol http2 to fix "Requesting..." hang
         sed -i 's|cloudflared tunnel --url|cloudflared tunnel --protocol http2 --url|' "${HOME}/run.sh"
-
-        # 3. Replace 'sleep 5' with a robust polling loop
-        #    CHANGED: grep looks for "https://.*trycloudflare.com" instead of just "trycloudflare.com"
         sed -i 's#sleep 5#PID=$!; i=0; while [ $i -lt 60 ]; do kill -0 $PID 2>/dev/null || break; if grep -q "https://.*trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; i=$((i+1)); done#' "${HOME}/run.sh"
-
-        # 4. Debug: Print log if URL not found
         sed -i '/Check $TUNNEL_LOG for the URL/a \        cat "$TUNNEL_LOG"' "${HOME}/run.sh"
     fi
 }
