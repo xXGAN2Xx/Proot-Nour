@@ -105,17 +105,19 @@ modify_scripts() {
     # 1. Change HISTORY_FILE path
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
     
-    # 2. Remove the "sudo/su" check block ENTIRELY (from pattern to ;;)
-    # This prevents syntax errors by removing the whole block cleanly
+    # 2. Remove the "sudo/su" check block ENTIRELY
     sed -i '/"sudo"\*|"su"\*)/,/;;/d' "${HOME}/run.sh"
 
     # 3. Add "stop/restart" cleanup block before "help" 
-    # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
     sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
 
     # 4. Modify "stopped" text to bypass Pterodactyl crash detection
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
+
+    # 5. Replace <server-ip> placeholder with the detected IP
+    # We use the PUBLIC_IP variable defined at the top of this script
+    sed -i "s|<server-ip>|${PUBLIC_IP}|g" "${HOME}/run.sh"
 }
 
 cd "${HOME}"
