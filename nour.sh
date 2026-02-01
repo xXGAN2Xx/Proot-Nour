@@ -101,7 +101,19 @@ modify_scripts() {
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
 
+    # Apply fixes to vnc_install.sh
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
+        # 1. Clear the log file before starting cloudflared to avoid reading old URLs
+        sed -i '/cloudflared tunnel/i \    > "$TUNNEL_LOG"' "${HOME}/vnc_install.sh"
+        
+        # 2. Capture the PID of the cloudflared process
+        sed -i '/cloudflared tunnel/s/&/& PID=$!/' "${HOME}/vnc_install.sh"
+        
+        # 3. Replace 'sleep 5' with a loop that waits up to 30s for the URL or process death
+        #    This checks if the process is alive (kill -0) and if the URL is in the log.
+        sed -i 's|sleep 5|for i in {1..30}; do kill -0 $PID 2>/dev/null || break; grep -q "trycloudflare.com" "$TUNNEL_LOG" \&\& break; sleep 1; done|' "${HOME}/vnc_install.sh"
+
+        # Cosmetic fixes
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
