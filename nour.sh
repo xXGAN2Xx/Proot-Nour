@@ -2,8 +2,6 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
-# Using wget to get public IP
-export SERVER-IP=$(wget -qO- checkip.pterodactyl-installer.se)
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
