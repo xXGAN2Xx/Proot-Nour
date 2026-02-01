@@ -102,22 +102,22 @@ modify_scripts() {
     sed -i '/export PATH=/a export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:~/.local/usr/lib:~/.local/usr/lib64"' "${HOME}/install.sh"
 
     # --- run.sh patches ---
-    # 1. Change HISTORY_FILE path
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
-    
-    # 2. Remove the "sudo/su" check block ENTIRELY
     sed -i '/"sudo"\*|"su"\*)/,/;;/d' "${HOME}/run.sh"
-
-    # 3. Add "stop/restart" cleanup block before "help" 
     sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
-
-    # 4. Modify "stopped" text to bypass Pterodactyl crash detection
+    
+    # Replace "stopped" strings and <server-ip> in run.sh
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
-
-    # 5. Replace <server-ip> placeholder with the detected IP
-    # We use the PUBLIC_IP variable defined at the top of this script
     sed -i "s|<server-ip>|${PUBLIC_IP}|g" "${HOME}/run.sh"
+
+    # --- vnc_install.sh patches ---
+    # Apply the same logic to vnc_install.sh
+    if [[ -f "${HOME}/vnc_install.sh" ]]; then
+        sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
+        sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
+        sed -i "s|<server-ip>|${PUBLIC_IP}|g" "${HOME}/vnc_install.sh"
+    fi
 }
 
 cd "${HOME}"
