@@ -88,38 +88,29 @@ modify_scripts() {
     echo -e "${B}Applying patches to scripts...${NC}"
 
     # --- entrypoint.sh patches ---
-    # 1. Change proot path to use $HOME
     sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/entrypoint.sh"
-    # 2. Change install.sh execution to use $HOME
     sed -i 's|/bin/sh "/install.sh"|/bin/sh "$HOME/install.sh"|g' "${HOME}/entrypoint.sh"
-    # 3. Change helper.sh execution to use $HOME
     sed -i 's|sh /helper.sh|sh $HOME/helper.sh|g' "${HOME}/entrypoint.sh"
 
     # --- helper.sh patches ---
-    # 1. Change cp destination for common.sh (remove $HOME prefix)
     sed -i 's|cp /common.sh "\$HOME/common.sh"|cp /common.sh "/common.sh"|g' "${HOME}/helper.sh"
-    # 2. Change cp destination for run.sh (remove $HOME prefix)
     sed -i 's|cp /run.sh "\$HOME/run.sh"|cp /run.sh "/run.sh"|g' "${HOME}/helper.sh"
-    # 3. Change config_file path (remove $HOME prefix)
     sed -i 's|config_file="\$HOME/vps.config"|config_file="/vps.config"|g' "${HOME}/helper.sh"
-    # 4. Change proot path in exec_proot
     sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/helper.sh"
-    # 5. Change proot working directory from ${HOME} to /root
     sed -i 's|-0 -w "\${HOME}"|-0 -w "/root"|g' "${HOME}/helper.sh"
 
     # --- install.sh patches ---
-    # 1. Change source common.sh to use $HOME
     sed -i 's|\. /common.sh|. $HOME/common.sh|g' "${HOME}/install.sh"
-    # 2. Add LD_LIBRARY_PATH export after PATH export
     sed -i '/export PATH=/a export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:~/.local/usr/lib:~/.local/usr/lib64"' "${HOME}/install.sh"
 
     # --- run.sh patches ---
-    # 1. Change HISTORY_FILE path (remove ${HOME})
+    # 1. Change HISTORY_FILE path
     sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
     
-    # 2. Remove the "sudo/su" check block (replace with comment to keep syntax valid with trailing ;;)
-    # This prevents the wildcard match from being too high in the list
-    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        # Sudo block removed' "${HOME}/run.sh"
+    # 2. Remove the "sudo/su" check block.
+    # FIX: Added '\n        ;;' to the replacement. This ensures the case statement is properly closed
+    # even if the original ';;' was on the same line as 'return 0'.
+    sed -i '/"sudo"\*|"su"\*)/,/return 0/c \        # Sudo block removed\n        ;;' "${HOME}/run.sh"
 
     # 3. Add "stop/restart" cleanup block before "help" 
     # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
