@@ -102,18 +102,24 @@ modify_scripts() {
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
 
     # ==============================================================================
-    # FIX: Patch start_tunnel in run.sh to use polling instead of sleep 5
+    # FIX: Patch start_tunnel in run.sh
     # ==============================================================================
     if [[ -f "${HOME}/run.sh" ]]; then
-        # 1. Capture the PID of the cloudflared process
-        #    Using # as delimiter to avoid conflict with / or |
-        sed -i 's#cloudflared tunnel --url "http://localhost:$NOVNC_PORT" > "$TUNNEL_LOG" 2>&1 &#& PID=$!#' "${HOME}/run.sh"
+        # 1. Clear the log file before starting (prevents reading old URLs)
+        sed -i '/TUNNEL_LOG="\/tmp\/cloudflared.log"/a \    > "$TUNNEL_LOG"' "${HOME}/run.sh"
+
+        # 2. Capture the PID of the cloudflared process
+        #    Matches the line ending with '&' and appends 'PID=$!'
+        sed -i 's#cloudflared tunnel.*&#& PID=$!#' "${HOME}/run.sh"
         
-        # 2. Replace 'sleep 5' with a polling loop (up to 30s)
-        #    Using # as delimiter.
-        #    We escape & as \& to prevent sed from interpreting it as the match.
-        #    We use literal || and && for the shell logic.
+        # 3. Replace 'sleep 5' with a polling loop (up to 30s)
+        #    - Checks if process is alive (kill -0)
+        #    - Checks if URL is in log (grep)
+        #    - Breaks immediately if either condition is met
         sed -i 's#sleep 5#i=0; while [ $i -lt 30 ]; do kill -0 $PID 2>/dev/null || break; grep -q "trycloudflare.com" "$TUNNEL_LOG" \&\& break; sleep 1; i=$((i+1)); done#' "${HOME}/run.sh"
+
+        # 4. Add debug output: Print the log file if the URL is not found
+        sed -i '/Check $TUNNEL_LOG for the URL/a \        cat "$TUNNEL_LOG"' "${HOME}/run.sh"
     fi
 }
 
