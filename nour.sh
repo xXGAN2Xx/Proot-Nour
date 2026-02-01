@@ -100,7 +100,6 @@ modify_scripts() {
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
     sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
-    sed -i '/cloudflared tunnel --url/,/TUNNEL_URL=/s|sleep 5|count=0; while [ $count -lt 60 ]; do if grep -q "trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; count=$((count+1)); done|' "${HOME}/run.sh"
 
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
