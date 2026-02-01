@@ -109,16 +109,18 @@ modify_scripts() {
     # Replace "stopped" strings and <server-ip> in run.sh
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
-    # FIXED: Using $server_ip instead of $PUBLIC_IP
-    sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/run.sh"
+    
+    # FIXED: Using single quotes to insert the literal string ${server_ip}
+    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
 
     # --- vnc_install.sh patches ---
     # Apply the same logic to vnc_install.sh
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
-        # FIXED: Using $server_ip instead of $PUBLIC_IP
-        sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/vnc_install.sh"
+        
+        # FIXED: Using single quotes to insert the literal string ${server_ip}
+        sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
     fi
 }
 
