@@ -12,11 +12,7 @@ CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 CONFIG_DIR="/usr/local/etc/xray"
 INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-
-# Ensure Public IP is detected
-if [ -z "$server_ip" ]; then
-    server_ip=$(curl --silent -L checkip.pterodactyl-installer.se)
-fi
+server_ip=$(curl --silent -L checkip.pterodactyl-installer.se)
 
 # --- PREPARATION ---
 mkdir -p "$CONFIG_DIR"
