@@ -14,8 +14,8 @@ INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 
 # Ensure Public IP is detected
-if [ -z "$SERVER-IP" ]; then
-    SERVER-IP=$(curl --silent -L checkip.pterodactyl-installer.se)
+if [ -z "$SERVER_IP" ]; then
+    SERVER_IP=$(curl --silent -L checkip.pterodactyl-installer.se)
 fi
 
 # --- PREPARATION ---
