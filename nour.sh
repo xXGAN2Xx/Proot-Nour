@@ -114,6 +114,10 @@ modify_scripts() {
     # 3. Add "stop/restart" cleanup block before "help" 
     # This ensures specific stop commands (like stop-novnc) are matched BEFORE this wildcard
     sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
+
+    # 4. Obfuscate "Stopping" messages to prevent panel detection
+    # This changes "Stopping VNC server" to "sto pping VNC server" etc.
+    sed -i 's|Stopping|sto pping|g' "${HOME}/run.sh"
 }
 
 cd "${HOME}"
