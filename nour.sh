@@ -108,17 +108,16 @@ modify_scripts() {
         # 1. Clear the log file before starting
         sed -i '/TUNNEL_LOG="\/tmp\/cloudflared.log"/a \    > "$TUNNEL_LOG"' "${HOME}/run.sh"
 
-        # 2. Add --protocol http2 to fix "Requesting..." hang (QUIC is often blocked)
+        # 2. Add --protocol http2 to fix "Requesting..." hang
         sed -i 's|cloudflared tunnel --url|cloudflared tunnel --protocol http2 --url|' "${HOME}/run.sh"
 
-        # 3. Capture the PID of the cloudflared process
-        sed -i 's|cloudflared tunnel.*&|& PID=$!|' "${HOME}/run.sh"
-        
-        # 4. Replace 'sleep 5' with a 60s polling loop
-        #    Using # as delimiter to handle || inside the command
-        sed -i 's#sleep 5#i=0; while [ $i -lt 60 ]; do kill -0 $PID 2>/dev/null || break; grep -q "trycloudflare.com" "$TUNNEL_LOG" \&\& break; sleep 1; i=$((i+1)); done#' "${HOME}/run.sh"
+        # 3. Replace 'sleep 5' with a robust polling loop
+        #    - PID=$! captures the cloudflared PID (most recent background job)
+        #    - Uses 'if' instead of '&&' to avoid sed escaping issues
+        #    - Waits up to 60 seconds
+        sed -i 's#sleep 5#PID=$!; i=0; while [ $i -lt 60 ]; do kill -0 $PID 2>/dev/null || break; if grep -q "trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; i=$((i+1)); done#' "${HOME}/run.sh"
 
-        # 5. Debug: Print log if URL not found
+        # 4. Debug: Print log if URL not found
         sed -i '/Check $TUNNEL_LOG for the URL/a \        cat "$TUNNEL_LOG"' "${HOME}/run.sh"
     fi
 }
