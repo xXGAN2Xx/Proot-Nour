@@ -3,6 +3,9 @@
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
 
+# Define server_ip here
+server_ip=$(curl --silent -L checkip.pterodactyl-installer.se)
+
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
 LOCAL_BIN="${HOME}/.local/bin"
@@ -110,17 +113,16 @@ modify_scripts() {
     sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
     sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
     
-    # FIXED: Using single quotes to insert the literal string ${server_ip}
-    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
+    # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
+    sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/run.sh"
 
     # --- vnc_install.sh patches ---
-    # Apply the same logic to vnc_install.sh
     if [[ -f "${HOME}/vnc_install.sh" ]]; then
         sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/vnc_install.sh"
         sed -i 's|Server stopped|Server sto pped|g' "${HOME}/vnc_install.sh"
         
-        # FIXED: Using single quotes to insert the literal string ${server_ip}
-        sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
+        # FIXED: Using double quotes so ${server_ip} is replaced with the actual IP
+        sed -i "s|<server-ip>|${server_ip}|g" "${HOME}/vnc_install.sh"
     fi
 }
 
