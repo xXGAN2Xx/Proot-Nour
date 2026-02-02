@@ -74,7 +74,7 @@ fun main() {
         selectedOption = tempOption
     }
 
-    val scriptUrl = selectedOption!!.url
+    val scriptUrl = selectedOption.url
     println("\nSelected: ${selectedOption.name}")
 
     try {
@@ -178,7 +178,6 @@ fun runScript(scriptFile: File) {
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
         val env = processBuilder.environment()
-        
         VM_MEMORY?.let { env["VM_MEMORY"] = it }
         OTHER_PORT?.let { env["OTHER_PORT"] = it }
         RDP_PORT?.let { env["RDP_PORT"] = it }
