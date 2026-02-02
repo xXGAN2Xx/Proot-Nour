@@ -7,20 +7,14 @@ import java.nio.file.StandardCopyOption
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-// All scripts will be saved as this filename locally
 const val TARGET_SCRIPT_NAME = "nourwin.sh"
-// The file that stores your choice
 const val CONFIG_FILE = "selected_version.txt"
 
-// --- Custom Configuration ---
 val VM_MEMORY = System.getenv("SERVER_MEMORY")
 val OTHER_PORT = System.getenv("SERVER_PORT")
 val RDP_PORT = System.getenv("SERVER_PORT") 
+val WEBSOCKIFY_PORT = System.getenv("SERVER_PORT")
 val VNC_PASSWORD = "123456" 
-val VNC_RESOLUTION = "1280x720" 
-val VNC_DEPTH = "24" 
-val PUBLIC_PROTO = "http" 
-// ----------------------------
 
 data class ScriptOption(
     val name: String,
@@ -28,7 +22,6 @@ data class ScriptOption(
 )
 
 fun main() {
-    // Print requested help message at start
     println("Done (s)! For help, type help")
 
     val scanner = Scanner(System.`in`)
@@ -44,26 +37,22 @@ fun main() {
 
     var selectedOption: ScriptOption? = loadSavedChoice(options)
 
-    // If a choice was saved, give a brief moment to change it
     if (selectedOption != null) {
         println("==========================================")
         println("Saved Choice: ${selectedOption.name}")
         println("Starting... (To change, type 'help' or 'change')")
         println("==========================================")
         
-        // Non-blocking check for input
         if (System.`in`.available() > 0) {
             val input = scanner.next().lowercase()
             if (input == "help" || input == "change") {
                 selectedOption = null
             }
         } else {
-            // Half-second pause to allow user to interrupt
             Thread.sleep(500) 
         }
     }
 
-    // Menu logic if no choice is saved or user wants to change
     if (selectedOption == null) {
         showMenu(options)
         
@@ -88,8 +77,7 @@ fun main() {
         selectedOption = tempOption
     }
 
-    // Fixed: The compiler knows selectedOption is not null here, so no !! or ?: needed.
-    val scriptUrl = selectedOption.url
+    val scriptUrl = selectedOption!!.url
     println("\nSelected: ${selectedOption.name}")
 
     try {
@@ -117,13 +105,10 @@ fun showMenu(options: List<ScriptOption>) {
     println("==========================================")
 }
 
-// --- Persistence Logic ---
-
 fun saveChoice(option: ScriptOption) {
     try {
         File(CONFIG_FILE).writeText("${option.name}\n${option.url}")
     } catch (e: Exception) {
-        // Silently fail if we can't save
     }
 }
 
@@ -137,8 +122,6 @@ fun loadSavedChoice(options: List<ScriptOption>): ScriptOption? {
         null
     }
 }
-
-// --- Script Handling Logic ---
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
@@ -198,9 +181,12 @@ fun runScript(scriptFile: File) {
     try {
         val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
         val env = processBuilder.environment()
+        
         VM_MEMORY?.let { env["VM_MEMORY"] = it }
         OTHER_PORT?.let { env["OTHER_PORT"] = it }
         RDP_PORT?.let { env["RDP_PORT"] = it }
+        WEBSOCKIFY_PORT?.let { env["WEBSOCKIFY_PORT"] = it }
+        env["VNC_PASSWORD"] = VNC_PASSWORD
         
         processBuilder.inheritIO()
         val process = processBuilder.start()
