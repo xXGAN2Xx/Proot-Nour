@@ -16,6 +16,10 @@ const val CONFIG_FILE = "selected_version.txt"
 val VM_MEMORY = System.getenv("SERVER_MEMORY")
 val OTHER_PORT = System.getenv("SERVER_PORT")
 val RDP_PORT = System.getenv("SERVER_PORT") 
+val VNC_PASSWORD = "123456" 
+val VNC_RESOLUTION = "1280x720" 
+val VNC_DEPTH = "24" 
+val PUBLIC_PROTO = "http" 
 // ----------------------------
 
 data class ScriptOption(
@@ -35,6 +39,7 @@ fun main() {
         ScriptOption("Windows Server 2016", "https://raw.githubusercontent.com/mrbeeenopro/lemembox-windows-server-2016/refs/heads/main/start.sh"),
         ScriptOption("Tiny 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/tiny10.sh"),
         ScriptOption("Windows XP", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
+        ScriptOption("Thunderbird WebVNC (noVNC)", "https://raw.githubusercontent.com/mrbeeenopro/thunderbird-pterodactyl-egg/refs/heads/main/start.sh")
     )
 
     var selectedOption: ScriptOption? = loadSavedChoice(options)
