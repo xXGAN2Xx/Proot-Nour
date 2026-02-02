@@ -38,7 +38,7 @@ fun main() {
         ScriptOption("Windows 11", "https://raw.githubusercontent.com/mrbeeenopro/lemem_windows/refs/heads/main/start.sh"),
         ScriptOption("Windows Server 2016", "https://raw.githubusercontent.com/mrbeeenopro/lemembox-windows-server-2016/refs/heads/main/start.sh"),
         ScriptOption("Tiny 10", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/tiny10.sh"),
-        ScriptOption("Windows XP", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh")
+        ScriptOption("Windows XP", "https://raw.githubusercontent.com/mrbeeenopro/lemem-box/refs/heads/main/xp.sh"),
         ScriptOption("Thunderbird WebVNC (noVNC)", "https://raw.githubusercontent.com/mrbeeenopro/thunderbird-pterodactyl-egg/refs/heads/main/start.sh")
     )
 
