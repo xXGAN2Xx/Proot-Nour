@@ -54,13 +54,16 @@ fi
 # ==========================================
 #        XRAY SCRIPT GENERATION
 # ==========================================
-echo "--- [3] Checking for xray.sh ---"
+# Explicitly using ./xray.sh to ensure it is in the current directory
+TARGET_SCRIPT="./xray.sh"
 
-if [ ! -f "xray.sh" ]; then
-    echo "xray.sh not found. Creating it now..."
+echo "--- [3] Checking for $TARGET_SCRIPT ---"
+
+if [ ! -f "$TARGET_SCRIPT" ]; then
+    echo "$TARGET_SCRIPT not found. Creating it in current directory..."
     
-    # Start of Heredoc - This writes the content into xray.sh
-    cat << 'EOF' > xray.sh
+    # Start of Heredoc - This writes the content into ./xray.sh
+    cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
 echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script] ---"
@@ -126,13 +129,16 @@ echo "=========================================================="
 
 echo "To start Xray core manually, type:"
 echo "xray run -c /usr/local/etc/xray/config.json"
+
+# Auto-start Xray
+xray run -c /usr/local/etc/xray/config.json
 EOF
     # End of Heredoc
 
-    chmod +x xray.sh
-    echo "xray.sh created successfully."
+    chmod +x "$TARGET_SCRIPT"
+    echo "$TARGET_SCRIPT created successfully."
 else
-    echo "xray.sh already exists. Skipping creation."
+    echo "$TARGET_SCRIPT already exists. Skipping creation."
 fi
 
 echo "--- Setup Complete. ---"
