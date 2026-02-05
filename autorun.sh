@@ -4,9 +4,9 @@
 #        MASTER SETUP SCRIPT
 # ==========================================
 
-# Get the absolute path of the current directory where you are running this script
-INSTALL_DIR=$(pwd)
-TARGET_SCRIPT="${INSTALL_DIR}/xray.sh"
+# 1. Determine the path for the parent directory (cd ..)
+PARENT_DIR=$(cd .. && pwd)
+TARGET_SCRIPT="${PARENT_DIR}/xray.sh"
 
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
@@ -14,11 +14,11 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
-    # 1. Update and Install Prerequisites
+    # Update and Install Prerequisites
     apt-get update -y
     apt-get install -y curl sed python3-minimal tmate unzip ca-certificates openssl
     
-    # Create the lock file so this block doesn't run again
+    # Create the lock file
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -53,12 +53,12 @@ fi
 # ==========================================
 #        XRAY SCRIPT GENERATION
 # ==========================================
-echo "--- [3] Checking for xray.sh in $INSTALL_DIR ---"
+echo "--- [3] Checking for xray.sh in $PARENT_DIR ---"
 
 if [ ! -f "$TARGET_SCRIPT" ]; then
-    echo "Creating $TARGET_SCRIPT..."
+    echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
-    # Use 'EOF' to prevent variable expansion during file creation
+    # We use 'EOF' to prevent variable expansion during file creation
     cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
@@ -96,7 +96,7 @@ else
 }
 JSON
 
-    # Apply the port
+    # Apply the port substitution
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
@@ -125,9 +125,9 @@ EOF
     chmod +x "$TARGET_SCRIPT"
     echo "Successfully created $TARGET_SCRIPT"
 else
-    echo "xray.sh already exists in this folder."
+    echo "xray.sh already exists in $PARENT_DIR. Skipping creation."
 fi
 
-echo "--- Done! ---"
+echo "--- Setup Complete ---"
 # systemctl start xray
 # systemctl kill xray
