@@ -65,9 +65,9 @@ if [ ! -f "xray.sh" ]; then
 
 echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script] ---"
 
-CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
+TEMP_CONFIG="/tmp/xray_config_temp.json"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -75,19 +75,41 @@ mkdir -p "$CONFIG_DIR"
 echo "Checking for Xray-core updates and installing..."
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
-# --- Config Download ---
-echo "Downloading latest config.json..."
-curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
-
-if [ -f "$CONFIG_PATH" ]; then
-    if [ -n "$SERVER_PORT" ]; then
-        echo "Configuring port: Replacing \${SERVER_PORT} with $SERVER_PORT"
-        sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$CONFIG_PATH"
-    else
-        echo "WARNING: SERVER_PORT variable is NOT set."
-    fi
+# --- Config Generation Logic ---
+if [ -z "$SERVER_PORT" ]; then
+    echo "WARNING: SERVER_PORT variable is NOT set. Config generation may fail."
 else
-    echo "Error: Failed to download config.json"
+    # 1. Write the template to a temporary file first
+    # We use 'JSON' (quoted) to keep ${SERVER_PORT} literal for now
+    cat << 'JSON' > "$TEMP_CONFIG"
+{
+  "inbounds": [{
+    "port": ${SERVER_PORT},
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e" }],
+      "decryption": "none"
+    },
+    "streamSettings": {
+      "tcpSettings": { "header": { "type": "http" } }
+    }
+  }],
+  "outbounds": [{ "protocol": "freedom" }]
+}
+JSON
+
+    # 2. Perform the port substitution on the TEMP file
+    sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
+
+    # 3. Compare Temp file with Actual Config
+    # If config.json doesn't exist OR if the content is different
+    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+        echo "Config changed or missing. Updating config.json..."
+        mv "$TEMP_CONFIG" "$CONFIG_PATH"
+    else
+        echo "Config is up to date. No changes made."
+        rm -f "$TEMP_CONFIG"
+    fi
 fi
 
 echo "--- Starting Xray (Gaming + Injection Mode)... ---"
