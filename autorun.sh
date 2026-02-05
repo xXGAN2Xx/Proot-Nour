@@ -1,57 +1,81 @@
 #!/bin/bash
 
-echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script Inside PRoot] ---"
+# ==========================================
+#        MASTER SETUP SCRIPT
+# ==========================================
 
+# Lock file to track if dependencies are already installed
+DEP_LOCK_FILE="/etc/os_deps_installed"
+
+if [ ! -f "$DEP_LOCK_FILE" ]; then
+    echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
+    
+    # 1. Update and Install Prerequisites
+    apt-get update -y
+    apt-get install -y curl sed python3-minimal tmate unzip ca-certificates openssl
+    
+    # Create the lock file so this block doesn't run again
+    touch "$DEP_LOCK_FILE"
+    echo "Dependencies installed and lock file created."
+else
+    echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
+fi
+
+# ==========================================
+#        SELF-UPDATE LOGIC (OS LEVEL)
+# ==========================================
+echo "--- [2] Checking for Script Updates ---"
+
+# URL of THIS Master Script
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
 
-CONFIG_DIR="/usr/local/etc/xray"
-INSTALL_LOCK_FILE="${CONFIG_DIR}/install_lock"
-CONFIG_PATH="${CONFIG_DIR}/config.json"
-
-mkdir -p "$CONFIG_DIR"
-
+# We check if curl exists (just in case the lock file exists but curl was removed)
 if command -v curl >/dev/null 2>&1; then
-    echo "Checking for script updates..."
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
     if [ -s /tmp/script_update_check ]; then
-        if command -v cmp >/dev/null 2>&1; then
-            if ! cmp -s "$0" /tmp/script_update_check; then
-                echo "New version found! Updating script..."
-                mv /tmp/script_update_check "$0"
-                chmod +x "$0"
-                echo "Restarting script..."
-                exec "$0" "$@"
-                exit 0
-            else
-                echo "Script is up to date."
-                rm -f /tmp/script_update_check
-            fi
-        else
+        # Check if the downloaded file is different from the current running script
+        if ! cmp -s "$0" /tmp/script_update_check; then
+            echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
             chmod +x "$0"
+            echo "Restarting script..."
+            exec "$0" "$@"
+            exit 0
+        else
+            echo "Master Script is up to date."
+            rm -f /tmp/script_update_check
         fi
     else
         rm -f /tmp/script_update_check
     fi
 fi
 
-if [ ! -f "$INSTALL_LOCK_FILE" ]; then
-    echo "First time setup: Updating package lists..."
-    apt-get update > /dev/null 2>&1
-    
-    echo "Installing OS dependencies..."
-    apt-get install -y curl sed python3-minimal tmate unzip ca-certificates > /dev/null 2>&1
-    
-    touch "$INSTALL_LOCK_FILE"
-else
-    echo "OS dependencies are already installed."
-fi
+# ==========================================
+#        XRAY SCRIPT GENERATION
+# ==========================================
+echo "--- [3] Checking for xray.sh ---"
 
+if [ ! -f "xray.sh" ]; then
+    echo "xray.sh not found. Creating it now..."
+    
+    # Start of Heredoc - This writes the content into xray.sh
+    cat << 'EOF' > xray.sh
+#!/bin/bash
+
+echo "--- [Xray VLESS (TCP+HTTP Injection) Startup Script] ---"
+
+CONFIG_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/config.json"
+CONFIG_DIR="/usr/local/etc/xray"
+CONFIG_PATH="${CONFIG_DIR}/config.json"
+
+mkdir -p "$CONFIG_DIR"
+
+# --- Xray Core Installation ---
 echo "Checking for Xray-core updates and installing..."
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
+# --- Config Download ---
 echo "Downloading latest config.json..."
 curl -fsSL -o "$CONFIG_PATH" "$CONFIG_URL"
 
@@ -68,15 +92,30 @@ fi
 
 echo "--- Starting Xray (Gaming + Injection Mode)... ---"
 
+# --- Link Generation ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-
+# Note: server_ip must be defined in the environment or it will be blank
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
+
 echo "=========================================================="
 echo "Xray VLESS Link (Tcp + Http Injection)"
 echo "$VLESS_LINK"
 echo "=========================================================="
 
-echo "to start Xray core type the next command in console"
+echo "To start Xray core manually, type:"
 echo "xray run -c /usr/local/etc/xray/config.json"
+
+# Auto-start Xray
+xray run -c /usr/local/etc/xray/config.json
+EOF
+    # End of Heredoc
+
+    chmod +x xray.sh
+    echo "xray.sh created successfully."
+else
+    echo "xray.sh already exists. Skipping creation."
+fi
+
+echo "--- Setup Complete. ---"
 # systemctl start xray
 # systemctl kill xray
