@@ -126,9 +126,6 @@ echo "=========================================================="
 
 echo "To start Xray core manually, type:"
 echo "xray run -c /usr/local/etc/xray/config.json"
-
-# Auto-start Xray
-xray run -c /usr/local/etc/xray/config.json
 EOF
     # End of Heredoc
 
