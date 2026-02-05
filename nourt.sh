@@ -1,14 +1,22 @@
 #!/bin/bash
 set -e
 
-# Define URLs
-ASSETS_URL="https://craftbytehosting.xyz/Assets.zip"
-SERVER_URL="https://craftbytehosting.xyz/ServerFiles.zip"
+# -------------------------------------------------------------------------
+# ARGUMENT PARSING
+# Usage: ./script.sh ID1 ID2
+# -------------------------------------------------------------------------
+
+# Capture ALL arguments
+INPUT_IDS="$@"
+
+# Patcher URL
 PATCHER_URL="https://patcher.authbp.xyz/download/patched_release"
 
 echo "-----------------------------------------"
 echo "   Hytale Server Manager (Debian Mode)   "
-echo "   Target: $(pwd)   "
+echo "   Source: PixelDrain                    "
+echo "   Input: $INPUT_IDS                     "
+echo "   Target: $(pwd)                        "
 echo "-----------------------------------------"
 
 # Check if HytaleServer.jar already exists
@@ -17,27 +25,95 @@ if [ -f "HytaleServer.jar" ] && [ -f "start.sh" ]; then
 else
     echo "[+] Installation required. Starting setup..."
 
-    # Install dependencies (Debian/Ubuntu)
+    if [ -z "$INPUT_IDS" ]; then
+        echo "Error: No PixelDrain IDs provided."
+        echo "Usage: ./script.sh <AssetsID> <ServerID>"
+        exit 1
+    fi
+
+    # Install dependencies (Debian/Ubuntu specific)
     echo "Installing dependencies..."
     apt-get update -y
+    # Note: If openjdk-25-jre is not found, try changing it to openjdk-17-jre or default-jre
     apt-get install -y wget unzip ca-certificates openjdk-25-jre uuid-runtime curl
 
-    # Download Assets.zip (do not extract)
-    echo "Downloading Assets.zip..."
-    rm -f Assets.zip
-    wget -O Assets.zip "${ASSETS_URL}"
-    echo "Assets.zip downloaded."
+    # -----------------------------------------------------------------
+    # ID IDENTIFICATION LOGIC
+    # -----------------------------------------------------------------
+    echo "Resolving PixelDrain IDs..."
 
-    # Download ServerFiles.zip (extract this one)
-    echo "Downloading ServerFiles.zip..."
+    # Normalize input: replace colons/commas with spaces
+    CLEAN_INPUT="${INPUT_IDS//[:]/ }"
+    CLEAN_INPUT="${CLEAN_INPUT//[,]/ }"
+    
+    # Convert string to array
+    read -ra ID_LIST <<< "$CLEAN_INPUT"
+
+    # Initialize variables as empty
+    DETECTED_ASSETS_ID=""
+    DETECTED_SERVER_ID=""
+
+    for id in "${ID_LIST[@]}"; do
+        # Fetch file info from API to check the name
+        # We use a User-Agent to ensure the API responds correctly
+        FILE_NAME=$(wget -qO- --user-agent="Mozilla/5.0" "https://pixeldrain.com/api/file/${id}/info" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+        
+        echo " -> ID: $id | Name: $FILE_NAME"
+
+        # Case-insensitive check for "Asset" in the filename
+        if echo "$FILE_NAME" | grep -iq "Asset"; then
+            DETECTED_ASSETS_ID="$id"
+        else
+            # Assume anything else is the server files
+            DETECTED_SERVER_ID="$id"
+        fi
+    done
+
+    # -----------------------------------------------------------------
+    # VALIDATION (Exit if empty)
+    # -----------------------------------------------------------------
+    if [ -z "$DETECTED_ASSETS_ID" ]; then
+        echo "Error: Could not identify an Assets ID from the provided arguments."
+        exit 1
+    fi
+
+    if [ -z "$DETECTED_SERVER_ID" ]; then
+        echo "Error: Could not identify a Server Files ID from the provided arguments."
+        exit 1
+    fi
+
+    echo " -> Selected Assets ID: $DETECTED_ASSETS_ID"
+    echo " -> Selected Server ID: $DETECTED_SERVER_ID"
+
+    # -----------------------------------------------------------------
+    # DOWNLOAD ASSETS
+    # -----------------------------------------------------------------
+    echo "Downloading Assets.zip ($DETECTED_ASSETS_ID)..."
+    rm -f Assets.zip
+    wget -O Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
+    
+    if [ ! -s Assets.zip ]; then
+        echo "Error: Assets.zip download failed or file is empty."
+        exit 1
+    fi
+
+    # -----------------------------------------------------------------
+    # DOWNLOAD SERVER FILES
+    # -----------------------------------------------------------------
+    echo "Downloading ServerFiles.zip ($DETECTED_SERVER_ID)..."
     rm -f ServerFiles.zip
-    wget -O ServerFiles.zip "${SERVER_URL}"
+    wget -O ServerFiles.zip "https://pixeldrain.com/api/file/${DETECTED_SERVER_ID}"
+
+    if [ ! -s ServerFiles.zip ]; then
+        echo "Error: ServerFiles.zip download failed or file is empty."
+        exit 1
+    fi
 
     # Test integrity and extract
     echo "Extracting ServerFiles.zip..."
     unzip -o ServerFiles.zip -d .
 
-    # Flatten top-level folder if the zip contains a single root folder
+    # Flatten top-level folder if exists
     TOP_DIR=$(unzip -Z1 ServerFiles.zip | head -n1 | cut -d/ -f1)
     if [ -n "$TOP_DIR" ] && [ -d "$TOP_DIR" ] && [ "$TOP_DIR" != "." ]; then
         echo "Flattening directory structure from $TOP_DIR..."
@@ -47,12 +123,13 @@ else
     fi
     rm -f ServerFiles.zip
 
-    # Download HytaleServer.jar into the Server folder temporarily
+    # -----------------------------------------------------------------
+    # DOWNLOAD JAR (Patcher)
+    # -----------------------------------------------------------------
     echo "Downloading HytaleServer.jar..."
     mkdir -p Server
     wget -O Server/HytaleServer.jar "${PATCHER_URL}"
 
-    # Move HytaleServer.jar to root and cleanup
     echo "Finalizing HytaleServer.jar location..."
     rm -f HytaleServer.jar
     if [ -f "Server/HytaleServer.jar" ]; then
@@ -66,7 +143,6 @@ else
     echo "Creating start_server.sh..."
     cat << 'EOF' > start.sh
 #!/bin/bash
-# Standalone script to fetch F2P server tokens and start Hytale server
 set -e
 
 # Configuration
@@ -84,7 +160,6 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 log() { echo -e "${GREEN}[INFO]${NC} $*"; }
-warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
 if [ ! -f "HytaleServer.jar" ]; then
@@ -132,14 +207,11 @@ exec java -jar HytaleServer.jar \
     "$@"
 EOF
 
-    # Set permissions
-    echo "Setting executable permissions (chmod +x)..."
     chmod -R +x .
     echo "-----------------------------------------"
     echo "           Install Complete              "
     echo "-----------------------------------------"
 fi
 
-# Always attempt to start the server at the end
 echo "[>] Launching start_server.sh..."
 ./start.sh
