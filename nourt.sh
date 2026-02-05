@@ -215,11 +215,11 @@ IDENTITY_TOKEN=\$(echo "\${RESPONSE}" | sed -n 's/.*"identityToken"[[:space:]]*:
 
 log "Starting Hytale Server on ${BIND_ARG}..."
 exec java -jar HytaleServer.jar \
-    --assets "\${ASSETS_PATH}" \
+#    --assets "\${ASSETS_PATH}" \
     --bind "\${BIND_ADDRESS}" \
-    --auth-mode "\${AUTH_MODE}" \
-    --session-token "\${SESSION_TOKEN}" \
-    --identity-token "\${IDENTITY_TOKEN}" \
+#    --auth-mode "\${AUTH_MODE}" \
+#    --session-token "\${SESSION_TOKEN}" \
+#    --identity-token "\${IDENTITY_TOKEN}" \
     "\$@"
 EOF
 
