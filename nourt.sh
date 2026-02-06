@@ -4,8 +4,6 @@
 #  🎮 HYTALE SERVER AUTO-DEPLOYER
 #  ----------------------------------------------------------------------------
 #  Usage:       sudo ./deploy.sh [GoFile_IDs/URLs] --p [PORT] --u
-#  Flags:       --p : Set custom server port (Default: 5520)
-#               --u : Update mode (Clears existing JAR/Assets)
 # ==============================================================================
 
 set -e
@@ -15,7 +13,6 @@ set -e
 # ------------------------------------------------------------------------------
 SERVER_PORT="${SERVER_PORT:-5520}"
 UPDATE_MODE=false
-NEEDS_CONFIG_PATCH=false
 INPUT_IDs=()
 BYPASS_BASE="https://gf.1drv.eu.org"
 
@@ -25,7 +22,7 @@ BYPASS_BASE="https://gf.1drv.eu.org"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --p) SERVER_PORT="$2"; shift 2 ;;
-        --u) UPDATE_MODE=true; NEEDS_CONFIG_PATCH=true; shift ;;
+        --u) UPDATE_MODE=true; shift ;;
         *)
             CLEAN_ID=$(echo "$1" | sed 's/.*gofile.io\/d\///' | tr -d ':,')
             INPUT_IDs+=("$CLEAN_ID")
@@ -48,6 +45,7 @@ fi
 
 echo " [⚡] Phase 1: Validating System Dependencies..."
 apt-get update -y > /dev/null 2>&1
+# jq is required for the config check logic below
 apt-get install -y openjdk-25-jre curl aria2 jq > /dev/null 2>&1
 
 # ------------------------------------------------------------------------------
@@ -85,36 +83,38 @@ fi
 echo " [⚡] Phase 3: Fetching Resources..."
 
 if [ ! -f "Assets.zip" ]; then
-    echo "     » Downloading Assets.zip..."
     aria2c -x 8 -s 8 --summary-interval=0 -o Assets.zip "${BYPASS_BASE}/${ASSET_ID}"
-    NEEDS_CONFIG_PATCH=true
 fi
 
 if [ ! -f "HytaleServer.jar" ]; then
-    echo "     » Downloading HytaleServer.jar..."
     aria2c -x 8 -s 8 --summary-interval=0 -o HytaleServer.jar "${BYPASS_BASE}/${JAR_ID}"
     chmod +x HytaleServer.jar
-    NEEDS_CONFIG_PATCH=true
 fi
 
 # ------------------------------------------------------------------------------
-# [7] CONFIGURATION TUNING (Run only on Install or Update)
+# [7] CONFIGURATION ENFORCEMENT (Runs every time)
 # ------------------------------------------------------------------------------
-if [ "$NEEDS_CONFIG_PATCH" = true ]; then
-    echo " [⚡] Phase 4: Applying Configuration Tweaks (Install/Update detected)..."
-    
-    # Create a default config if it doesn't exist, or update existing
-    if [ ! -f "config.json" ]; then
-        echo '{"MaxViewRadius": 16}' > config.json
-        echo "     » Created new config.json with MaxViewRadius: 16"
-    else
-        # Use jq to update the value safely
-        tmp=$(mktemp)
-        jq '.MaxViewRadius = 16' config.json > "$tmp" && mv "$tmp" config.json
-        echo "     » Updated existing config.json: MaxViewRadius set to 16"
-    fi
+echo " [⚡] Phase 4: Checking Configuration..."
+
+CONFIG_FILE="config.json"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    # Create file if it doesn't exist
+    echo '{"MaxViewRadius": 16}' > "$CONFIG_FILE"
+    echo "     » config.json created with MaxViewRadius: 16"
 else
-    echo " [⚡] Phase 4: Skipping Config Tweak (No install/update required)."
+    # Check current value using jq
+    # If the key doesn't exist or isn't 16, update it
+    CURRENT_VAL=$(jq -r '.MaxViewRadius' "$CONFIG_FILE" 2>/dev/null || echo "null")
+
+    if [ "$CURRENT_VAL" != "16" ]; then
+        echo "     » MaxViewRadius is currently ($CURRENT_VAL). Resetting to 16..."
+        tmp=$(mktemp)
+        jq '.MaxViewRadius = 16' "$CONFIG_FILE" > "$tmp" && mv "$tmp" "$CONFIG_FILE"
+        echo "     » config.json updated successfully."
+    else
+        echo "     » config.json already optimized (MaxViewRadius: 16). Skipping edit."
+    fi
 fi
 
 # ------------------------------------------------------------------------------
