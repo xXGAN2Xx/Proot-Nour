@@ -1,108 +1,85 @@
 #!/bin/bash
 
 # ==============================================================================
-# 🎮 HYTALE SERVER AUTO-DEPLOYMENT SCRIPT (PIXELDRAIN VERSION)
+# 🎮 HYTALE SERVER AUTO-DEPLOYMENT SCRIPT (FAST VERSION)
 # ==============================================================================
-# AUTHOR:  Nour
+# AUTHOR:  Nour (Optimized)
 # PLATFORM: Debian / Ubuntu
-# 
-# DESCRIPTION:
-#   A streamlined deployment utility that retrieves Hytale server components
-#   from PixelDrain, automatically identifies file types via API metadata,
-#   handles system dependencies, and launches the server instance.
-#
-# USAGE:
-#   curl -sL <URL> | bash -s -- <ID_1> <ID_2> [--p <PORT>] [--u]
-#   curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- 1 2 --p 5520
-# ARGUMENTS:
-#   <ID_1/2> : PixelDrain unique file identifiers.
-#   --p      : Overrides the default port (5520).
-#   --u      : Update Mode. Forces re-download of existing assets/jar.
 # ==============================================================================
 
-set -e # Terminate script on any command failure
+set -e
 
 # ------------------------------------------------------------------------------
-# [1] GLOBAL CONFIGURATION & DEFAULTS
+# [1] GLOBAL CONFIGURATION
 # ------------------------------------------------------------------------------
-PORT="5520"           # Default Hytale communication port
-UPDATE_MODE=false     # Boolean flag for forced reinstallation
-PIXELDRAIN_IDS=()     # Array to store positional file IDs
+PORT="5520"
+UPDATE_MODE=false
+PIXELDRAIN_IDS=()
 
 # ------------------------------------------------------------------------------
 # [2] ARGUMENT PROCESSING
-#    Iterates through input to separate command flags from positional IDs.
 # ------------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --p)
-            PORT="$2"
-            shift 2
-            ;;
-        --u)
-            UPDATE_MODE=true
-            shift
-            ;;
-        *)
-            # Sanitize input: Remove colons or commas if pasted from URLs
-            PIXELDRAIN_IDS+=("$(echo "$1" | tr -d ':,')")
-            shift
-            ;;
+        --p) PORT="$2"; shift 2 ;;
+        --u) UPDATE_MODE=true; shift ;;
+        *) PIXELDRAIN_IDS+=("$(echo "$1" | tr -d ':,')"); shift ;;
     esac
 done
 
 echo "======================================================="
-echo "        HYTALE SERVER DEPLOYMENT INITIALIZED           "
+echo "        HYTALE SERVER DEPLOYMENT (ACCELERATED)         "
 echo "======================================================="
-echo " [ℹ] Target Port: $PORT"
-echo " [ℹ] Update Mode: $UPDATE_MODE"
-echo " [ℹ] Source IDs:  ${PIXELDRAIN_IDS[*]}"
-echo "-------------------------------------------------------"
 
 # ------------------------------------------------------------------------------
-# [3] ENVIRONMENT VALIDATION & DEPENDENCIES
-#    Ensures administrative privileges and presence of the Java Runtime.
+# [3] ENVIRONMENT & DEPENDENCIES (Optimized)
+#    Only updates/installs if aria2 or java is missing.
 # ------------------------------------------------------------------------------
 if [ "$EUID" -ne 0 ]; then 
-  echo " [!] CRITICAL: Deployment requires root privileges for 'apt-get'."
+  echo " [!] CRITICAL: Root privileges required."
   exit 1
 fi
 
-echo " [⚡] Phase 1: Configuring system environment..."
-apt-get update -y
-# Removed wget, ensured curl is installed
-apt-get install -y openjdk-25-jre curl
+echo " [⚡] Phase 1: Checking system requirements..."
+
+# Check if we need to install anything
+NEEDS_INSTALL=false
+if ! command -v aria2c &> /dev/null; then NEEDS_INSTALL=true; fi
+if ! command -v java &> /dev/null; then NEEDS_INSTALL=true; fi
+
+if [ "$NEEDS_INSTALL" = true ]; then
+    echo "     » Installing dependencies (aria2, openjdk)..."
+    apt-get update -y -q
+    # Removed curl (replaced by aria2), keeping openjdk
+    apt-get install -y -q aria2 openjdk-25-jre
+else
+    echo "     » Dependencies already installed. Skipping apt update."
+fi
 
 # ------------------------------------------------------------------------------
 # [4] PIXELDRAIN RESOURCE IDENTIFICATION
-#    Connects to PixelDrain API to determine which ID is 'Assets' and which
-#    is the 'Server Jar' by inspecting the internal filename metadata.
 # ------------------------------------------------------------------------------
 if [ ${#PIXELDRAIN_IDS[@]} -lt 2 ]; then
-    echo " [!] ERROR: Identification failed. Two PixelDrain IDs are required."
+    echo " [!] ERROR: Two PixelDrain IDs are required."
     exit 1
 fi
 
 DETECTED_ASSETS_ID=""
 DETECTED_JAR_ID=""
 
-echo " [⚡] Phase 2: Resolving resource metadata from API..."
+echo " [⚡] Phase 2: Resolving resource metadata..."
+
 for id in "${PIXELDRAIN_IDS[@]}"; do
-    # Fetch JSON metadata using curl
-    # -s: Silent, -L: Follow redirects, -A: User Agent
     FILE_INFO=$(curl -sL -A "Mozilla/5.0" "https://pixeldrain.com/api/file/${id}/info" || true)
-    
-    # Parse filename from JSON response
     FILE_NAME=$(echo "$FILE_INFO" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 || true)
     
     if [ -z "$FILE_NAME" ]; then
-        echo " [!] ERROR: ID [$id] is invalid or file is private."
+        echo " [!] ERROR: ID [$id] is invalid."
         exit 1
     fi
 
     echo "     » Detected: $FILE_NAME"
 
-    # Sorting Logic: Filenames containing "Asset" (case-insensitive) = Assets.zip
     if echo "$FILE_NAME" | grep -iq "Asset"; then
         DETECTED_ASSETS_ID="$id"
     else
@@ -110,15 +87,13 @@ for id in "${PIXELDRAIN_IDS[@]}"; do
     fi
 done
 
-# Verify that logic successfully assigned both mandatory IDs
 if [ -z "$DETECTED_ASSETS_ID" ] || [ -z "$DETECTED_JAR_ID" ]; then
-    echo " [!] ERROR: Resource ambiguity. One file MUST contain 'Asset' in its name."
+    echo " [!] ERROR: Could not distinguish Assets from Jar."
     exit 1
 fi
 
 # ------------------------------------------------------------------------------
-# [5] REINSTALLATION LOGIC (UPDATE MODE)
-#    If the --u flag is active, wipe existing local copies to ensure fresh data.
+# [5] REINSTALLATION LOGIC
 # ------------------------------------------------------------------------------
 if [ "$UPDATE_MODE" = true ]; then
     echo " [⚡] Phase 3: Update flag detected. Purging local binaries..."
@@ -126,33 +101,52 @@ if [ "$UPDATE_MODE" = true ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# [6] DATA ACQUISITION
-#    Retrieves the binary files from PixelDrain if not present locally.
+# [6] PARALLEL DATA ACQUISITION (ARIA2)
+#    Uses aria2c with 16 connections per file, running both downloads at once.
 # ------------------------------------------------------------------------------
-if [ ! -f "Assets.zip" ]; then
-    echo " [⚡] Phase 4: Fetching Assets.zip..."
-    # -L: Follow redirects (crucial for PD), -o: Output file
-    curl -L -o Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
-else
-    echo " [✓] Resource Assets.zip already present. Skipping download."
-fi
+echo " [⚡] Phase 4: Downloading files in parallel..."
 
-if [ ! -f "HytaleServer.jar" ]; then
-    echo " [⚡] Phase 5: Fetching HytaleServer.jar..."
-    curl -L -o HytaleServer.jar "https://pixeldrain.com/api/file/${DETECTED_JAR_ID}"
-    chmod +x HytaleServer.jar
-else
-    echo " [✓] Resource HytaleServer.jar already present. Skipping download."
-fi
+# Function to download Assets
+download_assets() {
+    if [ ! -f "Assets.zip" ]; then
+        echo "     » Starting download: Assets.zip"
+        # -x 16: 16 connections, -s 16: 16 splits, -j 1: concurrent downloads (controlled by bash)
+        aria2c -x 16 -s 16 -j 1 -o "Assets.zip" "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}" -q --console-log-level=error
+        echo "     ✓ Assets.zip download complete."
+    else
+        echo "     ✓ Assets.zip already exists."
+    fi
+}
+
+# Function to download Jar
+download_jar() {
+    if [ ! -f "HytaleServer.jar" ]; then
+        echo "     » Starting download: HytaleServer.jar"
+        aria2c -x 16 -s 16 -j 1 -o "HytaleServer.jar" "https://pixeldrain.com/api/file/${DETECTED_JAR_ID}" -q --console-log-level=error
+        chmod +x HytaleServer.jar
+        echo "     ✓ HytaleServer.jar download complete."
+    else
+        echo "     ✓ HytaleServer.jar already exists."
+    fi
+}
+
+# Run both functions in background simultaneously
+download_assets &
+PID_ASSETS=$!
+
+download_jar &
+PID_JAR=$!
+
+# Wait for both downloads to finish before proceeding
+wait $PID_ASSETS
+wait $PID_JAR
 
 # ------------------------------------------------------------------------------
 # [7] SERVER STARTUP
-#    Executes the Java Virtual Machine with defined assets and network binding.
 # ------------------------------------------------------------------------------
 echo "-------------------------------------------------------"
 echo "        DEPLOYMENT COMPLETE - STARTING HYTALE          "
 echo "-------------------------------------------------------"
 echo " [>] Network Bind: 0.0.0.0:$PORT"
-echo "-------------------------------------------------------"
 
 java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
