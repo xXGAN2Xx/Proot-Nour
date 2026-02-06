@@ -1,162 +1,107 @@
 #!/bin/bash
 
 # ==============================================================================
-#  🎮 HYTALE SERVER AUTOMATED DEPLOYMENT SYSTEM (GOFILE EDITION)
+#  🎮 HYTALE SERVER AUTO-DEPLOYER (GOFILE DYNAMIC TOKEN VERSION)
 # ==============================================================================
-#
-#  DESCRIPTION:
-#    This script automates the deployment of a Hytale game server using GoFile.
-#    It strictly enforces the order of input IDs to identify resources.
-#
-#  USAGE:
-#    ./script.sh <ASSET_FOLDER_ID> <JAR_FOLDER_ID>
-#
-#  PREREQUISITES:
-#    - Root privileges (sudo)
-#    - Ubuntu/Debian based system
-#
+#  1st ID = Assets.zip | 2nd ID = HytaleServer.jar
 # ==============================================================================
 
-set -e  # Exit immediately on error
+set -e
 
 # ------------------------------------------------------------------------------
-# [1] GLOBAL CONFIGURATION
+# [1] CONFIGURATION & ARGUMENTS
 # ------------------------------------------------------------------------------
-PORT="5520"           # Default port for the Hytale server
-UPDATE_MODE=false     # Toggle to force re-download of files
-GOFILE_IDS=()         # Array to store input Folder IDs
+PORT="5520"
+UPDATE_MODE=false
+GOFILE_IDS=()
 
-# ------------------------------------------------------------------------------
-# [2] COMMAND LINE ARGUMENT PARSING
-# ------------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --p)
-            # Custom Port Flag
-            PORT="$2"
-            shift 2
-            ;;
-        --u)
-            # Update Mode Flag
-            UPDATE_MODE=true
-            shift
-            ;;
-        *)
-            # Sanitize input: Remove 'https://gofile.io/d/', colons, and commas
-            CLEAN_ID=$(echo "$1" | sed 's/.*gofile.io\/d\///' | tr -d ':,')
-            GOFILE_IDS+=("$CLEAN_ID")
-            shift
-            ;;
+        --p) PORT="$2"; shift 2 ;;
+        --u) UPDATE_MODE=true; shift ;;
+        *) CLEAN_ID=$(echo "$1" | sed 's/.*gofile.io\/d\///' | tr -d ':,'); GOFILE_IDS+=("$CLEAN_ID"); shift ;;
     esac
 done
 
-# --- 🖥️ DISPLAY STARTUP BANNER ---
 echo "======================================================="
 echo "        HYTALE SERVER DEPLOYMENT INITIALIZED           "
 echo "======================================================="
 echo " [ℹ] Target Port: $PORT"
-echo " [ℹ] Update Mode: $UPDATE_MODE"
-echo " [ℹ] Asset ID:    ${GOFILE_IDS[0]} (First Input)"
-echo " [ℹ] Jar ID:      ${GOFILE_IDS[1]} (Second Input)"
+echo " [ℹ] Asset ID (1st): ${GOFILE_IDS[0]}"
+echo " [ℹ] Jar ID   (2nd): ${GOFILE_IDS[1]}"
 echo "-------------------------------------------------------"
 
 # ------------------------------------------------------------------------------
-# [3] ENVIRONMENT CHECK & DEPENDENCY INSTALLATION
+# [2] SYSTEM SETUP
 # ------------------------------------------------------------------------------
 if [ "$EUID" -ne 0 ]; then 
-  echo " [!] CRITICAL: Deployment requires root privileges."
+  echo " [!] CRITICAL: Please run as root (sudo)."
   exit 1
 fi
 
-echo " [⚡] Phase 1: Configuring system environment..."
-
-# Silently update package lists and install dependencies
+echo " [⚡] Phase 1: Installing dependencies (jq, aria2, curl)..."
 apt-get update -y > /dev/null 2>&1
-apt-get install -y openjdk-25-jre curl aria2 jq
+apt-get install -y openjdk-25-jre curl aria2 jq > /dev/null 2>&1
 
 # ------------------------------------------------------------------------------
-# [4] HELPER FUNCTION: GET LINK
+# [3] DYNAMIC TOKEN GENERATION (FIXES ERROR-TOKEN)
 # ------------------------------------------------------------------------------
-# Inputs: $1 = GoFile Folder ID
-# Outputs: Echoes the direct download link
-get_gofile_link() {
-    local FOLDER_ID=$1
-    # Generic Website Token (often required for public API access)
-    local WT="4fd6sg89d7s6" 
+echo " [⚡] Phase 2: Generating dynamic Gofile Guest Token..."
+# This creates a temporary guest account session to authorize downloads
+GUEST_TOKEN=$(curl -s -X POST https://api.gofile.io/accounts | jq -r '.data.token')
 
-    # 1. Fetch Folder JSON
-    local RESPONSE=$(curl -s -H "User-Agent: Mozilla/5.0" "https://api.gofile.io/contents/${FOLDER_ID}?wt=${WT}")
-    
-    # 2. Check Status
-    local STATUS=$(echo "$RESPONSE" | jq -r '.status')
-    if [ "$STATUS" != "ok" ]; then
-        echo "ERROR: API returned status '$STATUS' for ID $FOLDER_ID" >&2
-        return 1
-    fi
-
-    # 3. Extract First File Link
-    local LINK=$(echo "$RESPONSE" | jq -r '.data.children | to_entries[] | .value | select(.type=="file") | .link' | head -n 1)
-
-    if [ "$LINK" == "null" ] || [ -z "$LINK" ]; then
-        echo "ERROR: No file found in folder $FOLDER_ID" >&2
-        return 1
-    fi
-
-    echo "$LINK"
-}
-
-# ------------------------------------------------------------------------------
-# [5] RESOURCE RESOLUTION
-# ------------------------------------------------------------------------------
-if [ ${#GOFILE_IDS[@]} -lt 2 ]; then
-    echo " [!] ERROR: Two Gofile IDs are required."
-    echo "     Usage: ./script.sh <ASSET_ID> <JAR_ID>"
+if [ -z "$GUEST_TOKEN" ] || [ "$GUEST_TOKEN" == "null" ]; then
+    echo " [!] ERROR: Could not generate Gofile session token. API might be down."
     exit 1
 fi
 
-echo " [⚡] Phase 2: Resolving download links..."
+# ------------------------------------------------------------------------------
+# [4] LINK RESOLUTION
+# ------------------------------------------------------------------------------
+if [ ${#GOFILE_IDS[@]} -lt 2 ]; then
+    echo " [!] ERROR: Missing IDs. Usage: ./script.sh <AssetID> <JarID>"
+    exit 1
+fi
 
-# --- RESOLVE ASSETS (FIRST ID) ---
-ASSET_ID="${GOFILE_IDS[0]}"
-echo "     » Resolving Assets from ID: $ASSET_ID..."
-DETECTED_ASSETS_URL=$(get_gofile_link "$ASSET_ID")
+resolve_link() {
+    local ID=$1
+    local RESP=$(curl -s -H "Authorization: Bearer $GUEST_TOKEN" "https://api.gofile.io/contents/$ID")
+    local LINK=$(echo "$RESP" | jq -r '.data.children | to_entries[] | .value | select(.type=="file") | .link' | head -n 1)
+    
+    if [ -z "$LINK" ] || [ "$LINK" == "null" ]; then
+        echo " [!] ERROR: Failed to resolve ID $ID (Check if folder is public)" >&2
+        exit 1
+    fi
+    echo "$LINK"
+}
 
-# --- RESOLVE JAR (SECOND ID) ---
-JAR_ID="${GOFILE_IDS[1]}"
-echo "     » Resolving Jar from ID:    $JAR_ID..."
-DETECTED_JAR_URL=$(get_gofile_link "$JAR_ID")
+echo " [⚡] Phase 3: Resolving download links..."
+ASSET_URL=$(resolve_link "${GOFILE_IDS[0]}")
+JAR_URL=$(resolve_link "${GOFILE_IDS[1]}")
 
 # ------------------------------------------------------------------------------
-# [6] CLEANUP & DOWNLOAD
+# [5] DOWNLOAD & EXECUTE
 # ------------------------------------------------------------------------------
 if [ "$UPDATE_MODE" = true ]; then
-    echo " [⚡] Phase 3: Update flag detected. Purging local binaries..."
     rm -f Assets.zip HytaleServer.jar
 fi
 
-echo " [⚡] Phase 4: Downloading Resources..."
+echo " [⚡] Phase 4: Downloading Files..."
 
-# --- DOWNLOAD ASSETS ---
+# Download Assets (1st ID)
 if [ ! -f "Assets.zip" ]; then
-    echo "     » Fetching Assets.zip (Source: First ID)..."
-    aria2c -x 16 -s 16 -o Assets.zip "$DETECTED_ASSETS_URL"
-else
-    echo "     » [✓] Assets.zip already present."
+    echo "     » Downloading Assets.zip..."
+    aria2c -x 16 -s 16 -o Assets.zip "$ASSET_URL"
 fi
 
-# --- DOWNLOAD JAR ---
+# Download Jar (2nd ID)
 if [ ! -f "HytaleServer.jar" ]; then
-    echo "     » Fetching HytaleServer.jar (Source: Second ID)..."
-    aria2c -x 16 -s 16 -o HytaleServer.jar "$DETECTED_JAR_URL"
+    echo "     » Downloading HytaleServer.jar..."
+    aria2c -x 16 -s 16 -o HytaleServer.jar "$JAR_URL"
     chmod +x HytaleServer.jar
-else
-    echo "     » [✓] HytaleServer.jar already present."
 fi
 
-# ------------------------------------------------------------------------------
-# [7] SERVER EXECUTION
-# ------------------------------------------------------------------------------
 echo "-------------------------------------------------------"
-echo "        DEPLOYMENT COMPLETE - STARTING HYTALE          "
+echo "        SUCCESS - STARTING HYTALE SERVER               "
 echo "-------------------------------------------------------"
 java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
