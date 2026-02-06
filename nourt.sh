@@ -70,6 +70,7 @@ fi
 
 echo " [⚡] Phase 1: Configuring system environment..."
 apt-get update -y
+# Removed wget, ensured curl is installed
 apt-get install -y openjdk-25-jre curl
 
 # ------------------------------------------------------------------------------
@@ -87,8 +88,9 @@ DETECTED_JAR_ID=""
 
 echo " [⚡] Phase 2: Resolving resource metadata from API..."
 for id in "${PIXELDRAIN_IDS[@]}"; do
-    # Fetch JSON metadata for the file ID
-    FILE_INFO=$(wget -qO- --user-agent="Mozilla/5.0" "https://pixeldrain.com/api/file/${id}/info" || true)
+    # Fetch JSON metadata using curl
+    # -s: Silent, -L: Follow redirects, -A: User Agent
+    FILE_INFO=$(curl -sL -A "Mozilla/5.0" "https://pixeldrain.com/api/file/${id}/info" || true)
     
     # Parse filename from JSON response
     FILE_NAME=$(echo "$FILE_INFO" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 || true)
@@ -129,14 +131,15 @@ fi
 # ------------------------------------------------------------------------------
 if [ ! -f "Assets.zip" ]; then
     echo " [⚡] Phase 4: Fetching Assets.zip..."
-    wget -O Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
+    # -L: Follow redirects (crucial for PD), -o: Output file
+    curl -L -o Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
 else
     echo " [✓] Resource Assets.zip already present. Skipping download."
 fi
 
 if [ ! -f "HytaleServer.jar" ]; then
     echo " [⚡] Phase 5: Fetching HytaleServer.jar..."
-    wget -O HytaleServer.jar "https://pixeldrain.com/api/file/${DETECTED_JAR_ID}"
+    curl -L -o HytaleServer.jar "https://pixeldrain.com/api/file/${DETECTED_JAR_ID}"
     chmod +x HytaleServer.jar
 else
     echo " [✓] Resource HytaleServer.jar already present. Skipping download."
@@ -150,7 +153,6 @@ echo "-------------------------------------------------------"
 echo "        DEPLOYMENT COMPLETE - STARTING HYTALE          "
 echo "-------------------------------------------------------"
 echo " [>] Network Bind: 0.0.0.0:$PORT"
-echo " [>] Assets Path:  $(pwd)/Assets.zip"
 echo "-------------------------------------------------------"
 
 java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
