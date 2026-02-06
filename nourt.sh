@@ -64,7 +64,7 @@ if [ ! -f "Assets.zip" ]; then
     echo "     » Downloading Assets.zip (Bypassing Quota)..."
     # We use the Bypass URL from your script to get the direct file stream
     # This avoids "Premium Only" or "Quota Exceeded" errors
-    aria2c -x 16 -s 16 --summary-interval=0 -o Assets.zip "${BYPASS_URL}/${GOFILE_IDS[0]}"
+    aria2c -x 8 -s 8 --summary-interval=0 -o Assets.zip "${BYPASS_URL}/${GOFILE_IDS[0]}"
 else
     echo "     » [✓] Assets.zip already present."
 fi
@@ -72,7 +72,7 @@ fi
 # --- Download Jar ---
 if [ ! -f "HytaleServer.jar" ]; then
     echo "     » Downloading HytaleServer.jar (Bypassing Quota)..."
-    aria2c -x 16 -s 16 --summary-interval=0 -o HytaleServer.jar "${BYPASS_URL}/${GOFILE_IDS[1]}"
+    aria2c -x 8 -s 8 --summary-interval=0 -o HytaleServer.jar "${BYPASS_URL}/${GOFILE_IDS[1]}"
     chmod +x HytaleServer.jar
 else
     echo "     » [✓] HytaleServer.jar already present."
