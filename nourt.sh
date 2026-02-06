@@ -1,165 +1,145 @@
 #!/bin/bash
-
-# ==============================================================================
-#  🎮 HYTALE SERVER AUTO-DEPLOYER (ID ARGUMENT VERSION)
-# ==============================================================================
-#  USAGE: ./script.sh [ASSET_ID] [JAR_ID] --p [PORT]
-#  EXAMPLE: ./script.sh 7a4581d3-d335... 3655393e-dc75...
-# ==============================================================================
-
 set -e
-set -o pipefail
 
-# ------------------------------------------------------------------------------
-# [1] CONFIGURATION
-# ------------------------------------------------------------------------------
-PORT="5520"
-UPDATE_MODE=false
-GOFILE_IDS=()
+# Define URLs
+ASSETS_URL="https://craftbytehosting.xyz/Assets.zip"
+SERVER_URL="https://craftbytehosting.xyz/ServerFiles.zip"
+PATCHER_URL="https://patcher.authbp.xyz/download/patched_release"
 
-# Parse flags and IDs
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --p) PORT="$2"; shift 2 ;;
-        --u) UPDATE_MODE=true; shift ;;
-        *) 
-            # Strip URL parts if user pasted a full link, keep only the ID
-            CLEAN_ID=$(echo "$1" | sed 's/.*gofile.io\/d\///' | tr -d ':,')
-            # Also strip download/web/ if present (from direct links)
-            CLEAN_ID=$(echo "$CLEAN_ID" | sed 's/.*download\/web\///')
-            GOFILE_IDS+=("$CLEAN_ID")
-            shift 
-            ;;
-    esac
-done
+echo "-----------------------------------------"
+echo "   Hytale Server Manager (Debian Mode)   "
+echo "   Target: $(pwd)   "
+echo "-----------------------------------------"
 
-echo "======================================================="
-echo "        HYTALE SERVER DEPLOYMENT INITIALIZED           "
-echo "======================================================="
-echo " [ℹ] Target Port: $PORT"
-echo " [ℹ] Asset ID:    ${GOFILE_IDS[0]}"
-echo " [ℹ] Jar ID:      ${GOFILE_IDS[1]}"
-echo "-------------------------------------------------------"
+# Check if HytaleServer.jar already exists
+if [ -f "HytaleServer.jar" ] && [ -f "start.sh" ]; then
+    echo "[!] HytaleServer.jar found. Skipping installation steps..."
+else
+    echo "[+] Installation required. Starting setup..."
 
-# ------------------------------------------------------------------------------
-# [2] DEPENDENCIES
-# ------------------------------------------------------------------------------
-if [ "$EUID" -ne 0 ]; then 
-  echo " [!] CRITICAL: Please run as root (sudo)."
-  exit 1
-fi
+    # Install dependencies (Debian/Ubuntu)
+    echo "Installing dependencies..."
+    apt-get update -y
+    apt-get install -y wget unzip ca-certificates openjdk-25-jre uuid-runtime curl
 
-echo " [⚡] Phase 1: Installing dependencies..."
-apt-get update -y > /dev/null 2>&1
-apt-get install -y openjdk-21-jre curl aria2 jq > /dev/null 2>&1
+    # Download Assets.zip (do not extract)
+    echo "Downloading Assets.zip..."
+    rm -f Assets.zip
+    wget -O Assets.zip "${ASSETS_URL}"
+    echo "Assets.zip downloaded."
 
-# ------------------------------------------------------------------------------
-# [3] DYNAMIC TOKEN GENERATION
-# ------------------------------------------------------------------------------
-echo " [⚡] Phase 2: Generating Gofile Session..."
+    # Download ServerFiles.zip (extract this one)
+    echo "Downloading ServerFiles.zip..."
+    rm -f ServerFiles.zip
+    wget -O ServerFiles.zip "${SERVER_URL}"
 
-# 1. Get the best available server (as requested)
-SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+    # Test integrity and extract
+    echo "Extracting ServerFiles.zip..."
+    unzip -o ServerFiles.zip -d .
 
-# Fallback if server fetch fails
-if [ -z "$SERVER" ] || [ "$SERVER" == "null" ]; then
-    SERVER="store1"
-fi
-
-echo "     » Selected Server: $SERVER"
-
-# 2. Create Account on that server
-GUEST_TOKEN=$(curl -s -X POST "https://${SERVER}.gofile.io/accounts" \
-    -H "User-Agent: Mozilla/5.0" \
-    -H "Accept: application/json" \
-    -H "Origin: https://gofile.io" \
-    | jq -r '.data.token')
-
-if [ -z "$GUEST_TOKEN" ] || [ "$GUEST_TOKEN" == "null" ]; then
-    echo " [!] ERROR: Failed to generate token. Gofile API may be blocking requests."
-    exit 1
-fi
-
-echo "     » Token Acquired: ${GUEST_TOKEN:0:10}..."
-
-# ------------------------------------------------------------------------------
-# [4] RESOLVE LINKS
-# ------------------------------------------------------------------------------
-if [ ${#GOFILE_IDS[@]} -lt 2 ]; then
-    echo " [!] ERROR: You must provide TWO IDs (Assets ID first, then Jar ID)."
-    exit 1
-fi
-
-fetch_link() {
-    local ID=$1
-    
-    # API Call to list folder contents
-    local RESP=$(curl -s -H "Authorization: Bearer $GUEST_TOKEN" \
-                        -H "User-Agent: Mozilla/5.0" \
-                        "https://api.gofile.io/contents/$ID")
-    
-    # Error Handling
-    local STATUS=$(echo "$RESP" | jq -r '.status')
-    
-    if [ "$STATUS" == "error-notPremium" ]; then
-        echo "ERROR_PREMIUM"
-        return
+    # Flatten top-level folder if the zip contains a single root folder
+    TOP_DIR=$(unzip -Z1 ServerFiles.zip | head -n1 | cut -d/ -f1)
+    if [ -n "$TOP_DIR" ] && [ -d "$TOP_DIR" ] && [ "$TOP_DIR" != "." ]; then
+        echo "Flattening directory structure from $TOP_DIR..."
+        mv "$TOP_DIR"/* . 2>/dev/null || true
+        mv "$TOP_DIR"/.* . 2>/dev/null || true
+        rm -rf "$TOP_DIR"
     fi
-    
-    if [ "$STATUS" != "ok" ]; then
-        echo "ERROR_API"
-        return
+    rm -f ServerFiles.zip
+
+    # Download HytaleServer.jar into the Server folder temporarily
+    echo "Downloading HytaleServer.jar..."
+    mkdir -p Server
+    wget -O Server/HytaleServer.jar "${PATCHER_URL}"
+
+    # Move HytaleServer.jar to root and cleanup
+    echo "Finalizing HytaleServer.jar location..."
+    rm -f HytaleServer.jar
+    if [ -f "Server/HytaleServer.jar" ]; then
+        mv Server/HytaleServer.jar .
+    else
+        echo "Error: HytaleServer.jar download failed."
+        exit 1
     fi
 
-    # Extract Link
-    local LINK=$(echo "$RESP" | jq -r '.data.children | to_entries[0].value.link')
-    echo "$LINK"
-}
+    # Create the start_server.sh script
+    echo "Creating start_server.sh..."
+    cat << 'EOF' > start.sh
+#!/bin/bash
+# Standalone script to fetch F2P server tokens and start Hytale server
+set -e
 
-echo " [⚡] Phase 3: Resolving File URLs..."
+# Configuration
+HYTALE_AUTH_DOMAIN="${HYTALE_AUTH_DOMAIN:-auth.sanasol.ws}"
+AUTH_SERVER="${AUTH_SERVER:-https://${HYTALE_AUTH_DOMAIN}}"
+SERVER_NAME="${SERVER_NAME:-My Hytale Server}"
+ASSETS_PATH="${ASSETS_PATH:-./Assets.zip}"
+BIND_ADDRESS="${BIND_ADDRESS:-0.0.0.0:5520}"
+AUTH_MODE="${AUTH_MODE:-authenticated}"
 
-# Resolve Assets
-ASSET_URL=$(fetch_link "${GOFILE_IDS[0]}")
-if [ "$ASSET_URL" == "ERROR_PREMIUM" ]; then
-    echo " [!] CRITICAL: Gofile requires a Premium account to list folder ID: ${GOFILE_IDS[0]}"
-    echo "     Please use the Direct Link version of this script instead."
-    exit 1
-elif [ -z "$ASSET_URL" ] || [ "$ASSET_URL" == "ERROR_API" ]; then
-    echo " [!] Failed to resolve Asset URL."
-    exit 1
-fi
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# Resolve Jar
-JAR_URL=$(fetch_link "${GOFILE_IDS[1]}")
-if [ "$JAR_URL" == "ERROR_PREMIUM" ]; then
-    echo " [!] CRITICAL: Gofile requires a Premium account to list folder ID: ${GOFILE_IDS[1]}"
-    exit 1
-elif [ -z "$JAR_URL" ] || [ "$JAR_URL" == "ERROR_API" ]; then
-    echo " [!] Failed to resolve Jar URL."
-    exit 1
-fi
-
-# ------------------------------------------------------------------------------
-# [5] DOWNLOAD & LAUNCH
-# ------------------------------------------------------------------------------
-if [ "$UPDATE_MODE" = true ]; then
-    rm -f Assets.zip HytaleServer.jar
-fi
-
-echo " [⚡] Phase 4: Downloading..."
-
-if [ ! -f "Assets.zip" ]; then
-    echo "     » Downloading Assets..."
-    aria2c -x 16 -s 16 --summary-interval=0 -o Assets.zip "$ASSET_URL"
-fi
+log() { echo -e "${GREEN}[INFO]${NC} $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
 if [ ! -f "HytaleServer.jar" ]; then
-    echo "     » Downloading Server Jar..."
-    aria2c -x 16 -s 16 --summary-interval=0 -o HytaleServer.jar "$JAR_URL"
-    chmod +x HytaleServer.jar
+    error "HytaleServer.jar not found!"; exit 1
 fi
 
-echo "-------------------------------------------------------"
-echo "        LAUNCHING SERVER ON PORT $PORT                 "
-echo "-------------------------------------------------------"
-java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
+if [ ! -f "${ASSETS_PATH}" ]; then
+    error "Assets.zip not found at: ${ASSETS_PATH}"; exit 1
+fi
+
+# Generate or load server ID
+SERVER_ID_FILE=".server-id"
+if [ -f "${SERVER_ID_FILE}" ]; then
+    SERVER_ID=$(cat "${SERVER_ID_FILE}")
+    log "Using existing server ID: ${SERVER_ID}"
+else
+    SERVER_ID=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "server-$(date +%s)")
+    echo -n "${SERVER_ID}" > "${SERVER_ID_FILE}"
+    log "Generated new server ID: ${SERVER_ID}"
+fi
+
+log "Fetching server tokens from ${AUTH_SERVER}..."
+RESPONSE=$(curl -s -X POST "${AUTH_SERVER}/server/auto-auth" \
+    -H "Content-Type: application/json" \
+    -d "{\"server_id\": \"${SERVER_ID}\", \"server_name\": \"${SERVER_NAME}\"}" \
+    --connect-timeout 10 \
+    --max-time 30) || {
+    error "Failed to connect to auth server"; exit 1
+}
+
+if ! echo "${RESPONSE}" | grep -q "sessionToken"; then
+    error "Invalid response from auth server"; echo "${RESPONSE}"; exit 1
+fi
+
+SESSION_TOKEN=$(echo "${RESPONSE}" | sed -n 's/.*"sessionToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+IDENTITY_TOKEN=$(echo "${RESPONSE}" | sed -n 's/.*"identityToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+
+log "Starting Hytale Server..."
+exec java -jar HytaleServer.jar \
+    --assets "${ASSETS_PATH}" \
+    --bind "${BIND_ADDRESS}" \
+    --auth-mode "${AUTH_MODE}" \
+    --session-token "${SESSION_TOKEN}" \
+    --identity-token "${IDENTITY_TOKEN}" \
+    "$@"
+EOF
+
+    # Set permissions
+    echo "Setting executable permissions (chmod +x)..."
+    chmod -R +x .
+    echo "-----------------------------------------"
+    echo "           Install Complete              "
+    echo "-----------------------------------------"
+fi
+
+# Always attempt to start the server at the end
+echo "[>] Launching start_server.sh..."
+./start.sh
