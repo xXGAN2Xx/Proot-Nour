@@ -7,7 +7,8 @@
 set -e
 
 # [1] CONFIGURATION
-PORT="5520"
+# Default port is 5520 unless SERVER_PORT is already set in the environment
+SERVER_PORT="${SERVER_PORT:-5520}"
 UPDATE_MODE=false
 INPUT_IDs=()
 BYPASS_BASE="https://gf.1drv.eu.org"
@@ -16,7 +17,7 @@ BYPASS_BASE="https://gf.1drv.eu.org"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --p)
-            PORT="$2"
+            SERVER_PORT="$2"
             shift 2
             ;;
         --u)
@@ -35,7 +36,7 @@ done
 echo "======================================================="
 echo "        HYTALE SERVER DEPLOYMENT INITIALIZED           "
 echo "======================================================="
-echo " [ℹ] Target Port: $PORT"
+echo " [ℹ] Target Port: $SERVER_PORT"
 echo " [ℹ] Update Mode: $UPDATE_MODE"
 echo "-------------------------------------------------------"
 
@@ -81,7 +82,6 @@ if [ -z "$ASSET_ID" ] || [ -z "$JAR_ID" ]; then
 fi
 
 # [4] UPDATE / PURGE LOGIC
-# If --u is used, we delete existing files so aria2 can redownload them fresh.
 if [ "$UPDATE_MODE" = true ]; then
     echo " [⚡] Update flag (--u) detected. Purging local files for re-download..."
     rm -f Assets.zip HytaleServer.jar
@@ -112,4 +112,5 @@ echo "-------------------------------------------------------"
 echo "        DEPLOYMENT SUCCESSFUL - STARTING HYTALE        "
 echo "-------------------------------------------------------"
 
-java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
+# Added Executing HytaleServer.aot and updated port variable
+java -XX:AOTCache=HytaleServer.aot -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:${SERVER_PORT}
