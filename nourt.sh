@@ -1,233 +1,156 @@
 #!/bin/bash
-set -e
 
-# -------------------------------------------------------------------------
-# ARGUMENT PARSING
-# Usage: ./script.sh [ID1] [ID2] [--bind IP:PORT] [--name "Server Name"]
-# -------------------------------------------------------------------------
+# ==============================================================================
+# 🎮 HYTALE SERVER AUTO-DEPLOYMENT SCRIPT (PIXELDRAIN VERSION)
+# ==============================================================================
+# AUTHOR:  Nour
+# PLATFORM: Debian / Ubuntu
+# 
+# DESCRIPTION:
+#   A streamlined deployment utility that retrieves Hytale server components
+#   from PixelDrain, automatically identifies file types via API metadata,
+#   handles system dependencies, and launches the server instance.
+#
+# USAGE:
+#   curl -sL <URL> | bash -s -- <ID_1> <ID_2> [--p <PORT>] [--u]
+#
+# ARGUMENTS:
+#   <ID_1/2> : PixelDrain unique file identifiers.
+#   --p      : Overrides the default port (5520).
+#   --u      : Update Mode. Forces re-download of existing assets/jar.
+# ==============================================================================
 
-# Defaults
-BIND_ARG="0.0.0.0:5520"
-SERVER_NAME_ARG="My Hytale Server"
-PIXELDRAIN_IDS=()
+set -e # Terminate script on any command failure
 
-# Loop through all arguments
+# ------------------------------------------------------------------------------
+# [1] GLOBAL CONFIGURATION & DEFAULTS
+# ------------------------------------------------------------------------------
+PORT="5520"           # Default Hytale communication port
+UPDATE_MODE=false     # Boolean flag for forced reinstallation
+PIXELDRAIN_IDS=()     # Array to store positional file IDs
+
+# ------------------------------------------------------------------------------
+# [2] ARGUMENT PROCESSING
+#    Iterates through input to separate command flags from positional IDs.
+# ------------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --bind)
-            BIND_ARG="$2"
+        --p)
+            PORT="$2"
             shift 2
             ;;
-        --name)
-            SERVER_NAME_ARG="$2"
-            shift 2
-            ;;
-        -*)
-            echo "Error: Unknown option $1"
-            exit 1
+        --u)
+            UPDATE_MODE=true
+            shift
             ;;
         *)
-            # If it's not a flag, it's a PixelDrain ID
-            PIXELDRAIN_IDS+=("$1")
+            # Sanitize input: Remove colons or commas if pasted from URLs
+            PIXELDRAIN_IDS+=("$(echo "$1" | tr -d ':,')")
             shift
             ;;
     esac
 done
 
-# Patcher URL
-PATCHER_URL="https://patcher.authbp.xyz/download/patched_release"
+echo "======================================================="
+echo "        HYTALE SERVER DEPLOYMENT INITIALIZED           "
+echo "======================================================="
+echo " [ℹ] Target Port: $PORT"
+echo " [ℹ] Update Mode: $UPDATE_MODE"
+echo " [ℹ] Source IDs:  ${PIXELDRAIN_IDS[*]}"
+echo "-------------------------------------------------------"
 
-echo "-----------------------------------------"
-echo "   Hytale Server Manager (Debian Mode)   "
-echo "   Source: PixelDrain                    "
-echo "   Bind Address: $BIND_ARG               "
-echo "   Server Name:  $SERVER_NAME_ARG        "
-echo "   Input IDs:    ${PIXELDRAIN_IDS[*]}    "
-echo "   Target: $(pwd)                        "
-echo "-----------------------------------------"
+# ------------------------------------------------------------------------------
+# [3] ENVIRONMENT VALIDATION & DEPENDENCIES
+#    Ensures administrative privileges and presence of the Java Runtime.
+# ------------------------------------------------------------------------------
+if [ "$EUID" -ne 0 ]; then 
+  echo " [!] CRITICAL: Deployment requires root privileges for 'apt-get'."
+  exit 1
+fi
 
-# Check if HytaleServer.jar already exists
-if [ -f "HytaleServer.jar" ] && [ -f "start.sh" ]; then
-    echo "[!] HytaleServer.jar found. Skipping installation steps..."
-else
-    echo "[+] Installation required. Starting setup..."
+echo " [⚡] Phase 1: Configuring system environment..."
+apt-get update -y
+apt-get install -y openjdk-25-jre curl
 
-    # Check if we have at least 1 ID (We need 2, but logic below handles detection)
-    if [ ${#PIXELDRAIN_IDS[@]} -eq 0 ]; then
-        echo "Error: No PixelDrain IDs provided."
-        echo "Usage: curl ... | bash -s -- <AssetsID> <ServerID> --bind 0.0.0.0:3090"
-        exit 1
-    fi
+# ------------------------------------------------------------------------------
+# [4] PIXELDRAIN RESOURCE IDENTIFICATION
+#    Connects to PixelDrain API to determine which ID is 'Assets' and which
+#    is the 'Server Jar' by inspecting the internal filename metadata.
+# ------------------------------------------------------------------------------
+if [ ${#PIXELDRAIN_IDS[@]} -lt 2 ]; then
+    echo " [!] ERROR: Identification failed. Two PixelDrain IDs are required."
+    exit 1
+fi
 
-    # Install dependencies
-    echo "Installing dependencies..."
-    apt-get update -y
-    apt-get install -y wget unzip ca-certificates openjdk-25-jre uuid-runtime curl
+DETECTED_ASSETS_ID=""
+DETECTED_JAR_ID=""
 
-    # -----------------------------------------------------------------
-    # ID IDENTIFICATION LOGIC
-    # -----------------------------------------------------------------
-    echo "Resolving PixelDrain IDs..."
-
-    DETECTED_ASSETS_ID=""
-    DETECTED_SERVER_ID=""
-
-    for id in "${PIXELDRAIN_IDS[@]}"; do
-        # Clean ID (remove colons/commas if user pasted them weirdly)
-        clean_id=$(echo "$id" | tr -d ':,')
-        
-        # Fetch file info from API
-        FILE_NAME=$(wget -qO- --user-agent="Mozilla/5.0" "https://pixeldrain.com/api/file/${clean_id}/info" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
-        
-        echo " -> ID: $clean_id | Name: $FILE_NAME"
-
-        if echo "$FILE_NAME" | grep -iq "Asset"; then
-            DETECTED_ASSETS_ID="$clean_id"
-        else
-            DETECTED_SERVER_ID="$clean_id"
-        fi
-    done
-
-    # -----------------------------------------------------------------
-    # VALIDATION
-    # -----------------------------------------------------------------
-    if [ -z "$DETECTED_ASSETS_ID" ]; then
-        echo "Error: Could not identify an Assets ID."
-        exit 1
-    fi
-
-    if [ -z "$DETECTED_SERVER_ID" ]; then
-        echo "Error: Could not identify a Server Files ID."
-        exit 1
-    fi
-
-    echo " -> Selected Assets ID: $DETECTED_ASSETS_ID"
-    echo " -> Selected Server ID: $DETECTED_SERVER_ID"
-
-    # -----------------------------------------------------------------
-    # DOWNLOAD ASSETS
-    # -----------------------------------------------------------------
-    echo "Downloading Assets.zip..."
-    rm -f Assets.zip
-    wget -O Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
+echo " [⚡] Phase 2: Resolving resource metadata from API..."
+for id in "${PIXELDRAIN_IDS[@]}"; do
+    # Fetch JSON metadata for the file ID
+    FILE_INFO=$(wget -qO- --user-agent="Mozilla/5.0" "https://pixeldrain.com/api/file/${id}/info" || true)
     
-    if [ ! -s Assets.zip ]; then
-        echo "Error: Assets.zip download failed."
+    # Parse filename from JSON response
+    FILE_NAME=$(echo "$FILE_INFO" | grep -o '"name":"[^"]*"' | cut -d'"' -f4 || true)
+    
+    if [ -z "$FILE_NAME" ]; then
+        echo " [!] ERROR: ID [$id] is invalid or file is private."
         exit 1
     fi
 
-    # -----------------------------------------------------------------
-    # DOWNLOAD SERVER FILES
-    # -----------------------------------------------------------------
-    echo "Downloading ServerFiles.zip..."
-    rm -f ServerFiles.zip
-    wget -O ServerFiles.zip "https://pixeldrain.com/api/file/${DETECTED_SERVER_ID}"
+    echo "     » Detected: $FILE_NAME"
 
-    if [ ! -s ServerFiles.zip ]; then
-        echo "Error: ServerFiles.zip download failed."
-        exit 1
-    fi
-
-    # Extract
-    echo "Extracting ServerFiles.zip..."
-    unzip -o ServerFiles.zip -d .
-
-    # Flatten top-level folder
-    TOP_DIR=$(unzip -Z1 ServerFiles.zip | head -n1 | cut -d/ -f1)
-    if [ -n "$TOP_DIR" ] && [ -d "$TOP_DIR" ] && [ "$TOP_DIR" != "." ]; then
-        echo "Flattening directory structure from $TOP_DIR..."
-        mv "$TOP_DIR"/* . 2>/dev/null || true
-        mv "$TOP_DIR"/.* . 2>/dev/null || true
-        rm -rf "$TOP_DIR"
-    fi
-    rm -f ServerFiles.zip
-
-    # -----------------------------------------------------------------
-    # DOWNLOAD JAR
-    # -----------------------------------------------------------------
-    echo "Downloading HytaleServer.jar..."
-    mkdir -p Server
-    wget -O Server/HytaleServer.jar "${PATCHER_URL}"
-
-    rm -f HytaleServer.jar
-    if [ -f "Server/HytaleServer.jar" ]; then
-        mv Server/HytaleServer.jar .
+    # Sorting Logic: Filenames containing "Asset" (case-insensitive) = Assets.zip
+    if echo "$FILE_NAME" | grep -iq "Asset"; then
+        DETECTED_ASSETS_ID="$id"
     else
-        echo "Error: HytaleServer.jar download failed."
-        exit 1
+        DETECTED_JAR_ID="$id"
     fi
+done
 
-    # Create start.sh with the CUSTOM BIND ADDRESS
-    echo "Creating start_server.sh..."
-    
-    # We use the variables captured at the top of the script here
-    cat << EOF > start.sh
-#!/bin/bash
-set -e
+# Verify that logic successfully assigned both mandatory IDs
+if [ -z "$DETECTED_ASSETS_ID" ] || [ -z "$DETECTED_JAR_ID" ]; then
+    echo " [!] ERROR: Resource ambiguity. One file MUST contain 'Asset' in its name."
+    exit 1
+fi
 
-# Configuration
-HYTALE_AUTH_DOMAIN="\${HYTALE_AUTH_DOMAIN:-auth.sanasol.ws}"
-AUTH_SERVER="\${AUTH_SERVER:-https://\${HYTALE_AUTH_DOMAIN}}"
-SERVER_NAME="${SERVER_NAME_ARG}"
-ASSETS_PATH="\${ASSETS_PATH:-./Assets.zip}"
-BIND_ADDRESS="${BIND_ARG}"
-AUTH_MODE="\${AUTH_MODE:-authenticated}"
+# ------------------------------------------------------------------------------
+# [5] REINSTALLATION LOGIC (UPDATE MODE)
+#    If the --u flag is active, wipe existing local copies to ensure fresh data.
+# ------------------------------------------------------------------------------
+if [ "$UPDATE_MODE" = true ]; then
+    echo " [⚡] Phase 3: Update flag detected. Purging local binaries..."
+    rm -f Assets.zip HytaleServer.jar
+fi
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log() { echo -e "\${GREEN}[INFO]\${NC} \$*"; }
-error() { echo -e "\${RED}[ERROR]\${NC} \$*" >&2; }
+# ------------------------------------------------------------------------------
+# [6] DATA ACQUISITION
+#    Retrieves the binary files from PixelDrain if not present locally.
+# ------------------------------------------------------------------------------
+if [ ! -f "Assets.zip" ]; then
+    echo " [⚡] Phase 4: Fetching Assets.zip..."
+    wget -O Assets.zip "https://pixeldrain.com/api/file/${DETECTED_ASSETS_ID}"
+else
+    echo " [✓] Resource Assets.zip already present. Skipping download."
+fi
 
 if [ ! -f "HytaleServer.jar" ]; then
-    error "HytaleServer.jar not found!"; exit 1
-fi
-
-# Generate or load server ID
-SERVER_ID_FILE=".server-id"
-if [ -f "\${SERVER_ID_FILE}" ]; then
-    SERVER_ID=\$(cat "\${SERVER_ID_FILE}")
-    log "Using existing server ID: \${SERVER_ID}"
+    echo " [⚡] Phase 5: Fetching HytaleServer.jar..."
+    wget -O HytaleServer.jar "https://pixeldrain.com/api/file/${DETECTED_JAR_ID}"
+    chmod +x HytaleServer.jar
 else
-    SERVER_ID=\$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "server-\$(date +%s)")
-    echo -n "\${SERVER_ID}" > "\${SERVER_ID_FILE}"
-    log "Generated new server ID: \${SERVER_ID}"
+    echo " [✓] Resource HytaleServer.jar already present. Skipping download."
 fi
 
-log "Fetching server tokens from \${AUTH_SERVER}..."
-RESPONSE=\$(curl -s -X POST "\${AUTH_SERVER}/server/auto-auth" \
-    -H "Content-Type: application/json" \
-    -d "{\"server_id\": \"\${SERVER_ID}\", \"server_name\": \"\${SERVER_NAME}\"}" \
-    --connect-timeout 10 \
-    --max-time 30) || {
-    error "Failed to connect to auth server"; exit 1
-}
+# ------------------------------------------------------------------------------
+# [7] SERVER STARTUP
+#    Executes the Java Virtual Machine with defined assets and network binding.
+# ------------------------------------------------------------------------------
+echo "-------------------------------------------------------"
+echo "        DEPLOYMENT COMPLETE - STARTING HYTALE          "
+echo "-------------------------------------------------------"
+echo " [>] Network Bind: 0.0.0.0:$PORT"
+echo " [>] Assets Path:  $(pwd)/Assets.zip"
+echo "-------------------------------------------------------"
 
-if ! echo "\${RESPONSE}" | grep -q "sessionToken"; then
-    error "Invalid response from auth server"; echo "\${RESPONSE}"; exit 1
-fi
-
-SESSION_TOKEN=\$(echo "\${RESPONSE}" | sed -n 's/.*"sessionToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-IDENTITY_TOKEN=\$(echo "\${RESPONSE}" | sed -n 's/.*"identityToken"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-
-log "Starting Hytale Server on ${BIND_ARG}..."
-exec java -jar HytaleServer.jar \
-#    --assets "\${ASSETS_PATH}" \
-    --bind "\${BIND_ADDRESS}" \
-#    --auth-mode "\${AUTH_MODE}" \
-#    --session-token "\${SESSION_TOKEN}" \
-#    --identity-token "\${IDENTITY_TOKEN}" \
-    "\$@"
-EOF
-
-    chmod -R +x .
-    echo "-----------------------------------------"
-    echo "           Install Complete              "
-    echo "-----------------------------------------"
-fi
-
-echo "[>] Launching start_server.sh..."
-./start.sh
+java -jar HytaleServer.jar --assets Assets.zip --bind 0.0.0.0:$PORT
