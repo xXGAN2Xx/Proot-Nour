@@ -13,7 +13,7 @@
 #
 # USAGE:
 #   curl -sL <URL> | bash -s -- <ID_1> <ID_2> [--p <PORT>] [--u]
-#   curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- 1 2 --p 5520]
+#   curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- 1 2 --p 5520
 # ARGUMENTS:
 #   <ID_1/2> : PixelDrain unique file identifiers.
 #   --p      : Overrides the default port (5520).
