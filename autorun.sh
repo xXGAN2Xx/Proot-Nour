@@ -129,5 +129,7 @@ else
 fi
 
 echo "--- Setup Complete ---"
+echo "to start the xray server type"
+echo "bash ../../xray.sh"
 # systemctl start xray
 # systemctl kill xray
