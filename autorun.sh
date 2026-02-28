@@ -131,5 +131,7 @@ fi
 echo "--- Setup Complete ---"
 echo "to start the xray server type"
 echo "bash ../../xray.sh"
+echo "to start the hytale server type"
+echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520 "
 # systemctl start xray
 # systemctl kill xray
