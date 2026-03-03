@@ -16,7 +16,7 @@ if [ ! -f "$DEP_LOCK_FILE" ]; then
     
     # Update and Install Prerequisites
     apt-get update -y
-    apt-get install -y curl sed python3-minimal tmate unzip ca-certificates openssl
+    apt-get install -y curl wget sed python3-minimal tmate
     
     # Create the lock file
     touch "$DEP_LOCK_FILE"
