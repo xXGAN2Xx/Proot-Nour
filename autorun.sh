@@ -76,43 +76,56 @@ else
     # Write the built-in template to a temp file for comparison
     cat << 'EOF' > /tmp/singbox_builtin
 #!/bin/bash
-
 echo "--- [sing-box VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 TEMP_CONFIG="/tmp/singbox_config_temp.json"
-
 mkdir -p "$CONFIG_DIR"
 
-# --- sing-box Installation ---
-echo "Checking/Installing sing-box..."
-curl -fsSL https://sing-box.app/install.sh | sh
-echo "sing-box installed: $(sing-box version | head -1)"
-
-# --- Smart Config Generation ---
+# --- 1. Collect PORT first, before anything else ---
 if [ -z "$SERVER_PORT" ]; then
     echo ""
-    echo "⚠️  SERVER_PORT environment variable is not set!"
     echo "Please enter the port you want sing-box to listen on:"
     read -rp "SERVER_PORT: " SERVER_PORT
-    while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
-        echo "❌ Invalid port. Please enter a number between 1 and 65535:"
-        read -rp "SERVER_PORT: " SERVER_PORT
-    done
-    echo "✅ Using port: $SERVER_PORT"
 fi
+while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
+    echo "❌ Invalid port. Please enter a number between 1 and 65535:"
+    read -rp "SERVER_PORT: " SERVER_PORT
+done
+echo "✅ Using port: $SERVER_PORT"
 
-# Get the server IP if not already set
+# --- 2. Install sing-box ---
+echo "Checking/Installing sing-box..."
+curl -fsSL https://sing-box.app/install.sh | sh
+if ! command -v sing-box &>/dev/null; then
+    echo "❌ sing-box installation failed. Exiting."
+    exit 1
+fi
+echo "sing-box installed: $(sing-box version | head -1)"
+
+# --- 3. Detect public IP (with multiple fallbacks) ---
+echo "Detecting public IP..."
+server_ip=""
+for url in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://checkip.amazonaws.com"; do
+    server_ip=$(curl -fsSL --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]')
+    if [[ "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        break
+    fi
+    server_ip=""
+done
 if [ -z "$server_ip" ]; then
-    server_ip=$(curl -fsSL https://api.ipify.org 2>/dev/null || \
-                curl -fsSL https://ifconfig.me 2>/dev/null || \
-                hostname -I | awk '{print $1}')
+    server_ip=$(hostname -I | awk '{print $1}')
 fi
+if [ -z "$server_ip" ]; then
+    echo "❌ Could not detect server IP. Exiting."
+    exit 1
+fi
+echo "✅ Server IP: $server_ip"
 
+# --- 4. Generate config ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-# Create the sing-box config with VLESS + HTTP transport
 cat > "$TEMP_CONFIG" << JSON
 {
   "log": {
@@ -145,27 +158,33 @@ cat > "$TEMP_CONFIG" << JSON
 }
 JSON
 
-    # Apply the port substitution
-    sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
+if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    echo "Updating config.json..."
+    mv "$TEMP_CONFIG" "$CONFIG_PATH"
+else
+    echo "Config unchanged. Skipping write."
+    rm -f "$TEMP_CONFIG"
+fi
 
-    # Only overwrite if the file is different or missing
-    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
-        echo "Updating config.json..."
-        mv "$TEMP_CONFIG" "$CONFIG_PATH"
-    else
-        echo "Config unchanged. Skipping write."
-        rm -f "$TEMP_CONFIG"
-    fi
+# --- 5. Validate config before starting ---
+if ! sing-box check -c "$CONFIG_PATH" 2>&1; then
+    echo "❌ Config validation failed. Check config at $CONFIG_PATH"
+    exit 1
+fi
 
-# --- Link Generation ---
+# --- 6. Print VLESS link ---
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
-
+echo ""
 echo "=========================================================="
 echo "sing-box VLESS Link:"
 echo "$VLESS_LINK"
 echo "=========================================================="
+echo ""
 
+# --- 7. Start sing-box (flush output first) ---
 echo "Starting sing-box..."
+sleep 0.5  # ensure all output is flushed before exec
+
 exec sing-box run -c "$CONFIG_PATH"
 EOF
 
