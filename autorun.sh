@@ -182,5 +182,3 @@ fi
 echo "--- Setup Complete ---"
 echo "to start the sing-box server type:"
 echo "bash ../../singbox.sh"
-echo "to start the hytale server type:"
-echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
