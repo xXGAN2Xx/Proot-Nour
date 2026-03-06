@@ -35,7 +35,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if[ -s /tmp/script_update_check ]; then
+    if [ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -113,7 +113,7 @@ JSON
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
-    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    if[ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
         echo "Updating config.json..."
         mv "$TEMP_CONFIG" "$CONFIG_PATH"
     else
