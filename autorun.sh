@@ -70,7 +70,7 @@ else
 
     cat << 'EOF' > /tmp/singbox_builtin
 #!/bin/bash
-echo "--- [sing-box VLESS Startup Script] ---"
+echo "--- [sing-box VLESS Startup Script - Gaming Optimized] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -117,14 +117,14 @@ if [ -z "$server_ip" ]; then
 fi
 echo "✅ Server IP: $server_ip"
 
-# --- 4. Generate config ---
+# --- 4. Generate Gaming-Optimized config ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 cat > "$TEMP_CONFIG" << JSON
 {
   "log": {
     "level": "fatal",
-    "timestamp": true
+    "timestamp": false
   },
   "inbounds": [
     {
@@ -132,6 +132,9 @@ cat > "$TEMP_CONFIG" << JSON
       "tag": "vless-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
+      "tcp_fast_open": true,
+      "udp_fragment": true,
+      "reuse_addr": true,
       "users": [
         {
           "uuid": "${UUID}"
@@ -139,16 +142,31 @@ cat > "$TEMP_CONFIG" << JSON
       ],
       "transport": {
         "type": "http",
-        "host": ["playstation.net"]
+        "host": ["playstation.net"],
+        "method": "GET",
+        "idle_timeout": "15s",
+        "ping_timeout": "15s"
+      },
+      "multiplex": {
+        "enabled": false
       }
     }
   ],
   "outbounds": [
     {
       "type": "direct",
-      "tag": "direct"
+      "tag": "direct",
+      "tcp_fast_open": true,
+      "udp_fragment": true,
+      "reuse_addr": true,
+      "connect_timeout": "10s",
+      "tcp_multi_path": false
     }
-  ]
+  ],
+  "route": {
+    "rules": [],
+    "final": "direct"
+  }
 }
 JSON
 
@@ -170,7 +188,7 @@ fi
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
 echo ""
 echo "=========================================================="
-echo "sing-box VLESS Link:"
+echo "sing-box VLESS Link (Gaming Optimized):"
 echo "$VLESS_LINK"
 echo "=========================================================="
 echo ""
