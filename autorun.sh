@@ -12,7 +12,7 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
-    echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
+    echo "---[1] First Time Setup: Updating & Installing Dependencies ---"
     
     # Update and Install Prerequisites
     apt-get update -y
@@ -62,7 +62,7 @@ if[ ! -f "$TARGET_SCRIPT" ]; then
     cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
-echo "---[Sing-box VLESS Startup Script] ---"
+echo "--- [Sing-box VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -125,7 +125,7 @@ fi
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 # Fetch the server IP if not already set
-if[ -z "$server_ip" ]; then
+if [ -z "$server_ip" ]; then
     server_ip=$(curl -s https://api.ipify.org || curl -s ifconfig.me)
 fi
 
