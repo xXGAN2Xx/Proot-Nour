@@ -11,7 +11,7 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
-if [ ! -f "$DEP_LOCK_FILE" ]; then
+if[ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
     # Update and Install Prerequisites
@@ -28,14 +28,14 @@ fi
 # ==========================================
 #        SELF-UPDATE LOGIC (OS LEVEL)
 # ==========================================
-echo "---[2] Checking for Script Updates ---"
+echo "--- [2] Checking for Script Updates ---"
 
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
 
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if[ -s /tmp/script_update_check ]; then
+    if [ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -55,14 +55,14 @@ fi
 # ==========================================
 echo "--- [3] Checking for sing-box.sh in $PARENT_DIR ---"
 
-if[ ! -f "$TARGET_SCRIPT" ]; then
+if [ ! -f "$TARGET_SCRIPT" ]; then
     echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
     # We use 'EOF' to prevent variable expansion during file creation
     cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
-echo "--- [Sing-box VLESS Startup Script] ---"
+echo "---[Sing-box VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -71,11 +71,11 @@ TEMP_CONFIG="/tmp/singbox_config_temp.json"
 mkdir -p "$CONFIG_DIR"
 
 # --- Sing-box Core Installation ---
-echo "Checking/Installing Sing-box..."
-bash -c "$(curl -fsSL https://sing-box.app/install.sh)"
+echo "Checking/Installing Sing-box core..."
+curl -fsSL https://sing-box.app/install.sh | bash -s -- install
 
 # --- Smart Config Generation ---
-if [ -z "$SERVER_PORT" ]; then
+if[ -z "$SERVER_PORT" ]; then
     echo "ERROR: SERVER_PORT environment variable is not set!"
 else
     # Create the template
@@ -93,11 +93,9 @@ else
         }
       ],
       "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "playstation.net"
-        }
+        "type": "http",
+        "host":["playstation.net"],
+        "path": "/"
       }
     }
   ],
@@ -114,7 +112,7 @@ JSON
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
-    if[ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
         echo "Updating config.json..."
         mv "$TEMP_CONFIG" "$CONFIG_PATH"
     else
@@ -125,9 +123,7 @@ fi
 
 # --- Link Generation ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-# Note: Sing-box doesn't support Xray's legacy TCP+HTTP obfuscation. 
-# We use WebSocket (ws) instead, which is the standard modern equivalent.
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=ws&host=playstation.net&path=%2F#Nour"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
 echo "Sing-box VLESS Link:"
@@ -135,9 +131,7 @@ echo "$VLESS_LINK"
 echo "=========================================================="
 
 echo "Starting Sing-box..."
-# Ensure sing-box is in PATH or fallback to default install location
-SINGBOX_BIN=$(command -v sing-box || echo "/usr/local/bin/sing-box")
-$SINGBOX_BIN run -c "$CONFIG_PATH"
+sing-box run -c "$CONFIG_PATH"
 EOF
 
     chmod +x "$TARGET_SCRIPT"
