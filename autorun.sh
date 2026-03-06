@@ -11,7 +11,7 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
-if[ ! -f "$DEP_LOCK_FILE" ]; then
+if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
     # Update and Install Prerequisites
@@ -35,7 +35,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if [ -s /tmp/script_update_check ]; then
+    if[ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -55,14 +55,14 @@ fi
 # ==========================================
 echo "--- [3] Checking for sing-box.sh in $PARENT_DIR ---"
 
-if [ ! -f "$TARGET_SCRIPT" ]; then
+if[ ! -f "$TARGET_SCRIPT" ]; then
     echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
     # We use 'EOF' to prevent variable expansion during file creation
     cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
-echo "--- [Sing-box VLESS Startup Script] ---"
+echo "---[Sing-box VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -75,7 +75,7 @@ echo "Checking/Installing sing-box..."
 bash -c "$(curl -fsSL https://sing-box.app/install.sh)"
 
 # --- Smart Config Generation ---
-if[ -z "$SERVER_PORT" ]; then
+if [ -z "$SERVER_PORT" ]; then
     echo "ERROR: SERVER_PORT environment variable is not set!"
 else
     # Create the template
@@ -100,7 +100,7 @@ else
       }
     }
   ],
-  "outbounds": [
+  "outbounds":[
     {
       "type": "direct"
     }
@@ -125,7 +125,7 @@ fi
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 # Fetch the server IP if not already set
-if [ -z "$server_ip" ]; then
+if[ -z "$server_ip" ]; then
     server_ip=$(curl -s https://api.ipify.org || curl -s ifconfig.me)
 fi
 
