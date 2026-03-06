@@ -135,8 +135,7 @@ cat > "$TEMP_CONFIG" << JSON
       ],
       "transport": {
         "type": "http",
-        "host": ["playstation.net"],
-        "path": "/"
+        "host": ["playstation.net"]
       }
     }
   ],
