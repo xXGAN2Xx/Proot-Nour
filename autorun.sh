@@ -13,12 +13,8 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
-    
-    # Update and Install Prerequisites
     apt-get update -y
     apt-get install -y curl wget sed python3-minimal tmate
-    
-    # Create the lock file
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -34,7 +30,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
-    
+
     if [ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
@@ -59,7 +55,6 @@ SINGBOX_SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/h
 curl -fsSL "$SINGBOX_SCRIPT_URL" -o /tmp/singbox_update_check 2>/dev/null
 
 if [ -s /tmp/singbox_update_check ]; then
-    # Remote fetch succeeded — compare with existing file
     if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s "$TARGET_SCRIPT" /tmp/singbox_update_check; then
         echo "New version of singbox.sh found! Updating..."
         mv /tmp/singbox_update_check "$TARGET_SCRIPT"
@@ -73,7 +68,6 @@ else
     echo "Could not fetch singbox.sh from remote. Falling back to built-in template..."
     rm -f /tmp/singbox_update_check
 
-    # Write the built-in template to a temp file for comparison
     cat << 'EOF' > /tmp/singbox_builtin
 #!/bin/bash
 echo "--- [sing-box VLESS Startup Script] ---"
@@ -183,12 +177,11 @@ echo ""
 
 # --- 7. Start sing-box (flush output first) ---
 echo "Starting sing-box..."
-sleep 0.5  # ensure all output is flushed before exec
+sleep 0.5
 
 exec sing-box run -c "$CONFIG_PATH"
 EOF
 
-    # Compare the built-in template against the existing singbox.sh
     if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s /tmp/singbox_builtin "$TARGET_SCRIPT"; then
         echo "singbox.sh is missing or differs from built-in template. Updating..."
         mv /tmp/singbox_builtin "$TARGET_SCRIPT"
@@ -201,5 +194,5 @@ EOF
 fi
 
 echo "--- Setup Complete ---"
-echo "to start the sing-box server type:"
-echo "bash ../../singbox.sh"
+echo "To start the sing-box server, run:"
+echo "bash ../singbox.sh"
