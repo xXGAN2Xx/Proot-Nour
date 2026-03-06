@@ -11,7 +11,8 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
-if[ ! -f "$DEP_LOCK_FILE" ]; then
+# FIXED: Added space between 'if' and '['
+if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
     # Update and Install Prerequisites
@@ -35,7 +36,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if [ -s /tmp/script_update_check ]; then
+    if[ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -53,9 +54,9 @@ fi
 # ==========================================
 #        SING-BOX SCRIPT GENERATION
 # ==========================================
-echo "--- [3] Checking for sing-box.sh in $PARENT_DIR ---"
+echo "---[3] Checking for sing-box.sh in $PARENT_DIR ---"
 
-if [ ! -f "$TARGET_SCRIPT" ]; then
+if[ ! -f "$TARGET_SCRIPT" ]; then
     echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
     # We use 'EOF' to prevent variable expansion during file creation
@@ -75,7 +76,8 @@ echo "Checking/Installing sing-box..."
 curl -fsSL https://sing-box.app/install.sh | bash
 
 # --- Smart Config Generation ---
-if[ -z "$SERVER_PORT" ]; then
+# FIXED: Added space between 'if' and '['
+if [ -z "$SERVER_PORT" ]; then
     echo "ERROR: SERVER_PORT environment variable is not set!"
 else
     # Create the template
@@ -113,7 +115,8 @@ JSON
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
-    if[ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    # FIXED: Added space between 'if' and '['
+    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
         echo "Updating config.json..."
         mv "$TEMP_CONFIG" "$CONFIG_PATH"
     else
@@ -124,6 +127,11 @@ fi
 
 # --- Link Generation ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+# Auto-detect IP if server_ip is not set
+if [ -z "$server_ip" ]; then
+    server_ip=$(curl -s ifconfig.me)
+fi
+
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
