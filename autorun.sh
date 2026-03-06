@@ -95,8 +95,15 @@ echo "sing-box installed: $(sing-box version | head -1)"
 
 # --- Smart Config Generation ---
 if [ -z "$SERVER_PORT" ]; then
-    echo "ERROR: SERVER_PORT environment variable is not set!"
-    exit 1
+    echo ""
+    echo "⚠️  SERVER_PORT environment variable is not set!"
+    echo "Please enter the port you want sing-box to listen on:"
+    read -rp "SERVER_PORT: " SERVER_PORT
+    while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
+        echo "❌ Invalid port. Please enter a number between 1 and 65535:"
+        read -rp "SERVER_PORT: " SERVER_PORT
+    done
+    echo "✅ Using port: $SERVER_PORT"
 fi
 
 # Get the server IP if not already set
@@ -112,7 +119,7 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 cat > "$TEMP_CONFIG" << JSON
 {
   "log": {
-    "level": "fatal",
+    "level": "error",
     "timestamp": true
   },
   "inbounds": [
