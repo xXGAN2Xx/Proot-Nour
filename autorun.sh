@@ -11,7 +11,7 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
-if [ ! -f "$DEP_LOCK_FILE" ]; then
+if[ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
     # Update and Install Prerequisites
@@ -35,7 +35,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if[ -s /tmp/script_update_check ]; then
+    if [ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -53,9 +53,9 @@ fi
 # ==========================================
 #        SING-BOX SCRIPT GENERATION
 # ==========================================
-echo "---[3] Checking for sing-box.sh in $PARENT_DIR ---"
+echo "--- [3] Checking for sing-box.sh in $PARENT_DIR ---"
 
-if[ ! -f "$TARGET_SCRIPT" ]; then
+if [ ! -f "$TARGET_SCRIPT" ]; then
     echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
     # We use 'EOF' to prevent variable expansion during file creation
@@ -71,11 +71,8 @@ TEMP_CONFIG="/tmp/singbox_config_temp.json"
 mkdir -p "$CONFIG_DIR"
 
 # --- Sing-box Core Installation ---
-echo "Checking/Installing Sing-box..."
-if ! command -v sing-box >/dev/null 2>&1; then
-    # Install via official APT script
-    curl -fsSL https://sing-box.app/deb-install.sh | bash
-fi
+echo "Checking/Installing sing-box..."
+curl -fsSL https://sing-box.app/install.sh | bash
 
 # --- Smart Config Generation ---
 if [ -z "$SERVER_PORT" ]; then
@@ -84,13 +81,9 @@ else
     # Create the template
     cat << 'JSON' > "$TEMP_CONFIG"
 {
-  "log": {
-    "level": "info"
-  },
   "inbounds":[
     {
       "type": "vless",
-      "tag": "vless-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
       "users":[
@@ -99,14 +92,17 @@ else
         }
       ],
       "transport": {
-        "type": "http"
+        "type": "http",
+        "host": [
+          "playstation.net"
+        ],
+        "path": "/"
       }
     }
   ],
   "outbounds":[
     {
-      "type": "direct",
-      "tag": "direct"
+      "type": "direct"
     }
   ]
 }
@@ -116,7 +112,7 @@ JSON
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
-    if[ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
         echo "Updating config.json..."
         mv "$TEMP_CONFIG" "$CONFIG_PATH"
     else
@@ -150,4 +146,4 @@ echo "bash ../../sing-box.sh"
 echo "to start the hytale server type"
 echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520 "
 # systemctl start sing-box
-# systemctl stop sing-box
+# systemctl kill sing-box
