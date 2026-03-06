@@ -59,6 +59,7 @@ SINGBOX_SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/h
 curl -fsSL "$SINGBOX_SCRIPT_URL" -o /tmp/singbox_update_check 2>/dev/null
 
 if [ -s /tmp/singbox_update_check ]; then
+    # Remote fetch succeeded — compare with existing file
     if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s "$TARGET_SCRIPT" /tmp/singbox_update_check; then
         echo "New version of singbox.sh found! Updating..."
         mv /tmp/singbox_update_check "$TARGET_SCRIPT"
@@ -69,15 +70,11 @@ if [ -s /tmp/singbox_update_check ]; then
         rm -f /tmp/singbox_update_check
     fi
 else
-    echo "Could not fetch singbox.sh from remote. Falling back to local generation..."
+    echo "Could not fetch singbox.sh from remote. Falling back to built-in template..."
     rm -f /tmp/singbox_update_check
-fi
 
-if [ ! -f "$TARGET_SCRIPT" ]; then
-    echo "Creating $TARGET_SCRIPT (in the parent directory)..."
-    
-    # We use 'EOF' to prevent variable expansion during file creation
-    cat << 'EOF' > "$TARGET_SCRIPT"
+    # Write the built-in template to a temp file for comparison
+    cat << 'EOF' > /tmp/singbox_builtin
 #!/bin/bash
 
 echo "--- [sing-box VLESS Startup Script] ---"
@@ -172,10 +169,16 @@ echo "Starting sing-box..."
 exec sing-box run -c "$CONFIG_PATH"
 EOF
 
-    chmod +x "$TARGET_SCRIPT"
-    echo "Successfully created $TARGET_SCRIPT"
-else
-    echo "singbox.sh already exists in $PARENT_DIR. Skipping creation."
+    # Compare the built-in template against the existing singbox.sh
+    if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s /tmp/singbox_builtin "$TARGET_SCRIPT"; then
+        echo "singbox.sh is missing or differs from built-in template. Updating..."
+        mv /tmp/singbox_builtin "$TARGET_SCRIPT"
+        chmod +x "$TARGET_SCRIPT"
+        echo "singbox.sh updated from built-in template."
+    else
+        echo "singbox.sh matches built-in template. No update needed."
+        rm -f /tmp/singbox_builtin
+    fi
 fi
 
 echo "--- Setup Complete ---"
