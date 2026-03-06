@@ -35,7 +35,7 @@ SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/mai
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
     
-    if[ -s /tmp/script_update_check ]; then
+    if [ -s /tmp/script_update_check ]; then
         if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
             mv /tmp/script_update_check "$0"
@@ -55,7 +55,7 @@ fi
 # ==========================================
 echo "--- [3] Checking for sing-box.sh in $PARENT_DIR ---"
 
-if[ ! -f "$TARGET_SCRIPT" ]; then
+if [ ! -f "$TARGET_SCRIPT" ]; then
     echo "Creating $TARGET_SCRIPT (in the parent directory)..."
     
     # We use 'EOF' to prevent variable expansion during file creation
