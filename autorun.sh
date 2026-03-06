@@ -72,64 +72,40 @@ mkdir -p "$CONFIG_DIR"
 
 # --- Sing-box Core Installation ---
 echo "Checking/Installing sing-box..."
-if ! command -v sing-box >/dev/null 2>&1; then
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64) SB_ARCH="amd64" ;;
-        aarch64) SB_ARCH="arm64" ;;
-        armv7l|armv8l) SB_ARCH="armv7" ;;
-        *) SB_ARCH="amd64" ;;
-    esac
-
-    echo "Fetching latest sing-box version..."
-    SB_VER=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-    
-    # Fallback if GitHub API rate limits are hit
-    if [ -z "$SB_VER" ]; then
-        SB_VER=$(curl -sI https://github.com/SagerNet/sing-box/releases/latest | grep -i location | sed -n 's/.*tag\/v//p' | tr -d '\r')
-    fi
-
-    if [ -n "$SB_VER" ]; then
-        echo "Downloading sing-box v${SB_VER} for ${SB_ARCH}..."
-        curl -sLo /tmp/sing-box.tar.gz "https://github.com/SagerNet/sing-box/releases/download/v${SB_VER}/sing-box-${SB_VER}-linux-${SB_ARCH}.tar.gz"
-        tar -xzf /tmp/sing-box.tar.gz -C /tmp/
-        mv /tmp/sing-box-${SB_VER}-linux-${SB_ARCH}/sing-box /usr/local/bin/
-        chmod +x /usr/local/bin/sing-box
-        rm -rf /tmp/sing-box*
-        echo "sing-box installed successfully."
-    else
-        echo "ERROR: Failed to fetch sing-box version."
-    fi
-else
-    echo "sing-box is already installed."
-fi
+curl -fsSL https://sing-box.app/install.sh | bash
 
 # --- Smart Config Generation ---
-if [ -z "$SERVER_PORT" ]; then
+if[ -z "$SERVER_PORT" ]; then
     echo "ERROR: SERVER_PORT environment variable is not set!"
 else
     # Create the template
     cat << 'JSON' > "$TEMP_CONFIG"
 {
-  "log": {
-    "level": "info"
-  },
-  "inbounds":[{
-    "type": "vless",
-    "tag": "vless-in",
-    "listen": "::",
-    "listen_port": ${SERVER_PORT},
-    "users":[{
-      "uuid": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-    }],
-    "transport": {
-      "type": "http"
+  "inbounds":[
+    {
+      "type": "vless",
+      "tag": "vless-in",
+      "listen": "::",
+      "listen_port": ${SERVER_PORT},
+      "users":[
+        {
+          "uuid": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+        }
+      ],
+      "transport": {
+        "type": "http",
+        "host":[
+          "playstation.net"
+        ]
+      }
     }
-  }],
-  "outbounds":[{
-    "type": "direct",
-    "tag": "direct"
-  }]
+  ],
+  "outbounds":[
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ]
 }
 JSON
 
