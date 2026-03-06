@@ -72,29 +72,7 @@ mkdir -p "$CONFIG_DIR"
 
 # --- sing-box Installation ---
 echo "Checking/Installing sing-box..."
-ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64)  SB_ARCH="amd64" ;;
-    aarch64) SB_ARCH="arm64" ;;
-    armv7l)  SB_ARCH="armv7" ;;
-    *)       echo "Unsupported arch: $ARCH"; exit 1 ;;
-esac
-
-SB_VERSION=$(curl -fsSL "https://api.github.com/repos/SagerNet/sing-box/releases/latest" \
-    | grep '"tag_name"' | sed 's/.*"tag_name": *"v\([^"]*\)".*/\1/')
-
-if [ -z "$SB_VERSION" ]; then
-    echo "ERROR: Could not fetch sing-box latest version!"
-    exit 1
-fi
-
-SB_URL="https://github.com/SagerNet/sing-box/releases/download/v${SB_VERSION}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
-echo "Downloading sing-box v${SB_VERSION} for ${SB_ARCH}..."
-curl -fsSL "$SB_URL" -o /tmp/sing-box.tar.gz
-tar -xzf /tmp/sing-box.tar.gz -C /tmp/
-mv "/tmp/sing-box-${SB_VERSION}-linux-${SB_ARCH}/sing-box" /usr/local/bin/sing-box
-chmod +x /usr/local/bin/sing-box
-rm -rf /tmp/sing-box.tar.gz "/tmp/sing-box-${SB_VERSION}-linux-${SB_ARCH}"
+curl -fsSL https://sing-box.app/install.sh | sh
 echo "sing-box installed: $(sing-box version | head -1)"
 
 # --- Smart Config Generation ---
