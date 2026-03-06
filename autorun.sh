@@ -11,7 +11,6 @@ TARGET_SCRIPT="${PARENT_DIR}/sing-box.sh"
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
-# FIXED: Added space between 'if' and '['
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     
@@ -72,17 +71,22 @@ TEMP_CONFIG="/tmp/singbox_config_temp.json"
 mkdir -p "$CONFIG_DIR"
 
 # --- Sing-box Core Installation ---
-echo "Checking/Installing sing-box..."
-curl -fsSL https://sing-box.app/install.sh | bash
+echo "Checking/Installing Sing-box..."
+if ! command -v sing-box >/dev/null 2>&1; then
+    # Install via official APT script
+    curl -fsSL https://sing-box.app/deb-install.sh | bash
+fi
 
 # --- Smart Config Generation ---
-# FIXED: Added space between 'if' and '['
 if [ -z "$SERVER_PORT" ]; then
     echo "ERROR: SERVER_PORT environment variable is not set!"
 else
     # Create the template
     cat << 'JSON' > "$TEMP_CONFIG"
 {
+  "log": {
+    "level": "info"
+  },
   "inbounds":[
     {
       "type": "vless",
@@ -95,10 +99,7 @@ else
         }
       ],
       "transport": {
-        "type": "http",
-        "host":[
-          "playstation.net"
-        ]
+        "type": "http"
       }
     }
   ],
@@ -115,8 +116,7 @@ JSON
     sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
     # Only overwrite if the file is different or missing
-    # FIXED: Added space between 'if' and '['
-    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+    if[ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
         echo "Updating config.json..."
         mv "$TEMP_CONFIG" "$CONFIG_PATH"
     else
@@ -127,11 +127,6 @@ fi
 
 # --- Link Generation ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-# Auto-detect IP if server_ip is not set
-if [ -z "$server_ip" ]; then
-    server_ip=$(curl -s ifconfig.me)
-fi
-
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
@@ -139,7 +134,7 @@ echo "Sing-box VLESS Link:"
 echo "$VLESS_LINK"
 echo "=========================================================="
 
-echo "Starting sing-box..."
+echo "Starting Sing-box..."
 sing-box run -c "$CONFIG_PATH"
 EOF
 
@@ -155,4 +150,4 @@ echo "bash ../../sing-box.sh"
 echo "to start the hytale server type"
 echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520 "
 # systemctl start sing-box
-# systemctl kill sing-box
+# systemctl stop sing-box
