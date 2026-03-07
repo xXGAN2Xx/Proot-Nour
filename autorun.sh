@@ -185,7 +185,7 @@ if ! sing-box check -c "$CONFIG_PATH" 2>&1; then
 fi
 
 # --- 6. Print VLESS link ---
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&type=http&host=playstation.net&method=GET&packetEncoding=xudp#Nour"
 echo ""
 echo "=========================================================="
 echo "sing-box VLESS Link (Gaming Optimized):"
