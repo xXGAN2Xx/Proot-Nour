@@ -143,9 +143,7 @@ cat > "$TEMP_CONFIG" << JSON
       "transport": {
         "type": "http",
         "host": ["playstation.net"],
-        "method": "GET",
-        "idle_timeout": "15s",
-        "ping_timeout": "15s"
+        "method": "GET"
       },
       "multiplex": {
         "enabled": false
@@ -159,7 +157,6 @@ cat > "$TEMP_CONFIG" << JSON
       "tcp_fast_open": true,
       "udp_fragment": true,
       "reuse_addr": true,
-      "connect_timeout": "10s",
       "tcp_multi_path": false
     }
   ],
