@@ -246,7 +246,7 @@ if [ -z "$server_ip" ]; then
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-PASSWORD="Nour2025"
+PASSWORD="nour"
 
 echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
@@ -267,7 +267,7 @@ cat > "$CONFIG_PATH" << JSON
           "password": "${PASSWORD}"
         }
       ],
-      "congestion_control": "cubic",
+      "congestion_control": "bbr",
       "auth_timeout": "2s",
       "zero_rtt_handshake": true,
       "heartbeat": "3s",
@@ -290,7 +290,7 @@ cat > "$CONFIG_PATH" << JSON
 }
 JSON
 
-TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=cubic&udp_relay_mode=native&alpn=h3&sni=playstation.net&allow_insecure=1#Nour-Gaming"
+TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=bbr&udp_relay_mode=native&zero_rtt_handshake=true&heartbeat=3&security=tls&sni=playstation.net&allowInsecure=true&alpn=h3#Nour-Gaming"
 
 echo "=========================================================="
 echo "sing-box TUIC v5 Gaming Link:"
