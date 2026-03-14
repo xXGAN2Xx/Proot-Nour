@@ -103,7 +103,7 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 cat > "$TEMP_CONFIG" << JSON
 {
-  "log": { "loglevel": "error" },
+  "log": { "loglevel": "none" },
   "policy": {
     "levels": {
       "0": {
@@ -240,8 +240,7 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 cat > "$TEMP_CONFIG" << JSON
 {
   "log": {
-    "level": "error",
-    "timestamp": true
+   "disabled": true
   },
   "inbounds": [
     {
