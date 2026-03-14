@@ -155,16 +155,18 @@ XRAY_EOF
 }
 
 # ==========================================
-#   GENERATOR: singbox.sh
+#   GENERATOR: singbox.sh  (TUIC v5 - Gaming Optimized)
 # ==========================================
 generate_singbox() {
     cat << 'SINGBOX_EOF' > /tmp/_singbox_tmp.sh
 #!/bin/bash
 
-echo "--- [sing-box VLESS Startup Script] ---"
+echo "--- [sing-box TUIC v5 Gaming Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
+CERT_PATH="${CONFIG_DIR}/server.crt"
+KEY_PATH="${CONFIG_DIR}/server.key"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -196,6 +198,33 @@ else
     fi
 fi
 
+# --- Apply kernel-level UDP & network gaming tweaks ---
+echo "Applying kernel gaming optimizations..."
+sysctl -w net.core.rmem_max=16777216        > /dev/null 2>&1
+sysctl -w net.core.wmem_max=16777216        > /dev/null 2>&1
+sysctl -w net.core.rmem_default=1048576     > /dev/null 2>&1
+sysctl -w net.core.wmem_default=1048576     > /dev/null 2>&1
+sysctl -w net.core.netdev_max_backlog=5000  > /dev/null 2>&1
+sysctl -w net.ipv4.udp_rmem_min=8192        > /dev/null 2>&1
+sysctl -w net.ipv4.udp_wmem_min=8192        > /dev/null 2>&1
+sysctl -w net.ipv4.tcp_fastopen=3           > /dev/null 2>&1
+sysctl -w net.ipv4.tcp_low_latency=1        > /dev/null 2>&1
+echo "✅ Kernel tweaks applied."
+
+# --- Generate Self-Signed TLS Certificate (required for TUIC) ---
+if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
+    echo "Generating self-signed TLS certificate..."
+    apt-get install -y openssl -qq
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+        -keyout "$KEY_PATH" -out "$CERT_PATH" \
+        -days 3650 -nodes \
+        -subj "/CN=playstation.net" \
+        -addext "subjectAltName=DNS:playstation.net" 2>/dev/null
+    echo "✅ TLS certificate generated."
+else
+    echo "✔  TLS certificate already exists. Skipping."
+fi
+
 # --- Smart Config Generation ---
 if [ -z "$SERVER_PORT" ]; then
     echo ""
@@ -217,6 +246,7 @@ if [ -z "$server_ip" ]; then
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+PASSWORD="nour"
 
 echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
@@ -226,23 +256,26 @@ cat > "$CONFIG_PATH" << JSON
   },
   "inbounds": [
     {
-      "type": "vless",
-      "tag": "vless-in",
+      "type": "tuic",
+      "tag": "tuic-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
-      "tcp_fast_open": true,
       "sniff": false,
       "users": [
         {
-          "uuid": "${UUID}"
+          "uuid": "${UUID}",
+          "password": "${PASSWORD}"
         }
       ],
-      "transport": {
-        "type": "http",
-        "host": ["playstation.net"],
-        "path": "/",
-        "idle_timeout": "60s",
-        "ping_timeout": "15s"
+      "congestion_control": "cubic",
+      "auth_timeout": "2s",
+      "zero_rtt_handshake": true,
+      "heartbeat": "3s",
+      "tls": {
+        "enabled": true,
+        "alpn": ["h3"],
+        "certificate_path": "${CERT_PATH}",
+        "key_path": "${KEY_PATH}"
       }
     }
   ],
@@ -250,17 +283,19 @@ cat > "$CONFIG_PATH" << JSON
     {
       "type": "direct",
       "tag": "direct",
-      "tcp_fast_open": true
+      "tcp_fast_open": true,
+      "udp_fragment": false,
+      "domain_strategy": "prefer_ipv4"
     }
   ]
 }
 JSON
 
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
+TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=cubic&udp_relay_mode=native&alpn=h3&sni=playstation.net&allow_insecure=1#Nour-Gaming"
 
 echo "=========================================================="
-echo "sing-box VLESS Link:"
-echo "$VLESS_LINK"
+echo "sing-box TUIC v5 Gaming Link:"
+echo "$TUIC_LINK"
 echo "=========================================================="
 
 echo "Starting sing-box..."
@@ -296,7 +331,7 @@ echo ""
 echo "  to start the Xray server:"
 echo "bash ../xray.sh"
 echo ""
-echo "  to start the sing-box server:"
+echo "  to start the sing-box server (TUIC v5 Gaming):"
 echo "bash ../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
