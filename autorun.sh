@@ -290,7 +290,7 @@ cat > "$CONFIG_PATH" << JSON
 }
 JSON
 
-TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=bbr&udp_relay_mode=native&zero_rtt_handshake=true&heartbeat=3&security=tls&sni=playstation.net&allowInsecure=true&alpn=h3#Nour-Gaming"
+TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=bbr&udp_relay_mode=native&zero_rtt_handshake=true&heartbeat=3s&security=tls&sni=playstation.net&allowInsecure=true&alpn=h3#Nour-Gaming"
 
 echo "=========================================================="
 echo "sing-box TUIC v5 Gaming Link:"
