@@ -14,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate
+    apt-get install -y curl wget sed python3-minimal tmate sudo
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -294,7 +294,7 @@ else
     rm -f "$TEMP_CONFIG"
 fi
 
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&type=http&host=playstation.net&method=GET&packetEncoding=xudp#Nour"
 
 echo "=========================================================="
 echo "sing-box VLESS Link:"
@@ -345,11 +345,11 @@ echo "--- Setup Complete --- Both scripts are ready!"
 echo "=========================================================="
 echo ""
 echo "  to start the Xray server:"
-echo "    bash ../../xray.sh"
+echo "bash ../../xray.sh"
 echo ""
 echo "  to start the sing-box server:"
-echo "    bash ../../singbox.sh"
+echo "bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
-echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
 echo "=========================================================="
