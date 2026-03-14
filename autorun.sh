@@ -14,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate
+    apt-get install -y curl wget sed python3-minimal tmate sudo
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
