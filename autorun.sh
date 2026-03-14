@@ -103,19 +103,49 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 cat > "$TEMP_CONFIG" << JSON
 {
+  "log": { "loglevel": "error" },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 2,
+        "connIdle": 120,
+        "uplinkOnly": 0,
+        "downlinkOnly": 0,
+        "bufferSize": 512
+      }
+    },
+    "system": {
+      "statsInboundUplink": false,
+      "statsInboundDownlink": false
+    }
+  },
   "inbounds": [{
     "port": ${SERVER_PORT},
     "protocol": "vless",
     "settings": {
-      "clients": [{ "id": "${UUID}" }],
+      "clients": [{ "id": "${UUID}", "level": 0 }],
       "decryption": "none"
     },
     "streamSettings": {
       "network": "tcp",
-      "tcpSettings": { "header": { "type": "http" } }
-    }
+      "tcpSettings": { "header": { "type": "http" } },
+      "sockopt": {
+        "tcpFastOpen": true,
+        "tcpNoDelay": true
+      }
+    },
+    "sniffing": { "enabled": false }
   }],
-  "outbounds": [{ "protocol": "freedom" }]
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": { "domainStrategy": "UseIPv4" },
+    "streamSettings": {
+      "sockopt": {
+        "tcpFastOpen": true,
+        "tcpNoDelay": true
+      }
+    }
+  }]
 }
 JSON
 
@@ -196,6 +226,8 @@ cat > "$TEMP_CONFIG" << JSON
       "tag": "vless-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
+      "tcp_fast_open": true,
+      "sniff": false,
       "users": [
         {
           "uuid": "${UUID}"
@@ -204,14 +236,18 @@ cat > "$TEMP_CONFIG" << JSON
       "transport": {
         "type": "http",
         "host": ["playstation.net"],
-        "path": "/"
+        "path": "/",
+        "idle_timeout": "60s",
+        "ping_timeout": "15s"
       }
     }
   ],
   "outbounds": [
     {
       "type": "direct",
-      "tag": "direct"
+      "tag": "direct",
+      "domain_strategy": "prefer_ipv4",
+      "tcp_fast_open": true
     }
   ]
 }
