@@ -14,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo
+    apt-get install -y curl wget sed python3-minimal tmate
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -103,7 +103,7 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 cat > "$TEMP_CONFIG" << JSON
 {
-  "log": { "loglevel": "none" },
+  "log": { "loglevel": "error" },
   "policy": {
     "levels": {
       "0": {
@@ -240,7 +240,17 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 cat > "$TEMP_CONFIG" << JSON
 {
   "log": {
-   "disabled": true
+    "level": "error",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "local-dns",
+        "address": "local",
+        "strategy": "prefer_ipv4"
+      }
+    ]
   },
   "inbounds": [
     {
@@ -268,7 +278,6 @@ cat > "$TEMP_CONFIG" << JSON
     {
       "type": "direct",
       "tag": "direct",
-      "domain_strategy": "prefer_ipv4",
       "tcp_fast_open": true
     }
   ]
@@ -336,10 +345,10 @@ echo "--- Setup Complete --- Both scripts are ready!"
 echo "=========================================================="
 echo ""
 echo "  to start the Xray server:"
-echo "bash ../../xray.sh"
+echo "    bash ../../xray.sh"
 echo ""
 echo "  to start the sing-box server:"
-echo "bash ../../singbox.sh"
+echo "    bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
 echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
