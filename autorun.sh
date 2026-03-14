@@ -247,11 +247,13 @@ cat > "$CONFIG_PATH" << JSON
       }
     }
   ],
+  "route": {
+    "default_domain_strategy": "prefer_ipv4"
+  },
   "outbounds": [
     {
       "type": "direct",
       "tag": "direct",
-      "domain_strategy": "prefer_ipv4",
       "tcp_fast_open": true
     }
   ]
@@ -302,5 +304,5 @@ echo "  to start the sing-box server:"
 echo "bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
-echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
 echo "=========================================================="
