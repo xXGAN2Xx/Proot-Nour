@@ -187,10 +187,33 @@ TEMP_CONFIG="/tmp/singbox_config_temp.json"
 
 mkdir -p "$CONFIG_DIR"
 
-# --- sing-box Installation ---
-echo "Checking/Installing sing-box..."
-curl -fsSL https://sing-box.app/install.sh | sh
-echo "sing-box installed: $(sing-box version | head -1)"
+# --- sing-box Installation / Version Check ---
+if ! command -v sing-box >/dev/null 2>&1; then
+    echo "sing-box not found. Installing..."
+    mkdir -p /etc/apt/keyrings &&
+    curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc &&
+    chmod a+r /etc/apt/keyrings/sagernet.asc &&
+    echo 'Types: deb
+URIs: https://deb.sagernet.org/
+Suites: *
+Components: *
+Enabled: yes
+Signed-By: /etc/apt/keyrings/sagernet.asc' > /etc/apt/sources.list.d/sagernet.sources &&
+    apt-get update &&
+    apt-get install -y sing-box
+    echo "✅ sing-box installed: $(sing-box version | head -1)"
+else
+    INSTALLED_VER=$(sing-box version | grep -oP 'sing-box version \K[^\s]+')
+    LATEST_VER=$(apt-cache policy sing-box 2>/dev/null | grep Candidate | awk '{print $2}')
+    echo "✔  sing-box already installed: v${INSTALLED_VER}"
+    if [ -n "$LATEST_VER" ] && [ "$LATEST_VER" != "$INSTALLED_VER" ]; then
+        echo "⬆️  New version available: v${LATEST_VER}. Upgrading..."
+        apt-get install -y sing-box
+        echo "✅ sing-box upgraded to: $(sing-box version | head -1)"
+    else
+        echo "✔  sing-box is up to date."
+    fi
+fi
 
 # --- Smart Config Generation ---
 if [ -z "$SERVER_PORT" ]; then
@@ -320,5 +343,5 @@ echo "  to start the sing-box server:"
 echo "bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
-echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
 echo "=========================================================="
