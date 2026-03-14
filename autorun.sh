@@ -222,7 +222,7 @@ echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
 {
   "log": {
-    "disabled": false
+    "disabled": true
   },
   "inbounds": [
     {
