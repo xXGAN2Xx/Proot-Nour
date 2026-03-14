@@ -246,7 +246,7 @@ if [ -z "$server_ip" ]; then
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-PASSWORD="nour"
+PASSWORD="Nour2025"
 
 echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
@@ -284,8 +284,7 @@ cat > "$CONFIG_PATH" << JSON
       "type": "direct",
       "tag": "direct",
       "tcp_fast_open": true,
-      "udp_fragment": false,
-      "domain_strategy": "prefer_ipv4"
+      "udp_fragment": false
     }
   ]
 }
