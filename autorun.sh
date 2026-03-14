@@ -93,7 +93,7 @@ UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
 {
-  "log": { "loglevel": "error" },
+  "log": { "loglevel": "none" },
   "policy": {
     "levels": {
       "0": {
@@ -222,8 +222,7 @@ echo "Updating config.json..."
 cat > "$CONFIG_PATH" << JSON
 {
   "log": {
-    "level": "error",
-    "timestamp": true
+    "disabled": false
   },
   "inbounds": [
     {
