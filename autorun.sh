@@ -155,13 +155,13 @@ XRAY_EOF
 }
 
 # ==========================================
-#   GENERATOR: singbox.sh  (TUIC v5 - Gaming Optimized)
+#   GENERATOR: singbox.sh  (Hysteria2 - Gaming Optimized)
 # ==========================================
 generate_singbox() {
     cat << 'SINGBOX_EOF' > /tmp/_singbox_tmp.sh
 #!/bin/bash
 
-echo "--- [sing-box TUIC v5 Gaming Startup Script] ---"
+echo "--- [sing-box Hysteria2 Gaming Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -211,7 +211,7 @@ sysctl -w net.ipv4.tcp_fastopen=3           > /dev/null 2>&1
 sysctl -w net.ipv4.tcp_low_latency=1        > /dev/null 2>&1
 echo "✅ Kernel tweaks applied."
 
-# --- Generate Self-Signed TLS Certificate (required for TUIC) ---
+# --- Generate Self-Signed TLS Certificate (required for Hysteria2) ---
 if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
     echo "Generating self-signed TLS certificate..."
     apt-get install -y openssl -qq
@@ -245,7 +245,6 @@ if [ -z "$server_ip" ]; then
                 hostname -I | awk '{print $1}')
 fi
 
-UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 PASSWORD="nour"
 
 echo "Updating config.json..."
@@ -256,21 +255,19 @@ cat > "$CONFIG_PATH" << JSON
   },
   "inbounds": [
     {
-      "type": "tuic",
-      "tag": "tuic-in",
+      "type": "hysteria2",
+      "tag": "hy2-in",
       "listen": "::",
       "listen_port": ${SERVER_PORT},
       "sniff": false,
       "users": [
         {
-          "uuid": "${UUID}",
           "password": "${PASSWORD}"
         }
       ],
-      "congestion_control": "bbr",
-      "auth_timeout": "2s",
-      "zero_rtt_handshake": true,
-      "heartbeat": "3s",
+      "ignore_client_bandwidth": false,
+      "up_mbps": 100,
+      "down_mbps": 100,
       "tls": {
         "enabled": true,
         "alpn": ["h3"],
@@ -290,11 +287,11 @@ cat > "$CONFIG_PATH" << JSON
 }
 JSON
 
-TUIC_LINK="tuic://${UUID}:${PASSWORD}@${server_ip}:${SERVER_PORT}?congestion_control=bbr&udp_relay_mode=native&zero_rtt_handshake=true&heartbeat=3s&security=tls&sni=playstation.net&allowInsecure=true&alpn=h3#Nour-Gaming"
+HY2_LINK="hy2://${PASSWORD}@${server_ip}:${SERVER_PORT}?sni=playstation.net&alpn=h3&insecure=1#Nour-Gaming"
 
 echo "=========================================================="
-echo "sing-box TUIC v5 Gaming Link:"
-echo "$TUIC_LINK"
+echo "sing-box Hysteria2 Gaming Link:"
+echo "$HY2_LINK"
 echo "=========================================================="
 
 echo "Starting sing-box..."
@@ -330,7 +327,7 @@ echo ""
 echo "  to start the Xray server:"
 echo "bash ../xray.sh"
 echo ""
-echo "  to start the sing-box server (TUIC v5 Gaming):"
+echo "  to start the sing-box server (Hysteria2 Gaming):"
 echo "bash ../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
