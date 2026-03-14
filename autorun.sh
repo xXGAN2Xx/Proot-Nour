@@ -22,14 +22,12 @@ else
 fi
 
 # ==========================================
-#   HELPER: check_update <target> <url> [generator_func]
-#   Unified updater for ALL scripts including this one.
-#   Updates in-place and continues (no restart).
+#   HELPER: check_update <target> <url>
+#   Unified updater for autorun.sh from GitHub.
 # ==========================================
 check_update() {
     local TARGET="$1"
     local URL="$2"
-    local GENERATOR="${3:-}"
     local NAME
     NAME=$(basename "$TARGET")
 
@@ -49,13 +47,25 @@ check_update() {
         rm -f /tmp/_update_check
         echo "  [$NAME] ⚠️  Could not reach remote. Skipping update."
     fi
+}
 
-    # If still missing and a generator was provided, create it locally
-    if [ ! -f "$TARGET" ] && [ -n "$GENERATOR" ]; then
-        echo "  [$NAME] Generating locally..."
-        $GENERATOR "$TARGET"
+# ==========================================
+#   HELPER: write_if_changed <target> <tmpfile>
+#   Writes tmpfile to target only if content differs.
+# ==========================================
+write_if_changed() {
+    local TARGET="$1"
+    local TMP="$2"
+    local NAME
+    NAME=$(basename "$TARGET")
+
+    if [ ! -f "$TARGET" ] || ! cmp -s "$TMP" "$TARGET"; then
+        mv "$TMP" "$TARGET"
         chmod +x "$TARGET"
-        echo "  [$NAME] Created from built-in template."
+        echo "  [$NAME] ✅ Updated."
+    else
+        rm -f "$TMP"
+        echo "  [$NAME] ✔  Already up to date."
     fi
 }
 
@@ -63,8 +73,7 @@ check_update() {
 #   GENERATOR: xray.sh
 # ==========================================
 generate_xray() {
-    local TARGET="$1"
-    cat << 'XRAY_EOF' > "$TARGET"
+    cat << 'XRAY_EOF' > /tmp/_xray_tmp.sh
 #!/bin/bash
 
 echo "--- [Xray VLESS Startup Script] ---"
@@ -169,14 +178,14 @@ echo "=========================================================="
 echo "Starting Xray..."
 exec xray run -c "$CONFIG_PATH"
 XRAY_EOF
+    write_if_changed "$XRAY_SCRIPT" /tmp/_xray_tmp.sh
 }
 
 # ==========================================
 #   GENERATOR: singbox.sh
 # ==========================================
 generate_singbox() {
-    local TARGET="$1"
-    cat << 'SINGBOX_EOF' > "$TARGET"
+    cat << 'SINGBOX_EOF' > /tmp/_singbox_tmp.sh
 #!/bin/bash
 
 echo "--- [sing-box VLESS Startup Script] ---"
@@ -243,15 +252,6 @@ cat > "$TEMP_CONFIG" << JSON
     "level": "error",
     "timestamp": true
   },
-  "dns": {
-    "servers": [
-      {
-        "tag": "local-dns",
-        "address": "local",
-        "strategy": "prefer_ipv4"
-      }
-    ]
-  },
   "inbounds": [
     {
       "type": "vless",
@@ -278,6 +278,7 @@ cat > "$TEMP_CONFIG" << JSON
     {
       "type": "direct",
       "tag": "direct",
+      "domain_strategy": "prefer_ipv4",
       "tcp_fast_open": true
     }
   ]
@@ -294,7 +295,7 @@ else
     rm -f "$TEMP_CONFIG"
 fi
 
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&type=http&host=playstation.net&method=GET&packetEncoding=xudp#Nour"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
 
 echo "=========================================================="
 echo "sing-box VLESS Link:"
@@ -304,37 +305,22 @@ echo "=========================================================="
 echo "Starting sing-box..."
 exec sing-box run -c "$CONFIG_PATH"
 SINGBOX_EOF
+    write_if_changed "$SINGBOX_SCRIPT" /tmp/_singbox_tmp.sh
 }
 
 # ==========================================
 #   [2] CHECK FOR UPDATES
 # ==========================================
 echo "--- [2] Checking for Updates ---"
-
-# autorun.sh — fetched from GitHub
 check_update "$0" \
     "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
 
-# xray.sh and singbox.sh — generated locally (no remote file)
-echo "--- [3] Generating proxy scripts ---"
-
-if [ ! -f "$XRAY_SCRIPT" ]; then
-    echo "  [xray.sh] Generating..."
-    generate_xray "$XRAY_SCRIPT"
-    chmod +x "$XRAY_SCRIPT"
-    echo "  [xray.sh] ✅ Created."
-else
-    echo "  [xray.sh] ✔  Already exists."
-fi
-
-if [ ! -f "$SINGBOX_SCRIPT" ]; then
-    echo "  [singbox.sh] Generating..."
-    generate_singbox "$SINGBOX_SCRIPT"
-    chmod +x "$SINGBOX_SCRIPT"
-    echo "  [singbox.sh] ✅ Created."
-else
-    echo "  [singbox.sh] ✔  Already exists."
-fi
+# ==========================================
+#   [3] SYNC PROXY SCRIPTS (always compare)
+# ==========================================
+echo "--- [3] Syncing proxy scripts ---"
+generate_xray
+generate_singbox
 
 # ==========================================
 #        DONE
@@ -351,5 +337,5 @@ echo "  to start the sing-box server:"
 echo "bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
-echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
 echo "=========================================================="
