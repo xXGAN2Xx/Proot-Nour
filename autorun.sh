@@ -50,26 +50,6 @@ check_update() {
 }
 
 # ==========================================
-#   HELPER: write_if_changed <target> <tmpfile>
-#   Writes tmpfile to target only if content differs.
-# ==========================================
-write_if_changed() {
-    local TARGET="$1"
-    local TMP="$2"
-    local NAME
-    NAME=$(basename "$TARGET")
-
-    if [ ! -f "$TARGET" ] || ! cmp -s "$TMP" "$TARGET"; then
-        mv "$TMP" "$TARGET"
-        chmod +x "$TARGET"
-        echo "  [$NAME] ✅ Updated."
-    else
-        rm -f "$TMP"
-        echo "  [$NAME] ✔  Already up to date."
-    fi
-}
-
-# ==========================================
 #   GENERATOR: xray.sh
 # ==========================================
 generate_xray() {
@@ -110,7 +90,8 @@ fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-cat > "$TEMP_CONFIG" << JSON
+echo "Updating config.json..."
+cat > "$CONFIG_PATH" << JSON
 {
   "log": { "loglevel": "error" },
   "policy": {
@@ -158,16 +139,6 @@ cat > "$TEMP_CONFIG" << JSON
 }
 JSON
 
-sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
-
-if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
-    echo "Updating config.json..."
-    mv "$TEMP_CONFIG" "$CONFIG_PATH"
-else
-    echo "Config unchanged. Skipping write."
-    rm -f "$TEMP_CONFIG"
-fi
-
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
@@ -178,7 +149,9 @@ echo "=========================================================="
 echo "Starting Xray..."
 exec xray run -c "$CONFIG_PATH"
 XRAY_EOF
-    write_if_changed "$XRAY_SCRIPT" /tmp/_xray_tmp.sh
+    mv /tmp/_xray_tmp.sh "$XRAY_SCRIPT"
+    chmod +x "$XRAY_SCRIPT"
+    echo "  [xray.sh] ✅ Written."
 }
 
 # ==========================================
@@ -192,7 +165,6 @@ echo "--- [sing-box VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-TEMP_CONFIG="/tmp/singbox_config_temp.json"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -246,7 +218,8 @@ fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-cat > "$TEMP_CONFIG" << JSON
+echo "Updating config.json..."
+cat > "$CONFIG_PATH" << JSON
 {
   "log": {
     "level": "error",
@@ -285,16 +258,6 @@ cat > "$TEMP_CONFIG" << JSON
 }
 JSON
 
-sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
-
-if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
-    echo "Updating config.json..."
-    mv "$TEMP_CONFIG" "$CONFIG_PATH"
-else
-    echo "Config unchanged. Skipping write."
-    rm -f "$TEMP_CONFIG"
-fi
-
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=http&host=playstation.net&path=%2F#Nour"
 
 echo "=========================================================="
@@ -305,7 +268,9 @@ echo "=========================================================="
 echo "Starting sing-box..."
 exec sing-box run -c "$CONFIG_PATH"
 SINGBOX_EOF
-    write_if_changed "$SINGBOX_SCRIPT" /tmp/_singbox_tmp.sh
+    mv /tmp/_singbox_tmp.sh "$SINGBOX_SCRIPT"
+    chmod +x "$SINGBOX_SCRIPT"
+    echo "  [singbox.sh] ✅ Written."
 }
 
 # ==========================================
@@ -337,5 +302,5 @@ echo "  to start the sing-box server:"
 echo "bash ../../singbox.sh"
 echo ""
 echo "  to start the hytale server:"
-echo "    curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
 echo "=========================================================="
