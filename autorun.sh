@@ -47,6 +47,7 @@ CERT_FILE="$CONFIG_DIR/cert.pem"
 KEY_FILE="$CONFIG_DIR/key.pem"
 PASSWORD="nour"
 SNI="playstation.net"
+SANS="DNS:playstation.net,DNS:www.playstation.net,DNS:xbox.com,DNS:www.xbox.com,DNS:steampowered.com,DNS:www.steampowered.com,DNS:epicgames.com,DNS:www.epicgames.com,DNS:riotgames.com,DNS:www.riotgames.com,DNS:battle.net,DNS:www.battle.net"
 HY2_BIN="/usr/local/bin/hysteria"
 
 mkdir -p "$CONFIG_DIR"
@@ -68,17 +69,12 @@ echo "✅ Hysteria2 installed: $($HY2_BIN version 2>/dev/null | head -1)"
 
 # --- Self-signed TLS cert ---
 openssl req -x509 -newkey rsa:2048 -keyout "$KEY_FILE" -out "$CERT_FILE" \
-    -days 3650 -nodes -subj "/CN=${SNI}" 2>/dev/null
+    -days 3650 -nodes \
+    -subj "/C=US/ST=California/L=San Jose/O=Sony Interactive Entertainment/OU=PlayStation Network/CN=${SNI}" \
+    -addext "subjectAltName=${SANS}" 2>/dev/null
 echo "✅ TLS cert generated."
 
-# --- Detect IP ---
-for url in https://api.ipify.org https://ifconfig.me https://icanhazip.com; do
-    IP=$(curl -fsSL --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]')
-    [[ "$IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && break || IP=""
-done
-[ -z "$IP" ] && IP=$(hostname -I | awk '{print $1}')
-[ -z "$IP" ] && { echo "❌ Could not detect IP."; exit 1; }
-echo "✅ IP: $IP"
+echo "✅ IP: $server_ip"
 
 # --- Config ---
 cat > "$CONFIG_PATH" << YAML
@@ -92,11 +88,6 @@ auth:
   type: password
   password: ${PASSWORD}
 
-masquerade:
-  type: proxy
-  proxy:
-    url: https://www.${SNI}
-    rewriteHost: true
 YAML
 
 # --- Print config for verification ---
@@ -108,7 +99,7 @@ echo ""
 
 echo "================================================"
 echo "Hysteria2 Link:"
-echo "hy2://${PASSWORD}@${IP}:${SERVER_PORT}?sni=${SNI}&insecure=1#Nour"
+echo "hy2://${PASSWORD}@${server_ip}:${SERVER_PORT}?sni=${SNI}&insecure=1#Nour"
 echo "================================================"
 echo "⚠️  Enable 'Allow Insecure' on client (self-signed cert)"
 echo ""
