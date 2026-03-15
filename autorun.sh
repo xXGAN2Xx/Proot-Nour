@@ -86,7 +86,6 @@ cat > "$CONFIG_PATH" << JSON
     {
       "type": "vless",
       "tag": "vless-in",
-      "listen": "::",
       "listen_port": ${SERVER_PORT},
       "users": [
         {
