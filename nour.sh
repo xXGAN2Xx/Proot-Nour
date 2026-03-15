@@ -11,8 +11,14 @@ LOCAL_BIN="${HOME}/.local/bin"
 PROOT_BIN="${HOME}/usr/local/bin/proot"
 DEP_FLAG="${HOME}/.deps"
 BASE_URL="https://raw.githubusercontent.com/ysdragon/Pterodactyl-VPS-Egg/refs/heads/main/scripts"
+CA_DIR="${HOME}/.local/etc/ssl/certs"
+CA_BUNDLE="${CA_DIR}/ca-certificates.crt"
 
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
+export SSL_CERT_FILE="$CA_BUNDLE"
+export CURL_CA_BUNDLE="$CA_BUNDLE"
+export WGET_CA_BUNDLE="$CA_BUNDLE"
+
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
 # Unified download helper — removes duplicated wget/curl logic throughout
@@ -64,6 +70,10 @@ setup_tools() {
     echo -e "${Y}Installing PRoot engine...${NC}"
     download "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${proot_arch}-static" "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
+
+    echo -e "${Y}Installing CA certificates...${NC}"
+    mkdir -p "$CA_DIR"
+    download "https://curl.se/ca/cacert.pem" "$CA_BUNDLE"
 
     touch "$DEP_FLAG"
 }
