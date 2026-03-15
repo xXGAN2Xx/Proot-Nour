@@ -5,7 +5,7 @@
 # ==========================================
 
 PARENT_DIR=$(cd .. && pwd)
-TARGET_SCRIPT="${PARENT_DIR}/singbox.sh"
+TARGET_SCRIPT="${PARENT_DIR}/hy2.sh"
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
@@ -35,39 +35,21 @@ rm -f /tmp/script_update_check
 echo "Script is up to date."
 
 # ==========================================
-#        SING-BOX SCRIPT UPDATE
+#        HY2 SCRIPT — ALWAYS OVERWRITE
 # ==========================================
-echo "--- [3] Checking for singbox.sh updates ---"
-
-SINGBOX_SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/singbox.sh"
-curl -fsSL "$SINGBOX_SCRIPT_URL" -o /tmp/singbox_update_check 2>/dev/null
-
-if [ -s /tmp/singbox_update_check ]; then
-    if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s "$TARGET_SCRIPT" /tmp/singbox_update_check; then
-        echo "Updating singbox.sh..."
-        mv /tmp/singbox_update_check "$TARGET_SCRIPT"
-        chmod +x "$TARGET_SCRIPT"
-    else
-        echo "singbox.sh is up to date."
-        rm -f /tmp/singbox_update_check
-    fi
-else
-    echo "Could not fetch singbox.sh. Using built-in template..."
-    rm -f /tmp/singbox_update_check
-
-    cat << 'EOF' > /tmp/singbox_builtin
+cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
-echo "--- [sing-box VLESS TCP+TLS] ---"
+echo "--- [Hysteria2 Server] ---"
 
-CONFIG_DIR="/usr/local/etc/sing-box"
-CERT_DIR="$CONFIG_DIR/tls"
-CONFIG_PATH="$CONFIG_DIR/config.json"
-CERT_FILE="$CERT_DIR/cert.pem"
-KEY_FILE="$CERT_DIR/key.pem"
-UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+CONFIG_DIR="/etc/hysteria"
+CONFIG_PATH="$CONFIG_DIR/config.yaml"
+CERT_FILE="$CONFIG_DIR/cert.pem"
+KEY_FILE="$CONFIG_DIR/key.pem"
+PASSWORD="Nour2025"
 SNI="playstation.net"
+HY2_BIN="/usr/local/bin/hysteria"
 
-mkdir -p "$CERT_DIR"
+mkdir -p "$CONFIG_DIR"
 
 # --- Port ---
 if [ -z "$SERVER_PORT" ]; then
@@ -75,9 +57,14 @@ if [ -z "$SERVER_PORT" ]; then
 fi
 echo "✅ Port: $SERVER_PORT"
 
-# --- Install sing-box ---
-curl -fsSL https://sing-box.app/install.sh | sh
-command -v sing-box &>/dev/null || { echo "❌ sing-box install failed."; exit 1; }
+# --- Install Hysteria2 ---
+echo "Installing Hysteria2..."
+bash <(curl -fsSL https://get.hy2.sh/)
+if [ ! -f "$HY2_BIN" ]; then
+    echo "❌ Hysteria2 install failed."
+    exit 1
+fi
+echo "✅ Hysteria2 installed: $($HY2_BIN version 2>/dev/null | head -1)"
 
 # --- Self-signed TLS cert ---
 openssl req -x509 -newkey rsa:2048 -keyout "$KEY_FILE" -out "$CERT_FILE" \
@@ -94,31 +81,23 @@ done
 echo "✅ IP: $IP"
 
 # --- Config ---
-cat > "$CONFIG_PATH" << JSON
-{
-  "log": {
-    "level": "info",
-    "timestamp": true
-  },
-  "inbounds": [{
-    "type": "vless",
-    "tag": "vless-in",
-    "listen": "::",
-    "listen_port": ${SERVER_PORT},
-    "users": [{ "uuid": "${UUID}" }],
-    "tls": {
-      "enabled": true,
-      "server_name": "${SNI}",
-      "certificate_path": "${CERT_FILE}",
-      "key_path": "${KEY_FILE}"
-    }
-  }],
-  "outbounds": [{ "type": "direct", "tag": "direct" }],
-  "route": {
-    "final": "direct"
-  }
-}
-JSON
+cat > "$CONFIG_PATH" << YAML
+listen: :${SERVER_PORT}
+
+tls:
+  cert: ${CERT_FILE}
+  key: ${KEY_FILE}
+
+auth:
+  type: password
+  password: ${PASSWORD}
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://www.${SNI}
+    rewriteHost: true
+YAML
 
 # --- Print config for verification ---
 echo ""
@@ -127,34 +106,17 @@ cat "$CONFIG_PATH"
 echo "----------------------"
 echo ""
 
-# --- Validate & Start ---
-echo "Running sing-box check..."
-sing-box check -c "$CONFIG_PATH"
-if [ $? -ne 0 ]; then
-    echo "❌ Config invalid. See errors above."
-    exit 1
-fi
-echo "✅ Config valid."
-
-echo ""
 echo "================================================"
-echo "VLESS Link:"
-echo "vless://${UUID}@${IP}:${SERVER_PORT}?security=tls&type=tcp&sni=${SNI}&allowInsecure=1#Nour"
+echo "Hysteria2 Link:"
+echo "hy2://${PASSWORD}@${IP}:${SERVER_PORT}?sni=${SNI}&insecure=1#Nour"
 echo "================================================"
 echo "⚠️  Enable 'Allow Insecure' on client (self-signed cert)"
 echo ""
 
-echo "Starting sing-box..."
-exec sing-box run -c "$CONFIG_PATH"
+echo "Starting Hysteria2..."
+exec "$HY2_BIN" server -c "$CONFIG_PATH"
 EOF
 
-    if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s /tmp/singbox_builtin "$TARGET_SCRIPT"; then
-        mv /tmp/singbox_builtin "$TARGET_SCRIPT"
-        chmod +x "$TARGET_SCRIPT"
-        echo "singbox.sh updated from built-in."
-    else
-        rm -f /tmp/singbox_builtin
-    fi
-fi
+chmod +x "$TARGET_SCRIPT"
 
-echo "--- Setup Complete. Run: bash ../singbox.sh ---"
+echo "--- Setup Complete. Run: bash ../hy2.sh ---"
