@@ -2,7 +2,6 @@
 # ==========================================
 #        MASTER SETUP SCRIPT
 # ==========================================
-set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
