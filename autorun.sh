@@ -11,7 +11,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget openssl
+    apt-get install -y curl wget openssl ca-certificates 
     touch "$DEP_LOCK_FILE"
 else
     echo "--- [1] Dependencies already installed. Skipping. ---"
