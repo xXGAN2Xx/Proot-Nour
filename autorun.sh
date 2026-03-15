@@ -96,8 +96,13 @@ echo "✅ IP: $IP"
 # --- Config ---
 cat > "$CONFIG_PATH" << JSON
 {
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
   "inbounds": [{
     "type": "vless",
+    "tag": "vless-in",
     "listen": "::",
     "listen_port": ${SERVER_PORT},
     "users": [{ "uuid": "${UUID}" }],
@@ -108,12 +113,28 @@ cat > "$CONFIG_PATH" << JSON
       "key_path": "${KEY_FILE}"
     }
   }],
-  "outbounds": [{ "type": "direct" }]
+  "outbounds": [{ "type": "direct", "tag": "direct" }],
+  "route": {
+    "final": "direct"
+  }
 }
 JSON
 
+# --- Print config for verification ---
+echo ""
+echo "--- Config Preview ---"
+cat "$CONFIG_PATH"
+echo "----------------------"
+echo ""
+
 # --- Validate & Start ---
-sing-box check -c "$CONFIG_PATH" || { echo "❌ Config invalid."; exit 1; }
+echo "Running sing-box check..."
+sing-box check -c "$CONFIG_PATH"
+if [ $? -ne 0 ]; then
+    echo "❌ Config invalid. See errors above."
+    exit 1
+fi
+echo "✅ Config valid."
 
 echo ""
 echo "================================================"
@@ -123,6 +144,7 @@ echo "================================================"
 echo "⚠️  Enable 'Allow Insecure' on client (self-signed cert)"
 echo ""
 
+echo "Starting sing-box..."
 exec sing-box run -c "$CONFIG_PATH"
 EOF
 
