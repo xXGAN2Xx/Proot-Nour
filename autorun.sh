@@ -1,31 +1,47 @@
 #!/bin/bash
+
+# ==========================================
+#        MASTER SETUP SCRIPT
+# ==========================================
+
+# 1. Determine the path for the parent directory (cd ..)
 PARENT_DIR=$(cd .. && pwd)
 TARGET_SCRIPT="${PARENT_DIR}/xray.sh"
+
+# Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
+    
+    # Update and Install Prerequisites
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo util-linux openssl
+    apt-get install -y curl wget sed python3-minimal tmate sudo
+    
+    # Create the lock file
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
     echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
 fi
 
+# ==========================================
+#        SELF-UPDATE LOGIC (OS LEVEL)
+# ==========================================
 echo "--- [2] Checking for Script Updates ---"
+
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
+    
     if [ -s /tmp/script_update_check ]; then
-        if ! cmp -s "$SELF" /tmp/script_update_check; then
+        if ! cmp -s "$0" /tmp/script_update_check; then
             echo "New version found! Updating Master Script..."
-            mv /tmp/script_update_check "$SELF"
-            chmod +x "$SELF"
+            mv /tmp/script_update_check "$0"
+            chmod +x "$0"
             echo "Restarting script..."
-            exec bash "$SELF" "$@"
+            exec "$0" "$@"
             exit 0
         else
             echo "Master Script is up to date."
@@ -34,106 +50,88 @@ if command -v curl >/dev/null 2>&1; then
     fi
 fi
 
-echo "--- [3] Writing xray.sh to $PARENT_DIR ---"
-cat << 'EOF' > "$TARGET_SCRIPT"
+# ==========================================
+#        XRAY SCRIPT GENERATION
+# ==========================================
+echo "--- [3] Checking for xray.sh in $PARENT_DIR ---"
+
+if [ ! -f "$TARGET_SCRIPT" ]; then
+    echo "Creating $TARGET_SCRIPT (in the parent directory)..."
+    
+    # We use 'EOF' to prevent variable expansion during file creation
+    cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
-echo "--- [Xray Gaming Server] ---"
+
+echo "--- [Xray VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-CERT_DIR="${CONFIG_DIR}/certs"
-mkdir -p "$CONFIG_DIR" "$CERT_DIR"
+TEMP_CONFIG="/tmp/xray_config_temp.json"
 
+mkdir -p "$CONFIG_DIR"
+
+# --- Xray Core Installation ---
+echo "Checking/Installing Xray-core..."
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
+# --- Smart Config Generation ---
 if [ -z "$SERVER_PORT" ]; then
-    read -p "Enter server port: " SERVER_PORT
-    if [ -z "$SERVER_PORT" ]; then
-        echo "ERROR: No port provided."
-        exit 1
-    fi
-fi
-
-UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-
-# Detect public IP
-server_ip=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null \
-    || curl -s --max-time 5 https://ifconfig.me 2>/dev/null \
-    || hostname -I | awk '{print $1}')
-
-if [ ! -f "$CERT_DIR/server.crt" ]; then
-    openssl req -x509 \
-        -newkey ec \
-        -pkeyopt ec_paramgen_curve:P-256 \
-        -keyout "$CERT_DIR/server.key" \
-        -out    "$CERT_DIR/server.crt" \
-        -days 3650 -nodes \
-        -subj "/CN=playstation.net" \
-        -addext "subjectAltName=DNS:playstation.net" 2>/dev/null
-    echo "ECDSA P-256 certificate generated."
-fi
-
-cat > "$CONFIG_PATH" << JSON
+    echo "ERROR: SERVER_PORT environment variable is not set!"
+else
+    # Create the template
+    cat << 'JSON' > "$TEMP_CONFIG"
 {
-  "log": {
-    "loglevel": "error"
-  },
-  "inbounds": [
-    {
-      "tag": "vless-in",
-      "listen": "0.0.0.0",
-      "port": ${SERVER_PORT},
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          {
-            "id": "${UUID}",
-            "level": 0
-          }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "${CERT_DIR}/server.crt",
-              "keyFile": "${CERT_DIR}/server.key"
-            }
-          ]
-        }
-      }
+  "inbounds": [{
+    "port": ${SERVER_PORT},
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e" }],
+      "decryption": "none"
+    },
+    "streamSettings": {
+      "tcpSettings": { "header": { "type": "http" } }
     }
-  ],
-  "outbounds": [
-    {
-      "protocol": "freedom",
-      "tag": "direct"
-    }
-  ]
+  }],
+  "outbounds": [{ "protocol": "freedom" }]
 }
 JSON
 
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&type=tcp&allowInsecure=1#Nour-Gaming"
+    # Apply the port substitution
+    sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
+
+    # Only overwrite if the file is different or missing
+    if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
+        echo "Updating config.json..."
+        mv "$TEMP_CONFIG" "$CONFIG_PATH"
+    else
+        echo "Config unchanged. Skipping write."
+        rm -f "$TEMP_CONFIG"
+    fi
+fi
+
+# --- Link Generation ---
+UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
-echo " $VLESS_LINK"
-echo " IP   : $server_ip"
-echo " Port : $SERVER_PORT"
-echo " UUID : $UUID"
+echo "Xray VLESS Link:"
+echo "$VLESS_LINK"
 echo "=========================================================="
 
+echo "Starting Xray..."
 xray run -c "$CONFIG_PATH"
 EOF
 
-chmod +x "$TARGET_SCRIPT"
-echo "xray.sh written to $TARGET_SCRIPT"
-echo ""
+    chmod +x "$TARGET_SCRIPT"
+    echo "Successfully created $TARGET_SCRIPT"
+else
+    echo "xray.sh already exists in $PARENT_DIR. Skipping creation."
+fi
+
 echo "--- Setup Complete ---"
-echo "To start the Xray gaming server:"
-echo "bash ../xray.sh"
-echo ""
-echo "To start the Hytale server:"
-echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
+echo "to start the xray server type"
+echo "bash ../../xray.sh"
+echo "to start the hytale server type"
+echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520 "
+# systemctl start xray
+# systemctl kill xray
