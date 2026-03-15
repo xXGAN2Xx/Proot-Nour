@@ -37,12 +37,9 @@ if command -v curl >/dev/null 2>&1; then
     fi
 fi
 
-echo "--- [3] Checking for xray.sh in $PARENT_DIR ---"
+echo "--- [3] Writing xray.sh to $PARENT_DIR ---"
 
-if [ ! -f "$TARGET_SCRIPT" ]; then
-    echo "Creating $TARGET_SCRIPT (in the parent directory)..."
-
-    cat << 'EOF' > "$TARGET_SCRIPT"
+cat << 'EOF' > "$TARGET_SCRIPT"
 #!/bin/bash
 
 echo "--- [Xray Gaming Server] ---"
@@ -113,11 +110,8 @@ echo "=========================================================="
 nice -n -10 taskset -c 0 xray run -c "$CONFIG_PATH"
 EOF
 
-    chmod +x "$TARGET_SCRIPT"
-    echo "Successfully created $TARGET_SCRIPT"
-else
-    echo "xray.sh already exists in $PARENT_DIR. Skipping creation."
-fi
+chmod +x "$TARGET_SCRIPT"
+echo "xray.sh written to $TARGET_SCRIPT"
 
 echo ""
 echo "--- Setup Complete ---"
