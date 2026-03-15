@@ -119,7 +119,7 @@ fi
 echo ""
 echo "--- Setup Complete ---"
 echo "To start the Xray gaming server:"
-echo "bash ../../xray.sh"
+echo "bash ../xray.sh"
 echo ""
 echo "To start the Hytale server:"
 echo "curl -sL https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/nourt.sh | bash -s -- ID1 ID2 --p 5520"
