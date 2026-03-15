@@ -79,14 +79,14 @@ cat > "$CONFIG_PATH" << JSON
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "kcp",
-        "kcpSettings": {
-          "uplinkCapacity": 100,
-          "downlinkCapacity": 100,
-          "congestion": true,
-          "header": { "type": "none" }
-        },
-        "sockopt": { "tcpNoDelay": true, "tcpFastOpen": true }
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "playstation.net",
+          "allowInsecure": true,
+          "fingerprint": "chrome",
+          "alpn": ["h2"]
+        }
       }
     }
   ],
@@ -99,7 +99,7 @@ JSON
 sed -i "s/SERVER_PORT_VAL/$SERVER_PORT/g" "$CONFIG_PATH"
 sed -i "s/UUID_VAL/$UUID/g"               "$CONFIG_PATH"
 
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=kcp&headerType=none#Nour-Gaming"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp#Nour-Gaming"
 
 echo "=========================================================="
 echo " $VLESS_LINK"
@@ -107,7 +107,7 @@ echo " Port : $SERVER_PORT"
 echo " UUID : $UUID"
 echo "=========================================================="
 
-nice -n -10 taskset -c 0 xray run -c "$CONFIG_PATH"
+xray run -c "$CONFIG_PATH"
 EOF
 
 chmod +x "$TARGET_SCRIPT"
