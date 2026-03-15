@@ -74,37 +74,42 @@ if [ ! -f "$CERT_DIR/server.crt" ]; then
 fi
 
 # ── Xray config ─────────────────────────────────────────────────────────────
+UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+
 cat > "$CONFIG_PATH" << JSON
 {
+  "log": {
+    "level": "error",
+    "timestamp": true
+  },
   "inbounds": [
     {
-      "port": $SERVER_PORT,
-      "protocol": "vless",
-      "settings": {
-        "clients": [{ "id": "$UUID" }],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "$CERT_DIR/server.crt",
-              "keyFile": "$CERT_DIR/server.key"
-            }
-          ]
+      "type": "vless",
+      "tag": "vless-in",
+      "listen": "::",
+      "listen_port": ${SERVER_PORT},
+      "users": [
+        {
+          "uuid": "${UUID}"
         }
+      ],
+      "transport": {
+        "type": "http",
+        "host": ["playstation.net"]
       }
     }
   ],
   "outbounds": [
     {
-      "protocol": "freedom"
+      "type": "direct",
+      "tag": "direct"
     }
   ]
 }
 JSON
+
+    # Apply the port substitution
+    sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
 # allowInsecure=1 on client side (self-signed cert); fp=chrome mimics browser TLS fingerprint
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp&allowInsecure=1#Nour-Gaming"
