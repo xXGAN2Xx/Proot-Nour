@@ -103,7 +103,8 @@ cat > "$CONFIG_PATH" << JSON
       "protocol": "freedom"
     }
   ]
-}JSON
+}
+JSON
 
 # allowInsecure=1 on client side (self-signed cert); fp=chrome mimics browser TLS fingerprint
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp&allowInsecure=1#Nour-Gaming"
