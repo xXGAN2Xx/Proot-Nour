@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# ==========================================
-#        MASTER SETUP SCRIPT (Gaming)
-# ==========================================
-
 PARENT_DIR=$(cd .. && pwd)
 TARGET_SCRIPT="${PARENT_DIR}/xray.sh"
-
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
@@ -19,14 +14,9 @@ else
     echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
 fi
 
-# ==========================================
-#        SELF-UPDATE LOGIC
-# ==========================================
 echo "--- [2] Checking for Script Updates ---"
 
 SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-
-# Resolve absolute path of this script (fixes exec in proot where $0 may lack a path)
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 if command -v curl >/dev/null 2>&1; then
@@ -47,9 +37,6 @@ if command -v curl >/dev/null 2>&1; then
     fi
 fi
 
-# ==========================================
-#        XRAY SCRIPT GENERATION
-# ==========================================
 echo "--- [3] Checking for xray.sh in $PARENT_DIR ---"
 
 if [ ! -f "$TARGET_SCRIPT" ]; then
@@ -65,7 +52,6 @@ CONFIG_PATH="${CONFIG_DIR}/config.json"
 
 mkdir -p "$CONFIG_DIR"
 
-# --- Xray Core Installation ---
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
 if [ -z "$SERVER_PORT" ]; then
@@ -75,22 +61,12 @@ fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-# --- Kernel TCP Tuning ---
-# BBR reduces latency and recovers faster from packet loss.
-# Errors are silenced — some may fail inside proot, that is fine.
-echo "Applying kernel tuning..."
 sysctl -w net.ipv4.tcp_fastopen=3             2>/dev/null
 sysctl -w net.ipv4.tcp_low_latency=1          2>/dev/null
 sysctl -w net.core.rmem_max=16777216          2>/dev/null
 sysctl -w net.core.wmem_max=16777216          2>/dev/null
 sysctl -w net.ipv4.tcp_congestion_control=bbr 2>/dev/null
 
-# --- Write Config ---
-# mKCP: tunnels over UDP at OS level — handles packet loss better than TCP for gaming.
-# congestion:true  = built-in flow control
-# header none      = zero overhead framing
-# tcpNoDelay       = no Nagle batching, packets sent instantly
-# tcpFastOpen      = faster reconnect handshake
 cat > "$CONFIG_PATH" << JSON
 {
   "log": { "loglevel": "none" },
@@ -123,7 +99,6 @@ JSON
 sed -i "s/SERVER_PORT_VAL/$SERVER_PORT/g" "$CONFIG_PATH"
 sed -i "s/UUID_VAL/$UUID/g"               "$CONFIG_PATH"
 
-# --- Link ---
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=kcp&headerType=none#Nour-Gaming"
 
 echo "=========================================================="
@@ -132,8 +107,6 @@ echo " Port : $SERVER_PORT"
 echo " UUID : $UUID"
 echo "=========================================================="
 
-# nice -n -10  = higher CPU scheduling priority than normal processes
-# taskset -c 0 = pin Xray to CPU core 0 to reduce jitter from context switches in proot
 nice -n -10 taskset -c 0 xray run -c "$CONFIG_PATH"
 EOF
 
