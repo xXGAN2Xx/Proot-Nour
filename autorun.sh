@@ -73,42 +73,52 @@ if [ ! -f "$CERT_DIR/server.crt" ]; then
     echo "ECDSA P-256 certificate generated."
 fi
 
-# ── Xray config ─────────────────────────────────────────────────────────────
-UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-
 cat > "$CONFIG_PATH" << JSON
 {
   "log": {
-    "level": "error",
-    "timestamp": true
+    "loglevel": "error"
   },
   "inbounds": [
     {
-      "type": "vless",
       "tag": "vless-in",
-      "listen_port": ${SERVER_PORT},
-      "users": [
-        {
-          "uuid": "${UUID}"
+      "listen": "0.0.0.0",
+      "port": ${SERVER_PORT},
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "${UUID}",
+            "level": 0
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "h2",
+        "security": "tls",
+        "tlsSettings": {
+          "certificates": [
+            {
+              "certificateFile": "${CERT_DIR}/server.crt",
+              "keyFile": "${CERT_DIR}/server.key"
+            }
+          ]
+        },
+        "httpSettings": {
+          "host": ["playstation.net"],
+          "path": "/"
         }
-      ],
-      "transport": {
-        "type": "http",
-        "host": ["playstation.net"]
       }
     }
   ],
   "outbounds": [
     {
-      "type": "direct",
+      "protocol": "freedom",
       "tag": "direct"
     }
   ]
 }
 JSON
-
-    # Apply the port substitution
-    sed -i "s/\${SERVER_PORT}/$SERVER_PORT/g" "$TEMP_CONFIG"
 
 # allowInsecure=1 on client side (self-signed cert); fp=chrome mimics browser TLS fingerprint
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp&allowInsecure=1#Nour-Gaming"
