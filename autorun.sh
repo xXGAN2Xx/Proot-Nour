@@ -94,7 +94,7 @@ cat > "$CONFIG_PATH" << JSON
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "h2",
+        "network": "tcp",
         "security": "tls",
         "tlsSettings": {
           "certificates": [
@@ -103,10 +103,6 @@ cat > "$CONFIG_PATH" << JSON
               "keyFile": "${CERT_DIR}/server.key"
             }
           ]
-        },
-        "httpSettings": {
-          "host": ["playstation.net"],
-          "path": "/"
         }
       }
     }
@@ -120,8 +116,7 @@ cat > "$CONFIG_PATH" << JSON
 }
 JSON
 
-# allowInsecure=1 on client side (self-signed cert); fp=chrome mimics browser TLS fingerprint
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp&allowInsecure=1#Nour-Gaming"
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&type=tcp&allowInsecure=1#Nour-Gaming"
 
 echo "=========================================================="
 echo " $VLESS_LINK"
