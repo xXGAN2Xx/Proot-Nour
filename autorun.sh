@@ -45,7 +45,7 @@ CONFIG_DIR="/etc/hysteria"
 CONFIG_PATH="$CONFIG_DIR/config.yaml"
 CERT_FILE="$CONFIG_DIR/cert.pem"
 KEY_FILE="$CONFIG_DIR/key.pem"
-PASSWORD="Nour2025"
+PASSWORD="nour"
 SNI="playstation.net"
 HY2_BIN="/usr/local/bin/hysteria"
 
