@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# MASTER SETUP SCRIPT - MODIFIED FOR TCP+TLS (Fake Cert)
+# MASTER SETUP SCRIPT (MODIFIED: VLESS + TCP + TLS with FAKE CERT)
 # ==========================================
 # 1. Determine the path for the parent directory (cd ..)
 PARENT_DIR=$(cd .. && pwd)
@@ -8,7 +8,6 @@ TARGET_SCRIPT="${PARENT_DIR}/singbox.sh"
 
 # Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
-
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
@@ -62,7 +61,7 @@ else
     rm -f /tmp/singbox_update_check
     cat << 'EOF' > /tmp/singbox_builtin
 #!/bin/bash
-echo "--- [sing-box VLESS Startup Script - Gaming Optimized TCP+TLS with Fake Cert] ---"
+echo "--- [sing-box VLESS+TLS (Fake Cert) Startup Script - Gaming Optimized] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -72,7 +71,7 @@ mkdir -p "$CONFIG_DIR"
 # --- 1. Collect PORT first, before anything else ---
 if [ -z "$SERVER_PORT" ]; then
     echo ""
-    echo "Please enter the port you want sing-box to listen on:"
+    echo "Please enter the port you want sing-box to listen on (recommended: 443 for TLS):"
     read -rp "SERVER_PORT: " SERVER_PORT
 fi
 while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
@@ -109,25 +108,25 @@ if [ -z "$server_ip" ]; then
 fi
 echo "✅ Server IP: $server_ip"
 
-# --- 4. Generate Fake TLS Certificate (self-signed for playstation.net) ---
+# --- 4. Generate FAKE TLS Certificate (self-signed for playstation.net) ---
+DOMAIN="playstation.net"
 CERT_DIR="${CONFIG_DIR}/certs"
 mkdir -p "$CERT_DIR"
 CERT_PATH="${CERT_DIR}/cert.pem"
 KEY_PATH="${CERT_DIR}/key.pem"
 
 if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
-    echo "Generating fake self-signed TLS certificate for playstation.net (gaming stealth)..."
-    openssl req -x509 -nodes -newkey rsa:2048 -keyout "$KEY_PATH" -out "$CERT_PATH" -days 3650 \
-        -subj "/CN=playstation.net" -addext "subjectAltName=DNS:playstation.net" 2>/dev/null || {
-        echo "❌ Failed to generate certificate (openssl error). Exiting."
+    echo "Generating fake self-signed TLS certificate for ${DOMAIN}..."
+    if ! openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -keyout "$KEY_PATH" -out "$CERT_PATH" -subj "/CN=${DOMAIN}" >/dev/null 2>&1; then
+        echo "❌ Failed to generate fake certificate (openssl error). Exiting."
         exit 1
-    }
-    echo "✅ Fake certificate generated successfully."
+    fi
+    echo "✅ Fake TLS certificate generated for ${DOMAIN} (valid 10 years)."
 else
-    echo "✅ Using existing fake TLS certificate."
+    echo "✅ Using existing fake certificate."
 fi
 
-# --- 5. Generate Gaming-Optimized TCP+TLS config ---
+# --- 5. Generate Gaming-Optimized config (VLESS + TCP + TLS) ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 cat > "$TEMP_CONFIG" << JSON
 {
@@ -151,9 +150,10 @@ cat > "$TEMP_CONFIG" << JSON
       ],
       "tls": {
         "enabled": true,
-        "certificate_path": "${CERT_PATH}",
-        "key_path": "${KEY_PATH}",
-        "alpn": ["h2", "http/1.1"]
+        "server_name": "${DOMAIN}",
+        "certificate": "${CERT_PATH}",
+        "certificate_key": "${KEY_PATH}",
+        "alpn": ["http/1.1"]
       },
       "multiplex": {
         "enabled": false
@@ -178,7 +178,7 @@ cat > "$TEMP_CONFIG" << JSON
 JSON
 
 if [ ! -f "$CONFIG_PATH" ] || ! cmp -s "$TEMP_CONFIG" "$CONFIG_PATH"; then
-    echo "Updating config.json with TCP+TLS..."
+    echo "Updating config.json with TCP+TLS fake cert..."
     mv "$TEMP_CONFIG" "$CONFIG_PATH"
 else
     echo "Config unchanged. Skipping write."
@@ -191,14 +191,14 @@ if ! sing-box check -c "$CONFIG_PATH" 2>&1; then
     exit 1
 fi
 
-# --- 7. Print VLESS link (TCP+TLS) ---
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&type=tcp&sni=playstation.net&alpn=h2%2Chttp%2F1.1#Nour-Gaming-TLS-FakeCert"
+# --- 7. Print VLESS+TLS link ---
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&type=tcp&sni=${DOMAIN}&fp=chrome&alpn=http/1.1#Nour"
 echo ""
 echo "=========================================================="
-echo "sing-box VLESS Link (Gaming Optimized TCP+TLS Fake Cert):"
+echo "sing-box VLESS+TLS Link (Gaming Optimized + Fake Cert):"
 echo "$VLESS_LINK"
 echo ""
-echo "NOTE: Client must enable 'Allow Insecure' / 'Skip Cert Verify' because it's a fake self-signed cert."
+echo "NOTE: Clients may need 'Allow Insecure' / 'Skip Cert Verify' enabled because this is a fake/self-signed cert."
 echo "=========================================================="
 echo ""
 
@@ -209,10 +209,10 @@ exec sing-box run -c "$CONFIG_PATH"
 EOF
 
     if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s /tmp/singbox_builtin "$TARGET_SCRIPT"; then
-        echo "singbox.sh is missing or differs from built-in template. Updating to TCP+TLS version..."
+        echo "singbox.sh is missing or differs from built-in template. Updating..."
         mv /tmp/singbox_builtin "$TARGET_SCRIPT"
         chmod +x "$TARGET_SCRIPT"
-        echo "singbox.sh updated from built-in template (now TCP+TLS with fake cert)."
+        echo "singbox.sh updated from built-in template (now uses TCP+TLS with fake certificate)."
     else
         echo "singbox.sh matches built-in template. No update needed."
         rm -f /tmp/singbox_builtin
@@ -220,5 +220,5 @@ EOF
 fi
 
 echo "--- Setup Complete ---"
-echo "To start the sing-box server (TCP+TLS Gaming mode), run:"
+echo "To start the sing-box server (VLESS+TLS with fake cert), run:"
 echo "bash ../singbox.sh"
