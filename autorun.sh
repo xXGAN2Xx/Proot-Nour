@@ -55,8 +55,11 @@ mkdir -p "$CONFIG_DIR"
 bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
 if [ -z "$SERVER_PORT" ]; then
-    echo "ERROR: SERVER_PORT is not set!"
-    exit 1
+    read -p "Enter server port: " SERVER_PORT
+    if [ -z "$SERVER_PORT" ]; then
+        echo "ERROR: No port provided."
+        exit 1
+    fi
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
