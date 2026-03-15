@@ -126,8 +126,6 @@ cat > "$CONFIG_PATH" << JSON
           "tcpKeepAliveIdle": 60,
           "tcpKeepAliveInterval": 10,
           "tcpUserTimeout": 10000,
-          "tcpWindowClamp": 0,
-          "tcpMptcp": false,
           "mark": 255,
           "bufferSize": 0
         }
@@ -139,7 +137,7 @@ cat > "$CONFIG_PATH" << JSON
       "protocol": "freedom",
       "tag": "direct",
       "settings": {
-        "domainStrategy": "UseIP",
+        "domainStrategy": "UseIPv4",
         "userLevel": 0
       },
       "streamSettings": {
@@ -152,16 +150,6 @@ cat > "$CONFIG_PATH" << JSON
       }
     }
   ],
-  "routing": {
-    "domainStrategy": "IPIfNonMatch",
-    "rules": [
-      {
-        "type": "field",
-        "outboundTag": "direct",
-        "ip": ["0.0.0.0/0", "::/0"]
-      }
-    ]
-  },
   "policy": {
     "levels": {
       "0": {
