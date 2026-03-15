@@ -61,22 +61,6 @@ server_ip=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null \
     || curl -s --max-time 5 https://ifconfig.me 2>/dev/null \
     || hostname -I | awk '{print $1}')
 
-# ── Gaming kernel tuning ────────────────────────────────────────────────────
-sysctl -w net.ipv4.tcp_fastopen=3              2>/dev/null  # TFO for client+server
-sysctl -w net.ipv4.tcp_low_latency=1           2>/dev/null  # Prefer latency over throughput
-sysctl -w net.core.rmem_max=16777216           2>/dev/null
-sysctl -w net.core.wmem_max=16777216           2>/dev/null
-sysctl -w net.ipv4.tcp_congestion_control=bbr  2>/dev/null  # BBR: low-latency CC
-sysctl -w net.ipv4.tcp_mtu_probing=1           2>/dev/null  # Avoids PMTUD blackholes
-sysctl -w net.ipv4.tcp_notsent_lowat=16384     2>/dev/null  # Reduces send-buffer bloat
-sysctl -w net.ipv4.tcp_timestamps=0            2>/dev/null  # Shaves 12 bytes per packet
-sysctl -w net.ipv4.tcp_sack=1                  2>/dev/null  # Fast recovery on packet loss
-sysctl -w net.ipv4.tcp_no_metrics_save=1       2>/dev/null  # No cached metrics between sessions
-
-# ── ECDSA P-256 certificate (gaming-optimized) ──────────────────────────────
-# Why ECDSA over RSA:
-#   RSA-2048 signature = 256 bytes  →  ECDSA-P256 = 64 bytes
-#   Smaller handshake payload = less round-trip data = lower latency spike on connect
 if [ ! -f "$CERT_DIR/server.crt" ]; then
     openssl req -x509 \
         -newkey ec \
@@ -92,7 +76,6 @@ fi
 # ── Xray config ─────────────────────────────────────────────────────────────
 cat > "$CONFIG_PATH" << JSON
 {
-  "log": { "loglevel": "none" },
   "inbounds": [
     {
       "port": $SERVER_PORT,
@@ -101,74 +84,26 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [{ "id": "$UUID" }],
         "decryption": "none"
       },
-      "sniffing": { "enabled": false },
       "streamSettings": {
         "network": "tcp",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "playstation.net",
-          "minVersion": "1.3",
-          "cipherSuites": "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
-          "alpn": ["h2", "http/1.1"],
           "certificates": [
             {
               "certificateFile": "$CERT_DIR/server.crt",
               "keyFile": "$CERT_DIR/server.key"
             }
           ]
-        },
-        "tcpSettings": {
-          "acceptProxyProtocol": false
-        },
-        "sockopt": {
-          "tcpFastOpen": true,
-          "tcpNoDelay": true,
-          "tcpKeepAliveIdle": 60,
-          "tcpKeepAliveInterval": 10,
-          "tcpUserTimeout": 10000,
-          "mark": 255,
-          "bufferSize": 0
         }
       }
     }
   ],
   "outbounds": [
     {
-      "protocol": "freedom",
-      "tag": "direct",
-      "settings": {
-        "domainStrategy": "UseIPv4",
-        "userLevel": 0
-      },
-      "streamSettings": {
-        "sockopt": {
-          "tcpFastOpen": true,
-          "tcpNoDelay": true,
-          "mark": 255,
-          "bufferSize": 0
-        }
-      }
+      "protocol": "freedom"
     }
-  ],
-  "policy": {
-    "levels": {
-      "0": {
-        "handshake": 4,
-        "connIdle": 120,
-        "uplinkOnly": 1,
-        "downlinkOnly": 1,
-        "statsUserUplink": false,
-        "statsUserDownlink": false,
-        "bufferSize": 512
-      }
-    },
-    "system": {
-      "statsInboundUplink": false,
-      "statsInboundDownlink": false
-    }
-  }
-}
-JSON
+  ]
+}JSON
 
 # allowInsecure=1 on client side (self-signed cert); fp=chrome mimics browser TLS fingerprint
 VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&fp=chrome&alpn=h2&type=tcp&allowInsecure=1#Nour-Gaming"
