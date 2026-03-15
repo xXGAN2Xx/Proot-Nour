@@ -101,13 +101,15 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [{ "id": "$UUID" }],
         "decryption": "none"
       },
+      "sniffing": { "enabled": false },
       "streamSettings": {
         "network": "tcp",
         "security": "tls",
         "tlsSettings": {
           "serverName": "playstation.net",
           "minVersion": "1.3",
-          "alpn": ["h2"],
+          "cipherSuites": "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
+          "alpn": ["h2", "http/1.1"],
           "certificates": [
             {
               "certificateFile": "$CERT_DIR/server.crt",
@@ -115,13 +117,19 @@ cat > "$CONFIG_PATH" << JSON
             }
           ]
         },
+        "tcpSettings": {
+          "acceptProxyProtocol": false
+        },
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveIdle": 30,
+          "tcpKeepAliveIdle": 60,
           "tcpKeepAliveInterval": 10,
-          "tcpUserTimeout": 8000,
-          "mark": 255
+          "tcpUserTimeout": 10000,
+          "tcpWindowClamp": 0,
+          "tcpMptcp": false,
+          "mark": 255,
+          "bufferSize": 0
         }
       }
     }
@@ -129,16 +137,48 @@ cat > "$CONFIG_PATH" << JSON
   "outbounds": [
     {
       "protocol": "freedom",
-      "settings": {},
+      "tag": "direct",
+      "settings": {
+        "domainStrategy": "UseIP",
+        "userLevel": 0
+      },
       "streamSettings": {
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "mark": 255
+          "mark": 255,
+          "bufferSize": 0
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "direct",
+        "ip": ["0.0.0.0/0", "::/0"]
+      }
+    ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 4,
+        "connIdle": 120,
+        "uplinkOnly": 1,
+        "downlinkOnly": 1,
+        "statsUserUplink": false,
+        "statsUserDownlink": false,
+        "bufferSize": 512
+      }
+    },
+    "system": {
+      "statsInboundUplink": false,
+      "statsInboundDownlink": false
+    }
+  }
 }
 JSON
 
