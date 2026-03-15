@@ -1,83 +1,13 @@
 #!/bin/bash
-
-# ==========================================
-#        MASTER SETUP SCRIPT
-# ==========================================
-
-# 1. Determine the path for the parent directory (cd ..)
-PARENT_DIR=$(cd .. && pwd)
-TARGET_SCRIPT="${PARENT_DIR}/singbox.sh"
-
-# Lock file to track if dependencies are already installed
-DEP_LOCK_FILE="/etc/os_deps_installed"
-
-if [ ! -f "$DEP_LOCK_FILE" ]; then
-    echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
-    apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo
-    touch "$DEP_LOCK_FILE"
-    echo "Dependencies installed."
-else
-    echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
-fi
-
-# ==========================================
-#        SELF-UPDATE LOGIC (OS LEVEL)
-# ==========================================
-echo "--- [2] Checking for Script Updates ---"
-
-SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-
-if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$SCRIPT_URL" -o /tmp/script_update_check
-
-    if [ -s /tmp/script_update_check ]; then
-        if ! cmp -s "$0" /tmp/script_update_check; then
-            echo "New version found! Updating Master Script..."
-            mv /tmp/script_update_check "$0"
-            chmod +x "$0"
-            echo "Restarting script..."
-            exec "$0" "$@"
-            exit 0
-        else
-            echo "Master Script is up to date."
-            rm -f /tmp/script_update_check
-        fi
-    fi
-fi
-
-# ==========================================
-#        SING-BOX SCRIPT GENERATION & UPDATE
-# ==========================================
-echo "--- [3] Checking for singbox.sh updates in $PARENT_DIR ---"
-
-SINGBOX_SCRIPT_URL="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/singbox.sh"
-curl -fsSL "$SINGBOX_SCRIPT_URL" -o /tmp/singbox_update_check 2>/dev/null
-
-if [ -s /tmp/singbox_update_check ]; then
-    if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s "$TARGET_SCRIPT" /tmp/singbox_update_check; then
-        echo "New version of singbox.sh found! Updating..."
-        mv /tmp/singbox_update_check "$TARGET_SCRIPT"
-        chmod +x "$TARGET_SCRIPT"
-        echo "singbox.sh updated successfully."
-    else
-        echo "singbox.sh is up to date."
-        rm -f /tmp/singbox_update_check
-    fi
-else
-    echo "Could not fetch singbox.sh from remote. Falling back to built-in template..."
-    rm -f /tmp/singbox_update_check
-
-    cat << 'EOF' > /tmp/singbox_builtin
-#!/bin/bash
-echo "--- [sing-box VLESS Startup Script - Gaming Optimized] ---"
+echo "--- [sing-box VLESS TLS Startup Script - Gaming Optimized] ---"
 
 CONFIG_DIR="/usr/local/etc/sing-box"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
+CERT_DIR="/usr/local/etc/sing-box/tls"
 TEMP_CONFIG="/tmp/singbox_config_temp.json"
-mkdir -p "$CONFIG_DIR"
+mkdir -p "$CONFIG_DIR" "$CERT_DIR"
 
-# --- 1. Collect PORT first, before anything else ---
+# --- 1. Collect PORT ---
 if [ -z "$SERVER_PORT" ]; then
     echo ""
     echo "Please enter the port you want sing-box to listen on:"
@@ -98,7 +28,31 @@ if ! command -v sing-box &>/dev/null; then
 fi
 echo "sing-box installed: $(sing-box version | head -1)"
 
-# --- 3. Detect public IP (with multiple fallbacks) ---
+# --- 3. Install openssl if missing ---
+if ! command -v openssl &>/dev/null; then
+    echo "Installing openssl..."
+    apt-get install -y openssl 2>/dev/null || apk add openssl 2>/dev/null
+fi
+
+# --- 4. Generate lightweight ECDSA P-256 self-signed certificate ---
+FAKE_SNI="xbox.com"
+CERT_KEY="${CERT_DIR}/server.key"
+CERT_CRT="${CERT_DIR}/server.crt"
+
+if [ ! -f "$CERT_KEY" ] || [ ! -f "$CERT_CRT" ]; then
+    echo "Generating lightweight ECDSA P-256 certificate..."
+    openssl req -x509 -newkey ec \
+        -pkeyopt ec_paramgen_curve:P-256 \
+        -keyout "$CERT_KEY" \
+        -out "$CERT_CRT" \
+        -days 3650 -nodes \
+        -subj "/CN=${FAKE_SNI}/O=Microsoft/C=US"
+    echo "✅ Certificate generated (ECDSA P-256 - fast & lightweight)."
+else
+    echo "✅ Existing certificate found. Skipping generation."
+fi
+
+# --- 5. Detect public IP ---
 echo "Detecting public IP..."
 server_ip=""
 for url in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://checkip.amazonaws.com"; do
@@ -108,16 +62,14 @@ for url in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com"
     fi
     server_ip=""
 done
-if [ -z "$server_ip" ]; then
-    server_ip=$(hostname -I | awk '{print $1}')
-fi
+[ -z "$server_ip" ] && server_ip=$(hostname -I | awk '{print $1}')
 if [ -z "$server_ip" ]; then
     echo "❌ Could not detect server IP. Exiting."
     exit 1
 fi
 echo "✅ Server IP: $server_ip"
 
-# --- 4. Generate Gaming-Optimized config ---
+# --- 6. Generate Gaming-Optimized TLS config ---
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
 cat > "$TEMP_CONFIG" << JSON
@@ -140,13 +92,10 @@ cat > "$TEMP_CONFIG" << JSON
           "uuid": "${UUID}"
         }
       ],
-      "transport": {
-        "type": "http",
-        "host": ["playstation.net"],
-        "method": "GET"
-      },
-      "multiplex": {
-        "enabled": false
+      "tls": {
+        "enabled": true,
+        "certificate_path": "${CERT_CRT}",
+        "key_path": "${CERT_KEY}"
       }
     }
   ],
@@ -175,39 +124,24 @@ else
     rm -f "$TEMP_CONFIG"
 fi
 
-# --- 5. Validate config before starting ---
+# --- 7. Validate config ---
 if ! sing-box check -c "$CONFIG_PATH" 2>&1; then
     echo "❌ Config validation failed. Check config at $CONFIG_PATH"
     exit 1
 fi
 
-# --- 6. Print VLESS link ---
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&type=http&host=playstation.net&method=GET#Nour"
+# --- 8. Print VLESS TLS link ---
+VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=${FAKE_SNI}&allowInsecure=1&type=tcp&fp=chrome#Nour-TLS"
 echo ""
 echo "=========================================================="
-echo "sing-box VLESS Link (Gaming Optimized):"
+echo "sing-box VLESS TLS Link (Gaming Optimized):"
 echo "$VLESS_LINK"
 echo "=========================================================="
+echo "⚠️  Client must have 'Allow Insecure' / 'skip-cert-verify' enabled."
+echo "=========================================================="
 echo ""
 
-# --- 7. Start sing-box (flush output first) ---
+# --- 9. Start sing-box ---
 echo "Starting sing-box..."
 sleep 0.5
-
 exec sing-box run -c "$CONFIG_PATH"
-EOF
-
-    if [ ! -f "$TARGET_SCRIPT" ] || ! cmp -s /tmp/singbox_builtin "$TARGET_SCRIPT"; then
-        echo "singbox.sh is missing or differs from built-in template. Updating..."
-        mv /tmp/singbox_builtin "$TARGET_SCRIPT"
-        chmod +x "$TARGET_SCRIPT"
-        echo "singbox.sh updated from built-in template."
-    else
-        echo "singbox.sh matches built-in template. No update needed."
-        rm -f /tmp/singbox_builtin
-    fi
-fi
-
-echo "--- Setup Complete ---"
-echo "To start the sing-box server, run:"
-echo "bash ../singbox.sh"
