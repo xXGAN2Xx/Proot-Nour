@@ -59,7 +59,7 @@ generate_xray() {
     local TARGET="$1"
     cat << 'XRAY_EOF' > "$TARGET"
 #!/bin/bash
-export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
+
 echo "--- [Xray VLESS+Reality Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
@@ -98,7 +98,6 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [
           {
             "id": "${UUID}",
-            "flow": "xtls-rprx-vision",
             "level": 0
           }
         ],
@@ -111,9 +110,7 @@ cat > "$CONFIG_PATH" << JSON
           "show": false,
           "dest": "www.playstation.net:443",
           "serverNames": [
-            "www.playstation.net",
             "playstation.net",
-            "www.microsoft.com",
             "ekb.eg"
           ],
           "privateKey": "${PRIVATE_KEY}",
@@ -134,7 +131,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS+Reality Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome&flow=xtls-rprx-vision#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
