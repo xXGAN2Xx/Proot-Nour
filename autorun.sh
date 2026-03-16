@@ -59,7 +59,7 @@ generate_xray() {
     local TARGET="$1"
     cat << 'XRAY_EOF' > "$TARGET"
 #!/bin/bash
-
+export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 echo "--- [Xray VLESS+Reality Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
