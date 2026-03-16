@@ -66,6 +66,7 @@ CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
 
 mkdir -p "$CONFIG_DIR"
+mkdir -p /var/log/xray
 
 # --- Xray Core Installation ---
 echo "Checking/Installing Xray-core..."
@@ -90,6 +91,11 @@ PUBLIC_KEY="8l2Qhq3-A7hSbH-jj2dcTtI3ciixhLzVcfT-7I9SZ34"
 
 cat > "$CONFIG_PATH" << JSON
 {
+  "log": {
+    "loglevel": "info",
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log"
+  },
   "inbounds": [
     {
       "port": ${SERVER_PORT},
@@ -135,6 +141,7 @@ echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reali
 echo "=========================================================="
 
 echo "Starting Xray..."
+echo "Logs: tail -f /var/log/xray/access.log"
 xray run -c "$CONFIG_PATH"
 XRAY_EOF
 }
