@@ -14,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y --no-install-recommends curl wget sed python3-minimal tmate sudo openssl
+    apt-get install -y curl wget sed python3-minimal tmate sudo openssl
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -79,8 +79,9 @@ generate_ssl() {
         -days 365 -nodes \
         -subj "/CN=n" 2>/dev/null
 
-    chmod +x "$CERT_PATH"
-    chmod +x "$KEY_PATH"
+    # FIX: correct permissions — certs/keys are not executables
+    chmod 644 "$CERT_PATH"  # readable by all, writable by owner only
+    chmod 600 "$KEY_PATH"   # owner-only, private key must never be world-readable
     echo "  [SSL] ✅ Certificate generated."
 }
 
@@ -173,8 +174,22 @@ XRAY_EOF
 # ==========================================
 echo "--- [2] Checking for Updates ---"
 
+# FIX: hash before and after to detect if this script updated itself.
+# No exec since we're inside proot — warn user to re-run instead.
+SELF_HASH_BEFORE=$(md5sum "$0" | cut -d' ' -f1)
+
 check_update "$0" \
     "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
+
+SELF_HASH_AFTER=$(md5sum "$0" | cut -d' ' -f1)
+
+if [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
+    echo ""
+    echo "  ⚠️  autorun.sh was updated. Please re-run the script to use the new version:"
+    echo "      bash $0"
+    echo ""
+    exit 0
+fi
 
 # ==========================================
 #   [3] Generating proxy scripts & SSL
