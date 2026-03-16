@@ -55,6 +55,7 @@ check_update() {
 # ==========================================
 #   GENERATOR: xray.sh
 # ==========================================
+
 generate_xray() {
     local TARGET="$1"
     cat << 'XRAY_EOF' > "$TARGET"
@@ -136,6 +137,7 @@ XRAY_EOF
 # ==========================================
 #   [2] CHECK FOR UPDATES
 # ==========================================
+
 echo "--- [2] Checking for Updates ---"
 
 SELF_HASH_BEFORE=$(md5sum "$0" | cut -d' ' -f1)
@@ -156,6 +158,7 @@ fi
 # ==========================================
 #   [3] Generating proxy scripts
 # ==========================================
+
 echo "--- [3] Generating proxy scripts ---"
 
 generate_xray "$XRAY_SCRIPT"
@@ -164,6 +167,7 @@ chmod +x "$XRAY_SCRIPT"
 # ==========================================
 #        DONE
 # ==========================================
+
 echo ""
 echo "\e[1;36m"
 echo "  ╔══════════════════════════════════════════╗"
