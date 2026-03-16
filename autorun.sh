@@ -126,7 +126,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS+TCP+HTTP Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&type=http&host=playstation.net#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
