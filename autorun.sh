@@ -4,7 +4,7 @@
 #        MASTER SETUP SCRIPT
 # ==========================================
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 XRAY_SCRIPT="${PARENT_DIR}/xray.sh"
 
@@ -98,7 +98,7 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [
           {
             "id": "${UUID}",
-            "flow": "xtls-rprx-vision-udp443",
+            "flow": "xtls-rprx-vision",
             "level": 0
           }
         ],
@@ -111,7 +111,9 @@ cat > "$CONFIG_PATH" << JSON
           "show": false,
           "dest": "www.playstation.net:443",
           "serverNames": [
+            "www.playstation.net",
             "playstation.net",
+            "www.microsoft.com",
             "ekb.eg"
           ],
           "privateKey": "${PRIVATE_KEY}",
@@ -132,7 +134,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS+Reality Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome&flow=xtls-rprx-vision-udp443#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome&flow=xtls-rprx-vision#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
