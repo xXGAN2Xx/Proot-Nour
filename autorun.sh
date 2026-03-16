@@ -4,7 +4,8 @@
 #        MASTER SETUP SCRIPT
 # ==========================================
 
-PARENT_DIR=$(cd .. && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 XRAY_SCRIPT="${PARENT_DIR}/xray.sh"
 
 # Lock file to track if dependencies are already installed
@@ -13,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo openssl
+    apt-get install -y --no-install-recommends curl wget sed python3-minimal tmate sudo openssl
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -159,7 +160,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS Link:"
-echo "vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=true#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=true#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
