@@ -111,7 +111,7 @@ cat > "$CONFIG_PATH" << JSON
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "dest": "www.playstation.net:443",
+          "dest": ""www.google.com:443",
           "serverNames": [
             "playstation.net",
             "ekb.eg"
