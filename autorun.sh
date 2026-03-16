@@ -14,7 +14,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo openssl
+    apt-get install -y curl wget sed python3-minimal tmate sudo ca-certificates openssl
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -60,32 +60,6 @@ check_update() {
 }
 
 # ==========================================
-#   GENERATOR: ssl cert
-# ==========================================
-generate_ssl() {
-    local CERT_PATH="$1"
-    local KEY_PATH="$2"
-
-    if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
-        echo "  [SSL] ✔  Certificate already exists. Skipping."
-        return
-    fi
-
-    echo "  [SSL] Generating self-signed certificate..."
-    openssl req -x509 -newkey ec \
-        -pkeyopt ec_paramgen_curve:P-256 \
-        -keyout "$KEY_PATH" \
-        -out "$CERT_PATH" \
-        -days 365 -nodes \
-        -subj "/CN=n" 2>/dev/null
-
-    # FIX: correct permissions — certs/keys are not executables
-    chmod 644 "$CERT_PATH"  # readable by all, writable by owner only
-    chmod 600 "$KEY_PATH"   # owner-only, private key must never be world-readable
-    echo "  [SSL] ✅ Certificate generated."
-}
-
-# ==========================================
 #   GENERATOR: xray.sh
 # ==========================================
 generate_xray() {
@@ -93,13 +67,10 @@ generate_xray() {
     cat << 'XRAY_EOF' > "$TARGET"
 #!/bin/bash
 
-echo "--- [Xray VLESS Startup Script] ---"
+echo "--- [Xray VLESS+Reality Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-SSL_DIR="/usr/local/etc/ssl"
-CERT_PATH="${SSL_DIR}/cert.crt"
-KEY_PATH="${SSL_DIR}/key.key"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -122,6 +93,17 @@ fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
+# --- Generate Reality key pair ---
+echo "Generating Reality key pair..."
+KEYS=$(xray x25519)
+PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | awk '{print $3}')
+PUBLIC_KEY=$(echo "$KEYS"  | grep "Public key:"  | awk '{print $3}')
+SHORT_ID=$(openssl rand -hex 8)
+
+echo "  Private key : $PRIVATE_KEY"
+echo "  Public key  : $PUBLIC_KEY"
+echo "  Short ID    : $SHORT_ID"
+
 cat > "$CONFIG_PATH" << JSON
 {
   "inbounds": [
@@ -139,13 +121,16 @@ cat > "$CONFIG_PATH" << JSON
       },
       "streamSettings": {
         "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "${CERT_PATH}",
-              "keyFile": "${KEY_PATH}"
-            }
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": [
+            "www.microsoft.com"
+          ],
+          "privateKey": "${PRIVATE_KEY}",
+          "shortIds": [
+            "${SHORT_ID}"
           ]
         }
       }
@@ -160,8 +145,8 @@ cat > "$CONFIG_PATH" << JSON
 JSON
 
 echo "=========================================================="
-echo "Xray VLESS Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=true#Nour"
+echo "Xray VLESS+Reality Link:"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.microsoft.com&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&fp=chrome#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
@@ -192,16 +177,10 @@ if [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
 fi
 
 # ==========================================
-#   [3] Generating proxy scripts & SSL
+#   [3] Generating proxy scripts
 # ==========================================
 echo "--- [3] Generating proxy scripts ---"
 
-SSL_DIR="/usr/local/etc/ssl"
-CERT_PATH="${SSL_DIR}/cert.crt"
-KEY_PATH="${SSL_DIR}/key.key"
-mkdir -p "$SSL_DIR"
-
-generate_ssl "$CERT_PATH" "$KEY_PATH"
 generate_xray "$XRAY_SCRIPT"
 chmod +x "$XRAY_SCRIPT"
 
@@ -214,7 +193,6 @@ echo "  ╔═══════════════════════
 echo "  ║         ✅  SETUP COMPLETE               ║"
 echo "  ╠══════════════════════════════════════════╣"
 echo "  ║                                          ║"
-echo "  ║  🔐 SSL Certificate  →  Ready            ║"
 echo "  ║  ⚙️  Xray Config      →  Ready            ║"
 echo "  ║                                          ║"
 echo "  ╠══════════════════════════════════════════╣"
