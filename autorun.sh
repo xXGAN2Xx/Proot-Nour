@@ -221,5 +221,5 @@ echo "  ╠═══════════════════════
 echo "  ║  ▶  To start Xray:                       ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo -e "\e[0m"
-echo -e "bash ../xray.sh"
+echo "bash ../xray.sh"
 echo ""
