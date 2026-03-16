@@ -20,38 +20,6 @@ else
     echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
 fi
 
-check_update() {
-    local TARGET="$1"
-    local URL="$2"
-    local GENERATOR="${3:-}"
-    local NAME
-    NAME=$(basename "$TARGET")
-
-    echo "  [$NAME] Checking..."
-    curl -fsSL "$URL" -o /tmp/_update_check 2>/dev/null
-
-    if [ -s /tmp/_update_check ]; then
-        if [ ! -f "$TARGET" ] || ! cmp -s "$TARGET" /tmp/_update_check; then
-            mv /tmp/_update_check "$TARGET"
-            chmod +x "$TARGET"
-            echo "  [$NAME] ✅ Updated to latest version."
-        else
-            rm -f /tmp/_update_check
-            echo "  [$NAME] ✔  Already up to date."
-        fi
-    else
-        rm -f /tmp/_update_check
-        echo "  [$NAME] ⚠️  Could not reach remote. Skipping update."
-    fi
-
-    if [ ! -f "$TARGET" ] && [ -n "$GENERATOR" ]; then
-        echo "  [$NAME] Generating locally..."
-        $GENERATOR "$TARGET"
-        chmod +x "$TARGET"
-        echo "  [$NAME] Created from built-in template."
-    fi
-}
-
 # ==========================================
 #   GENERATOR: xray.sh
 # ==========================================
@@ -148,31 +116,10 @@ XRAY_EOF
 }
 
 # ==========================================
-#   [2] CHECK FOR UPDATES
+#   [2] Generating proxy scripts
 # ==========================================
 
-echo "--- [2] Checking for Updates ---"
-
-SELF_HASH_BEFORE=$(md5sum "$0" | cut -d' ' -f1)
-
-check_update "$0" \
-    "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
-
-SELF_HASH_AFTER=$(md5sum "$0" | cut -d' ' -f1)
-
-if [ "$SELF_HASH_BEFORE" != "$SELF_HASH_AFTER" ]; then
-    echo ""
-    echo "  ⚠️  autorun.sh was updated. Please re-run the script to use the new version:"
-    echo "      bash $0"
-    echo ""
-    exit 0
-fi
-
-# ==========================================
-#   [3] Generating proxy scripts
-# ==========================================
-
-echo "--- [3] Generating proxy scripts ---"
+echo "--- [2] Generating proxy scripts ---"
 
 generate_xray "$XRAY_SCRIPT"
 chmod +x "$XRAY_SCRIPT"
