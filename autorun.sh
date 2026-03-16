@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 XRAY_SCRIPT="${PARENT_DIR}/xray.sh"
 
-# Lock file to track if dependencies are already installed
 DEP_LOCK_FILE="/etc/os_deps_installed"
 
 if [ ! -f "$DEP_LOCK_FILE" ]; then
@@ -21,11 +20,6 @@ else
     echo "--- [1] System Setup: Dependencies already installed. Skipping. ---"
 fi
 
-# ==========================================
-#   HELPER: check_update <target> <url> [generator_func]
-#   Unified updater for ALL scripts including this one.
-#   Updates in-place and continues (no restart).
-# ==========================================
 check_update() {
     local TARGET="$1"
     local URL="$2"
@@ -50,7 +44,6 @@ check_update() {
         echo "  [$NAME] ⚠️  Could not reach remote. Skipping update."
     fi
 
-    # If still missing and a generator was provided, create it locally
     if [ ! -f "$TARGET" ] && [ -n "$GENERATOR" ]; then
         echo "  [$NAME] Generating locally..."
         $GENERATOR "$TARGET"
@@ -92,17 +85,9 @@ if [ -z "$SERVER_PORT" ]; then
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-
-# --- Generate Reality key pair ---
-echo "Generating Reality key pair..."
-KEYS=$(xray x25519)
-PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | awk '{print $3}')
-PUBLIC_KEY=$(echo "$KEYS"  | grep "Public key:"  | awk '{print $3}')
-SHORT_ID=$(openssl rand -hex 8)
-
-echo "  Private key : $PRIVATE_KEY"
-echo "  Public key  : $PUBLIC_KEY"
-echo "  Short ID    : $SHORT_ID"
+PRIVATE_KEY="8NMmGJEFQyiyqwOzSh5b_gv1regoY_UKqGshSZNhQEc"
+PUBLIC_KEY="8l2Qhq3-A7hSbH-jj2dcTtI3ciixhLzVcfT-7I9SZ34"
+SHORT_ID="db2439b0f228e5de"
 
 cat > "$CONFIG_PATH" << JSON
 {
@@ -159,8 +144,6 @@ XRAY_EOF
 # ==========================================
 echo "--- [2] Checking for Updates ---"
 
-# FIX: hash before and after to detect if this script updated itself.
-# No exec since we're inside proot — warn user to re-run instead.
 SELF_HASH_BEFORE=$(md5sum "$0" | cut -d' ' -f1)
 
 check_update "$0" \
@@ -188,7 +171,7 @@ chmod +x "$XRAY_SCRIPT"
 #        DONE
 # ==========================================
 echo ""
-echo -e "\e[1;36m"
+echo "\e[1;36m"
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║         ✅  SETUP COMPLETE               ║"
 echo "  ╠══════════════════════════════════════════╣"
@@ -198,6 +181,6 @@ echo "  ║                                          ║"
 echo "  ╠══════════════════════════════════════════╣"
 echo "  ║  ▶  To start Xray:                       ║"
 echo "  ╚══════════════════════════════════════════╝"
-echo -e "\e[0m"
+echo "\e[0m"
 echo "bash ../xray.sh"
 echo ""
