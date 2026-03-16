@@ -87,6 +87,19 @@ fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
+if [ -z "$SERVER_IP" ]; then
+    echo "🔍 Auto-detecting public IP..."
+    SERVER_IP=$(curl -s --max-time 5 https://api.ipify.org \
+             || curl -s --max-time 5 https://ifconfig.me \
+             || curl -s --max-time 5 https://icanhazip.com)
+    if [ -n "$SERVER_IP" ]; then
+        echo "✅ Detected IP: $SERVER_IP"
+    else
+        echo "⚠️  Could not auto-detect IP. Please enter it manually:"
+        read -rp "SERVER_IP: " SERVER_IP
+    fi
+fi
+
 cat > "$CONFIG_PATH" << JSON
 {
   "log": {
