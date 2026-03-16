@@ -71,7 +71,7 @@ fi
 cat > "$CONFIG_PATH" << JSON
 {
   "log": {
-    "loglevel": "info"
+    "loglevel": "none"
   },
   "inbounds": [
     {
