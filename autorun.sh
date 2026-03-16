@@ -60,7 +60,7 @@ generate_xray() {
     cat << 'XRAY_EOF' > "$TARGET"
 #!/bin/bash
 
-echo "--- [Xray VLESS+Reality Startup Script] ---"
+echo "--- [Xray VLESS+TCP+HTTP Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
@@ -85,8 +85,6 @@ if [ -z "$SERVER_PORT" ]; then
 fi
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
-PRIVATE_KEY="8NMmGJEFQyiyqwOzSh5b_gv1regoY_UKqGshSZNhQEc"
-PUBLIC_KEY="8l2Qhq3-A7hSbH-jj2dcTtI3ciixhLzVcfT-7I9SZ34"
 
 cat > "$CONFIG_PATH" << JSON
 {
@@ -108,18 +106,11 @@ cat > "$CONFIG_PATH" << JSON
       },
       "streamSettings": {
         "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "dest": "www.google.com:443",
-          "serverNames": [
-            "playstation.net",
-            "ekb.eg"
-          ],
-          "privateKey": "${PRIVATE_KEY}",
-          "shortIds": [
-            ""
-          ]
+        "security": "none",
+        "tcpSettings": {
+          "header": {
+            "type": "http"
+          }
         }
       }
     }
@@ -133,8 +124,8 @@ cat > "$CONFIG_PATH" << JSON
 JSON
 
 echo "=========================================================="
-echo "Xray VLESS+Reality Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome#Nour"
+echo "Xray VLESS+TCP+HTTP Link:"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
