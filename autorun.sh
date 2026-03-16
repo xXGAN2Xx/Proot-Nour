@@ -98,7 +98,7 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [
           {
             "id": "${UUID}",
-            "flow": "xtls-rprx-vision",
+            "flow": "xtls-rprx-vision-udp443",
             "level": 0
           }
         ],
@@ -132,7 +132,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS+Reality Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome&flow=xtls-rprx-vision-udp443#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
