@@ -13,7 +13,7 @@ DEP_LOCK_FILE="/etc/os_deps_installed"
 if [ ! -f "$DEP_LOCK_FILE" ]; then
     echo "--- [1] First Time Setup: Updating & Installing Dependencies ---"
     apt-get update -y
-    apt-get install -y curl wget sed python3-minimal tmate sudo
+    apt-get install -y curl wget sed python3-minimal tmate sudo openssl
     touch "$DEP_LOCK_FILE"
     echo "Dependencies installed."
 else
@@ -59,6 +59,31 @@ check_update() {
 }
 
 # ==========================================
+#   GENERATOR: ssl cert
+# ==========================================
+generate_ssl() {
+    local CERT_PATH="$1"
+    local KEY_PATH="$2"
+
+    if [ -f "$CERT_PATH" ] && [ -f "$KEY_PATH" ]; then
+        echo "  [SSL] ✔  Certificate already exists. Skipping."
+        return
+    fi
+
+    echo "  [SSL] Generating self-signed certificate..."
+    openssl req -x509 -newkey ec \
+        -pkeyopt ec_paramgen_curve:P-256 \
+        -keyout "$KEY_PATH" \
+        -out "$CERT_PATH" \
+        -days 365 -nodes \
+        -subj "/CN=n" 2>/dev/null
+
+    chmod +x "$CERT_PATH"
+    chmod +x "$KEY_PATH"
+    echo "  [SSL] ✅ Certificate generated."
+}
+
+# ==========================================
 #   GENERATOR: xray.sh
 # ==========================================
 generate_xray() {
@@ -70,6 +95,9 @@ echo "--- [Xray VLESS Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
+SSL_DIR="/usr/local/etc/ssl"
+CERT_PATH="${SSL_DIR}/cert.crt"
+KEY_PATH="${SSL_DIR}/key.key"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -113,8 +141,8 @@ cat > "$CONFIG_PATH" << JSON
         "tlsSettings": {
           "certificates": [
             {
-              "certificateFile": "/etc/ssl/certs/your_cert.crt",
-              "keyFile": "/etc/ssl/private/your_key.key"
+              "certificateFile": "${CERT_PATH}",
+              "keyFile": "${KEY_PATH}"
             }
           ]
         }
@@ -128,8 +156,6 @@ cat > "$CONFIG_PATH" << JSON
   ]
 }
 JSON
-
-VLESS_LINK="vless://${UUID}@${server_ip}:${SERVER_PORT}?encryption=none&security=none&type=tcp&headerType=http&host=playstation.net#Nour"
 
 echo "=========================================================="
 echo "Xray VLESS Link:"
@@ -146,24 +172,38 @@ XRAY_EOF
 # ==========================================
 echo "--- [2] Checking for Updates ---"
 
-# autorun.sh — fetched from GitHub
 check_update "$0" \
     "https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/autorun.sh"
 
-# xray.sh and singbox.sh — generated locally (no remote file)
+# ==========================================
+#   [3] Generating proxy scripts & SSL
+# ==========================================
 echo "--- [3] Generating proxy scripts ---"
-    generate_xray "$XRAY_SCRIPT"
-    chmod +x "$XRAY_SCRIPT"
+
+SSL_DIR="/usr/local/etc/ssl"
+CERT_PATH="${SSL_DIR}/cert.crt"
+KEY_PATH="${SSL_DIR}/key.key"
+mkdir -p "$SSL_DIR"
+
+generate_ssl "$CERT_PATH" "$KEY_PATH"
+generate_xray "$XRAY_SCRIPT"
+chmod +x "$XRAY_SCRIPT"
 
 # ==========================================
 #        DONE
 # ==========================================
 echo ""
-echo "=========================================================="
-echo "--- Setup Complete --- Both scripts are ready!"
-echo "=========================================================="
+echo -e "\e[1;36m"
+echo "  ╔══════════════════════════════════════════╗"
+echo "  ║         ✅  SETUP COMPLETE               ║"
+echo "  ╠══════════════════════════════════════════╣"
+echo "  ║                                          ║"
+echo "  ║  🔐 SSL Certificate  →  Ready            ║"
+echo "  ║  ⚙️  Xray Config      →  Ready            ║"
+echo "  ║                                          ║"
+echo "  ╠══════════════════════════════════════════╣"
+echo "  ║  ▶  To start Xray:                       ║"
+echo "  ╚══════════════════════════════════════════╝"
+echo -e "\e[0m"
+echo -e "\e[1;37m  bash ../xray.sh\e[0m"
 echo ""
-echo "  to start the Xray server:"
-echo "bash ../../xray.sh"
-echo ""
-echo "=========================================================="
