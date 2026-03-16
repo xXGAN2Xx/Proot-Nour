@@ -87,7 +87,6 @@ fi
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 PRIVATE_KEY="8NMmGJEFQyiyqwOzSh5b_gv1regoY_UKqGshSZNhQEc"
 PUBLIC_KEY="8l2Qhq3-A7hSbH-jj2dcTtI3ciixhLzVcfT-7I9SZ34"
-SHORT_ID="db2439b0f228e5de"
 
 cat > "$CONFIG_PATH" << JSON
 {
@@ -99,6 +98,7 @@ cat > "$CONFIG_PATH" << JSON
         "clients": [
           {
             "id": "${UUID}",
+            "flow": "xtls-rprx-vision",
             "level": 0
           }
         ],
@@ -109,13 +109,14 @@ cat > "$CONFIG_PATH" << JSON
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "dest": "www.microsoft.com:443",
+          "dest": "www.playstation.net:443",
           "serverNames": [
-            "www.microsoft.com"
+            "playstation.net",
+            "ekb.eg"
           ],
           "privateKey": "${PRIVATE_KEY}",
           "shortIds": [
-            "${SHORT_ID}"
+            ""
           ]
         }
       }
@@ -131,7 +132,7 @@ JSON
 
 echo "=========================================================="
 echo "Xray VLESS+Reality Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.microsoft.com&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&fp=chrome#Nour"
+echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=www.playstation.net&pbk=${PUBLIC_KEY}&type=tcp&fp=chrome#Nour"
 echo "=========================================================="
 
 echo "Starting Xray..."
