@@ -142,8 +142,32 @@ generate_hy2() {
 
 echo "--- [Hysteria2 Startup Script] ---"
 
-: "${SERVER_IP:?SERVER_IP is not set}"
-: "${SERVER_PORT:?SERVER_PORT is not set}"
+# --- Port ---
+if [ -z "${SERVER_PORT:-}" ]; then
+    echo ""
+    echo "⚠️  SERVER_PORT is not set!"
+    read -rp "SERVER_PORT: " SERVER_PORT
+    while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' \
+          || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
+        echo "❌ Invalid port. Enter a number between 1 and 65535:"
+        read -rp "SERVER_PORT: " SERVER_PORT
+    done
+    echo "✅ Using port: $SERVER_PORT"
+fi
+
+# --- IP ---
+if [ -z "${SERVER_IP:-}" ]; then
+    echo "🔍 Auto-detecting public IP..."
+    SERVER_IP=$(curl -s --max-time 5 https://api.ipify.org \
+             || curl -s --max-time 5 https://ifconfig.me \
+             || curl -s --max-time 5 https://icanhazip.com || true)
+    if [ -n "$SERVER_IP" ]; then
+        echo "✅ Detected IP: $SERVER_IP"
+    else
+        echo "⚠️  Could not auto-detect IP. Please enter it manually:"
+        read -rp "SERVER_IP: " SERVER_IP
+    fi
+fi
 
 HY2_PASS="nour"
 CERT_DIR="/etc/hysteria"
