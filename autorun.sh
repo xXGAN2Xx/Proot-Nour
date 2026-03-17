@@ -37,11 +37,10 @@ generate_xray() {
     cat << 'XRAY_EOF' > "$TARGET"
 #!/bin/bash
 
-echo "--- [Xray VLESS+TCP+TLS Startup Script] ---"
+echo "--- [Xray VLESS+TCP+REALITY Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
 CONFIG_PATH="${CONFIG_DIR}/config.json"
-CERT_DIR="/etc/hysteria"
 
 mkdir -p "$CONFIG_DIR"
 
@@ -76,21 +75,13 @@ if [ -z "${SERVER_IP:-}" ]; then
     fi
 fi
 
-# --- TLS certificate (shared with Hysteria2) ---
-mkdir -p "$CERT_DIR"
-if [ ! -f "$CERT_DIR/server.crt" ] || [ ! -f "$CERT_DIR/server.key" ]; then
-    echo "Generating self-signed TLS certificate..."
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
-        -keyout "$CERT_DIR/server.key" \
-        -out    "$CERT_DIR/server.crt" \
-        -days 3650 -nodes \
-        -subj "/C=JP/ST=Tokyo/O=Sony Interactive Entertainment/CN=playstation.net" \
-        -addext "subjectAltName=IP:${SERVER_IP}"
-    chmod 600 "$CERT_DIR/server.key"
-    chmod 644 "$CERT_DIR/server.crt"
-fi
+# --- REALITY static keypair ---
+PRIVATE_KEY="WAknjCzrZE_OgBB3p1579an4Yy-0dkdjl0Ic70-Svl8"
+PUBLIC_KEY="X-30WKOlRoYNZPDtyEys7oYKTFJoP-1k9qLfvNVPPgQ"
 
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
+REALITY_DEST="www.google.com:443"
+REALITY_SNI="playstation.net"
 
 cat > "$CONFIG_PATH" << JSON
 {
@@ -100,19 +91,29 @@ cat > "$CONFIG_PATH" << JSON
       "port": ${SERVER_PORT},
       "protocol": "vless",
       "settings": {
-        "clients": [ { "id": "${UUID}", "level": 0 } ],
+        "clients": [
+          {
+            "id": "${UUID}",
+            "level": 0
+          }
+        ],
         "decryption": "none"
       },
       "streamSettings": {
         "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "${CERT_DIR}/server.crt",
-              "keyFile": "${CERT_DIR}/server.key"
-            }
-          ]
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "${REALITY_DEST}",
+          "serverNames": [
+            "${REALITY_SNI}",
+            "ekb.eg",
+            "www.facebook.com",
+            "c.whatsapp.net",
+            "www.youtube.com"
+          ],
+          "privateKey": "${PRIVATE_KEY}",
+          "shortIds": [""]
         }
       }
     }
@@ -121,10 +122,12 @@ cat > "$CONFIG_PATH" << JSON
 }
 JSON
 
+echo ""
 echo "=========================================================="
-echo "Xray VLESS+TCP+TLS Link:"
-echo "vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=tls&sni=playstation.net&allowInsecure=1#Nour"
+echo "  VLESS+TCP+REALITY Link:"
+echo "  vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${PUBLIC_KEY}&allowInsecure=1#Nour"
 echo "=========================================================="
+echo ""
 
 echo "Starting Xray..."
 xray run -c "$CONFIG_PATH"
@@ -262,15 +265,15 @@ printf "\e[1;36m"
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║         ✅  SETUP COMPLETE               ║"
 echo "  ╠══════════════════════════════════════════╣"
-echo "  ║         By Nour                           ║"
+echo "  ║                                          ║"
 echo "  ║  ⚙️  Xray Config      →  Ready            ║"
 echo "  ║  ⚙️  Hysteria2 Config →  Ready            ║"
 echo "  ║                                          ║"
 echo "  ╠══════════════════════════════════════════╣"
 echo "  ║  ▶  To start Xray:                       ║"
-echo "  ║     bash ../xray.sh                      ║"
+echo "bash ../xray.sh"
 echo "  ║                                          ║"
 echo "  ║  ▶  To start Hysteria2:                  ║"
-echo "  ║     bash ../hy2.sh                       ║"
+echo "bash ../hy2.sh"
 echo "  ╚══════════════════════════════════════════╝"
 printf "\e[0m\n"
