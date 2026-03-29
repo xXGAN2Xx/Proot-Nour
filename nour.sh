@@ -17,11 +17,11 @@ setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
     case "$ARCH" in
-        x86_64)  
+        x86_64)
             BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
             JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
             ;;
-        aarch64) 
+        aarch64)
             BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-armv8l-linux-musl/busybox"
             JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-arm64"
             ;;
@@ -38,7 +38,7 @@ setup_tools() {
         exit 1
     fi
     chmod +x "${LOCAL_BIN}/busybox"
-    
+
     for tool in xz tar unxz gzip bzip2 bash ip wget; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
@@ -55,10 +55,10 @@ setup_tools() {
 
 sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
-    
+
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
-    
+
     declare -A scripts=(
         ["vnc_install.sh"]="$BASE/vnc_install.sh"
         ["common.sh"]="$BASE/common.sh"
@@ -77,42 +77,9 @@ sync_scripts() {
     done
 }
 
-modify_scripts() {
-    echo -e "${B}Applying patches to scripts...${NC}"
-
-    sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/entrypoint.sh"
-    sed -i 's|/bin/sh "/install.sh"|/bin/sh "$HOME/install.sh"|g' "${HOME}/entrypoint.sh"
-    sed -i 's|sh /helper.sh|sh $HOME/helper.sh|g' "${HOME}/entrypoint.sh"
-
-    sed -i 's|cp /common.sh "\$HOME/common.sh"|cp /common.sh "/common.sh"|g' "${HOME}/helper.sh"
-    sed -i 's|cp /run.sh "\$HOME/run.sh"|cp /run.sh "/run.sh"|g' "${HOME}/helper.sh"
-    sed -i 's|config_file="\$HOME/vps.config"|config_file="/vps.config"|g' "${HOME}/helper.sh"
-    sed -i "s|/usr/local/bin/proot|\$HOME/usr/local/bin/proot|g" "${HOME}/helper.sh"
-    sed -i 's|-0 -w "\${HOME}"|-0 -w "/root"|g' "${HOME}/helper.sh"
-
-    sed -i 's|\. /common.sh|. $HOME/common.sh|g' "${HOME}/install.sh"
-    sed -i '/export PATH=/a export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:~/.local/usr/lib:~/.local/usr/lib64"' "${HOME}/install.sh"
-
-    sed -i 's|HISTORY_FILE="\${HOME}/.custom_shell_history"|HISTORY_FILE="/.custom_shell_history"|g' "${HOME}/run.sh"
-    sed -i '/"sudo"\*|"su"\*)/,/;;/d' "${HOME}/run.sh"
-    sed -i '/"help")/i \        "stop"*|"restart"*)\n            cleanup\n        ;;' "${HOME}/run.sh"
-    sed -i 's|VNC server stopped|VNC server sto pped|g' "${HOME}/run.sh"
-    sed -i 's|Server stopped|Server sto pped|g' "${HOME}/run.sh"
-    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/run.sh"
-    sed -i 's|<server-ip>|${server_ip}|g' "${HOME}/vnc_install.sh"
-
-    if [[ -f "${HOME}/run.sh" ]]; then
-        sed -i '/TUNNEL_LOG="\/tmp\/cloudflared.log"/a \    > "$TUNNEL_LOG"' "${HOME}/run.sh"
-        sed -i 's|cloudflared tunnel --url|cloudflared tunnel --protocol http2 --url|' "${HOME}/run.sh"
-        sed -i 's#sleep 5#PID=$!; i=0; while [ $i -lt 60 ]; do kill -0 $PID 2>/dev/null || break; if grep -q "https://.*trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; i=$((i+1)); done#' "${HOME}/run.sh"
-        sed -i '/Check $TUNNEL_LOG for the URL/a \        cat "$TUNNEL_LOG"' "${HOME}/run.sh"
-    fi
-}
-
 cd "${HOME}"
 [[ -f "$DEP_FLAG" ]] || setup_tools
 sync_scripts
-modify_scripts
 
 if [ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
