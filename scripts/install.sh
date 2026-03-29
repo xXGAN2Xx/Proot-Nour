@@ -331,11 +331,9 @@ else
 fi
 
 # Copy run.sh, common.sh, and vnc_install.sh to ROOTFS_DIR and make them executable
-cp /common.sh /run.sh "$ROOTFS_DIR"
 chmod +x "$ROOTFS_DIR/common.sh" "$ROOTFS_DIR/run.sh"
 
 if [ -f "/vnc_install.sh" ]; then
-    cp /vnc_install.sh "$ROOTFS_DIR"
     chmod +x "$ROOTFS_DIR/vnc_install.sh"
 fi
 
