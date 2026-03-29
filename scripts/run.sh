@@ -313,7 +313,7 @@ stop_vnc() {
     pkill -f "x11vnc" > /dev/null 2>&1
     pkill -f "Xvfb" > /dev/null 2>&1
     
-    log "SUCCESS" "VNC server sto pped." "$GREEN"
+    log "SUCCESS" "VNC server stopped." "$GREEN"
 }
 
 start_novnc() {
@@ -432,14 +432,6 @@ start_tunnel() {
     
     TUNNEL_LOG="/tmp/cloudflared.log"
     > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
-    > "$TUNNEL_LOG"
     cloudflared tunnel --protocol http2 --url "http://localhost:$NOVNC_PORT" > "$TUNNEL_LOG" 2>&1 &
     
     PID=$!; i=0; while [ $i -lt 60 ]; do kill -0 $PID 2>/dev/null || break; if grep -q "https://.*trycloudflare.com" "$TUNNEL_LOG"; then break; fi; sleep 1; i=$((i+1)); done
@@ -455,14 +447,6 @@ start_tunnel() {
     else
         log "WARNING" "Tunnel started but URL not yet available" "$YELLOW"
         log "INFO" "Check $TUNNEL_LOG for the URL" "$YELLOW"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
-        cat "$TUNNEL_LOG"
         cat "$TUNNEL_LOG"
     fi
 }
@@ -571,9 +555,6 @@ create_backup() {
     backup_file="/backup_$(date +%Y%m%d%H%M%S).tar.gz"
     exclude_file="/tmp/exclude-list.txt"
 
-    # Create a file with a list of patterns to exclude. This is more
-    # compatible with different versions of tar, including busybox tar.
-    # We use relative paths for exclusion as we'll be running tar from /.
     cat > "$exclude_file" <<EOF
 ./${backup_file#/}
 ./proc
@@ -589,7 +570,6 @@ EOF
     (cd / && tar --numeric-owner -czf "$backup_file" -X "$exclude_file" .) > /dev/null 2>&1
     log "SUCCESS" "Backup created at $backup_file" "$GREEN"
 
-    # Clean up the exclude file
     rm -f "$exclude_file"
 }
 
@@ -597,7 +577,6 @@ EOF
 restore_backup() {
     backup_file="$1"
 
-    # Check if tar is installed
     if ! command -v tar > /dev/null 2>&1; then
         log "ERROR" "tar is not installed. Please install tar first." "$RED"
         return 1
@@ -727,30 +706,6 @@ execute_command() {
             restore_backup "$backup_file"
             print_prompt "$user"
             return 0
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
-        ;;
-        "stop"*|"restart"*)
-            cleanup
         ;;
         "stop"*|"restart"*)
             cleanup
