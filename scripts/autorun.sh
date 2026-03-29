@@ -108,7 +108,7 @@ JSON
 echo ""
 echo "=========================================================="
 echo "  VLESS+TCP+REALITY Link:"
-echo "  vless://\${UUID}@${server_ip}:\${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&fp=chrome&pbk=\${PUBLIC_KEY}&allowInsecure=1#Nour"
+echo "  vless://\${UUID}@${server_ip}:\${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&allowInsecure=true&alpn&pbk=\${PUBLIC_KEY}&sid=&packetEncoding=xudp#Nour"
 echo "=========================================================="
 echo ""
 
