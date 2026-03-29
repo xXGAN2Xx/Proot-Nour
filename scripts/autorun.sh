@@ -33,64 +33,50 @@ fi
 
 generate_xray() {
     local TARGET="$1"
-    cat << 'XRAY_EOF' > "$TARGET"
+    # Using evaluated heredoc to bake the existing SERVER_IP into the script
+    cat << EOF > "$TARGET"
 #!/bin/bash
 
 echo "--- [Xray VLESS+TCP+REALITY Startup Script] ---"
 
 CONFIG_DIR="/usr/local/etc/xray"
-CONFIG_PATH="${CONFIG_DIR}/config.json"
+CONFIG_PATH="\${CONFIG_DIR}/config.json"
 
-mkdir -p "$CONFIG_DIR"
+mkdir -p "\$CONFIG_DIR"
 
 # --- Xray Core Installation ---
 echo "Checking/Installing Xray-core..."
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
+bash -c "\$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --without-geodata
 
 # --- Port ---
-if [ -z "${SERVER_PORT:-}" ]; then
+if [ -z "\${SERVER_PORT:-}" ]; then
     echo ""
     echo "⚠️  SERVER_PORT is not set!"
     read -rp "SERVER_PORT: " SERVER_PORT
-    while [ -z "$SERVER_PORT" ] || ! echo "$SERVER_PORT" | grep -qE '^[0-9]+$' \
-          || [ "$SERVER_PORT" -lt 1 ] || [ "$SERVER_PORT" -gt 65535 ]; do
+    while [ -z "\$SERVER_PORT" ] || ! echo "\$SERVER_PORT" | grep -qE '^[0-9]+$' \
+          || [ "\$SERVER_PORT" -lt 1 ] || [ "\$SERVER_PORT" -gt 65535 ]; do
         echo "❌ Invalid port. Enter a number between 1 and 65535:"
         read -rp "SERVER_PORT: " SERVER_PORT
     done
-    echo "✅ Using port: $SERVER_PORT"
-fi
-
-# --- IP ---
-if [ -z "${SERVER_IP:-}" ]; then
-    echo "🔍 Auto-detecting public IP..."
-    SERVER_IP=$(curl -s --max-time 5 https://api.ipify.org \
-             || curl -s --max-time 5 https://ifconfig.me \
-             || curl -s --max-time 5 https://icanhazip.com || true)
-    if [ -n "$SERVER_IP" ]; then
-        echo "✅ Detected IP: $SERVER_IP"
-    else
-        echo "⚠️  Could not auto-detect IP. Please enter it manually:"
-        read -rp "SERVER_IP: " SERVER_IP
-    fi
+    echo "✅ Using port: \$SERVER_PORT"
 fi
 
 # --- REALITY static keypair ---
 PRIVATE_KEY="WAknjCzrZE_OgBB3p1579an4Yy-0dkdjl0Ic70-Svl8"
 PUBLIC_KEY="X-30WKOlRoYNZPDtyEys7oYKTFJoP-1k9qLfvNVPPgQ"
-
 UUID="a4af6a92-4dba-4cd1-841d-8ac7b38f9d6e"
 
-cat > "$CONFIG_PATH" << JSON
+cat > "\$CONFIG_PATH" << JSON
 {
   "log": { "loglevel": "none" },
   "inbounds": [
     {
-      "port": ${SERVER_PORT},
+      "port": \${SERVER_PORT},
       "protocol": "vless",
       "settings": {
         "clients": [
           {
-            "id": "${UUID}",
+            "id": "\${UUID}",
             "level": 0
           }
         ],
@@ -109,7 +95,7 @@ cat > "$CONFIG_PATH" << JSON
             "c.whatsapp.net",
             "www.youtube.com"
           ],
-          "privateKey": "${PRIVATE_KEY}",
+          "privateKey": "\${PRIVATE_KEY}",
           "shortIds": [""]
         }
       }
@@ -122,13 +108,13 @@ JSON
 echo ""
 echo "=========================================================="
 echo "  VLESS+TCP+REALITY Link:"
-echo "  vless://${UUID}@${SERVER_IP}:${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&fp=chrome&pbk=${PUBLIC_KEY}&allowInsecure=1#Nour"
+echo "  vless://\${UUID}@${server_ip}:\${SERVER_PORT}?encryption=none&security=reality&sni=playstation.net&fp=chrome&pbk=\${PUBLIC_KEY}&allowInsecure=1#Nour"
 echo "=========================================================="
 echo ""
 
 echo "Starting Xray..."
-xray run -c "$CONFIG_PATH"
-XRAY_EOF
+xray run -c "\$CONFIG_PATH"
+EOF
 }
 
 # ==========================================
@@ -150,10 +136,11 @@ echo "  ╔═══════════════════════
 echo "  ║         ✅  SETUP COMPLETE               ║"
 echo "  ╠══════════════════════════════════════════╣"
 echo "  ║                                          ║"
+echo "  ║  🌍  Using IP        →  $server_ip"
 echo "  ║  ⚙️  Xray Config      →  Ready            ║"
 echo "  ║                                          ║"
 echo "  ╠══════════════════════════════════════════╣"
 echo "  ║  ▶  To start Xray:                       ║"
-echo "bash ../xray.sh"
+echo "  ║  bash $XRAY_SCRIPT                       ║"
 echo "  ╚══════════════════════════════════════════╝"
 printf "\e[0m\n"
