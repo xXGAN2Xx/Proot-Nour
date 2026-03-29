@@ -17,11 +17,11 @@ log() {
     level=$1
     message=$2
     color=$3
-    
+
     if [ -z "$color" ]; then
         color="$NC"
     fi
-    
+
     printf "${color}[$level]${NC} $message\n"
 }
 
