@@ -60,7 +60,7 @@ sync_scripts() {
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc/install.sh"
+        ["vnc_install.sh"]="$BASE/install.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
