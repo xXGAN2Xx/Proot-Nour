@@ -90,7 +90,7 @@ export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 sync_scripts
 
 # 4. Fixed syntax error (added the required space after 'if')
-if[ -f "${HOME}/server.jar" ]; then
+if [ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
 fi
 
