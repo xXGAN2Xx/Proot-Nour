@@ -12,6 +12,11 @@ DEP_FLAG="${HOME}/.deps"
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
+# Set environment variables for SSL certificates so tools can find them
+export SSL_CERT_FILE="${HOME}/.local/etc/ssl/certs/ca-certificates.crt"
+export CURL_CA_BUNDLE="${HOME}/.local/etc/ssl/certs/ca-certificates.crt"
+export WGETRC="${HOME}/.wgetrc"
+
 setup_tools() {
     echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
@@ -27,14 +32,25 @@ setup_tools() {
         *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
     esac
 
+    echo -e "${Y}Installing ca-certificates...${NC}"
+    mkdir -p "${HOME}/.local/etc/ssl/certs"
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSL -k "https://curl.se/ca/cacert.pem" -o "$SSL_CERT_FILE"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q --no-check-certificate "https://curl.se/ca/cacert.pem" -O "$SSL_CERT_FILE"
+    else
+        echo -e "${R}Error: Neither wget nor curl found to download ca-certificates.${NC}"
+        exit 1
+    fi
+    
+    # Configure wget to use the downloaded certificates
+    echo "ca_certificate = $SSL_CERT_FILE" > "$WGETRC"
+
     echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
     if command -v wget >/dev/null 2>&1; then
-        wget -q "$BBOX_URL" -O "${LOCAL_BIN}/busybox"
+        wget -q --no-check-certificate "$BBOX_URL" -O "${LOCAL_BIN}/busybox"
     elif command -v curl >/dev/null 2>&1; then
-        curl -sSL "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
-    else
-        echo -e "${R}Error: Neither wget nor curl found to download initial tools.${NC}"
-        exit 1
+        curl -sSL -k "$BBOX_URL" -o "${LOCAL_BIN}/busybox"
     fi
     chmod +x "${LOCAL_BIN}/busybox"
     
@@ -62,8 +78,7 @@ sync_scripts() {
     # Fixed the array formatting so URLs don't merge
     declare -A scripts=(
         ["common.sh"]="$BASE/common.sh"
-        ["entrypoint.sh"]="$BASE/entrypoint.sh"
-        ["helper.sh"]="$BASE/helper.sh"
+        ["entrypoint.sh"]="$BASE/entrypoint.sh"["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
         ["autorun.sh"]="$BASE/autorun.sh"
@@ -90,7 +105,7 @@ export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 sync_scripts
 
 # 4. Fixed syntax error (added the required space after 'if')
-if [ -f "${HOME}/server.jar" ]; then
+if[ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
 fi
 
