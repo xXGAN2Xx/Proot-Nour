@@ -73,7 +73,6 @@ sync_scripts() {
     
     # Reverted to the original working BASE URL
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
-    local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     
     # Fixed the array formatting so URLs don't merge
     declare -A scripts=(
@@ -83,8 +82,8 @@ sync_scripts() {
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
         ["autorun.sh"]="$BASE/autorun.sh"
-        ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
         ["vnc_install.sh"]="$BASE/vnc/install.sh"
+        ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     )
 
     for path in "${!scripts[@]}"; do
