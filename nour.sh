@@ -2,7 +2,6 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
-export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
@@ -60,13 +59,11 @@ sync_scripts() {
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc/install.sh"
-        ["common.sh"]="$BASE/common.sh"
+        ["vnc_install.sh"]="$BASE/vnc/install.sh"["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
-        ["run.sh"]="$BASE/run.sh"
-        ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
+        ["run.sh"]="$BASE/run.sh"["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
         ["autorun.sh"]="$BASE/autorun.sh"
     )
 
@@ -78,10 +75,17 @@ sync_scripts() {
 }
 
 cd "${HOME}"
+
+# 1. Install tools first (which provides 'wget' if it's missing)
 [[ -f "$DEP_FLAG" ]] || setup_tools
+
+# 2. Now it is safe to use wget to fetch the IP
+export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
+
+# 3. Continue with the rest of the script
 sync_scripts
 
-if [ -f "${HOME}/server.jar" ]; then
+if[ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
 fi
 
