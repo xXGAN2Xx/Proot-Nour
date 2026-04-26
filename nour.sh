@@ -56,11 +56,11 @@ setup_tools() {
 sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
 
-    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/scripts"
+    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
 
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc_install.sh"
+        ["vnc_install.sh"]="$BASE/vnc/install.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
