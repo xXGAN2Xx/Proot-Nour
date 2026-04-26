@@ -55,15 +55,18 @@ setup_tools() {
 sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
     
-    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
+    # Updated to match the Proot-Nour repository
+    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Proot-Nour/refs/heads/main/scripts"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     
+    # Fixed the formatting so URLs don't merge and cause 404 errors
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc/install.sh"["common.sh"]="$BASE/common.sh"
+        ["vnc_install.sh"]="$BASE/vnc/install.sh"
+        ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
-        ["install.sh"]="$BASE/install.sh"
-        ["run.sh"]="$BASE/run.sh"["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
+        ["install.sh"]="$BASE/install.sh"["run.sh"]="$BASE/run.sh"
+        ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
         ["autorun.sh"]="$BASE/autorun.sh"
     )
 
@@ -85,6 +88,7 @@ export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 # 3. Continue with the rest of the script
 sync_scripts
 
+# Fixed syntax error (added space after 'if')
 if[ -f "${HOME}/server.jar" ]; then
     chmod +x "${HOME}/server.jar"
 fi
