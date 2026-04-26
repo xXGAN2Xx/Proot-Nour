@@ -72,7 +72,7 @@ sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
     
     # Reverted to the original working BASE URL
-    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
+    local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts/"
     local SYSTEMCTL_URL="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     
     # Fixed the array formatting so URLs don't merge
