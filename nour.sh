@@ -61,13 +61,14 @@ sync_scripts() {
     
     # Fixed the array formatting so URLs don't merge
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc/install.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
-        ["install.sh"]="$BASE/install.sh"["run.sh"]="$BASE/run.sh"
-        ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
+        ["install.sh"]="$BASE/install.sh"
+        ["run.sh"]="$BASE/run.sh"
         ["autorun.sh"]="$BASE/autorun.sh"
+        ["usr/local/bin/systemctl"]="$SYSTEMCTL_URL"
+        ["vnc_install.sh"]="$BASE/vnc/install.sh"
     )
 
     for path in "${!scripts[@]}"; do
