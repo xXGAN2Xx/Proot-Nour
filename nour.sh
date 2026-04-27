@@ -13,7 +13,7 @@ export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
 setup_tools() {
-echo -e "${B}Checking system architecture...${NC}"
+    echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
     
     case "$ARCH" in
