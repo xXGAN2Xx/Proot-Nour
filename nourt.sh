@@ -67,7 +67,7 @@ sync_scripts() {
         ["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
-        ["/vnc/install.sh"]="$BASE/vnc/install.sh"
+        ["vnc_install.sh"]="$BASE/vnc/install.sh"
         ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     )
 
