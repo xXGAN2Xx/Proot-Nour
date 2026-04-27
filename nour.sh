@@ -62,12 +62,12 @@ sync_scripts() {
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
     
     declare -A scripts=(
-        ["autorun.sh"]="$BASE/autorun.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
+        ["autorun.sh"]="$BASE/autorun.sh"
         ["vnc_install.sh"]="$BASE/vnc/install.sh"
         ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     )
