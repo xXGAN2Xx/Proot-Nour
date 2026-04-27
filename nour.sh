@@ -2,7 +2,6 @@
 
 export LANG=en_US.UTF-8
 export HOME="${HOME:-$(pwd)}"
-export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
 
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
@@ -46,7 +45,7 @@ setup_tools() {
     echo -e "${Y}Installing static jq...${NC}"
     "${LOCAL_BIN}/wget" -q "$JQ_URL" -O "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
-
+    
     echo -e "${Y}Installing PRoot engine...${NC}"
     "${LOCAL_BIN}/wget" -q "https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/proot" -O "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
@@ -86,6 +85,7 @@ fi
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
     echo -e "${G}Booting...${NC}"
+    export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
