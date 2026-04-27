@@ -13,18 +13,22 @@ export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
 mkdir -p "$LOCAL_BIN" "${HOME}/usr/local/bin"
 
 setup_tools() {
-    echo -e "${B}Checking system architecture...${NC}"
+echo -e "${B}Checking system architecture...${NC}"
     ARCH=$(uname -m)
+    
     case "$ARCH" in
-        x86_64)
+        x86_64|amd64)  
             BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
             JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
             ;;
-        aarch64)
-            BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-armv8l-linux-musl/busybox"
-            JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-arm64"
+        i*86)
+            BBOX_URL="https://busybox.net/downloads/binaries/1.35.0-i686-linux-musl/busybox"
+            JQ_URL="https://github.com/jqlang/jq/releases/latest/download/jq-linux-i386"
             ;;
-        *) echo -e "${R}Unsupported architecture: $ARCH${NC}"; exit 1 ;;
+        *) 
+            echo -e "${R}Error: Unsupported architecture: $ARCH${NC}" >&2
+            exit 1 
+            ;;
     esac
 
     echo -e "${Y}Installing BusyBox 1.35.0...${NC}"
@@ -37,7 +41,7 @@ setup_tools() {
         exit 1
     fi
     chmod +x "${LOCAL_BIN}/busybox"
-
+    
     for tool in xz tar unxz gzip bzip2 bash ip wget; do
         ln -sf ./busybox "${LOCAL_BIN}/${tool}"
     done
@@ -45,26 +49,26 @@ setup_tools() {
     echo -e "${Y}Installing static jq...${NC}"
     "${LOCAL_BIN}/wget" -q "$JQ_URL" -O "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
-    
+
     echo -e "${Y}Installing PRoot engine...${NC}"
-    "${LOCAL_BIN}/wget" -q "https://github.com/xXGAN2Xx/Proot-Nour/raw/refs/heads/main/proot" -O "$PROOT_BIN"
+    "${LOCAL_BIN}/wget" -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
     chmod +x "$PROOT_BIN"
     touch "$DEP_FLAG"
 }
 
 sync_scripts() {
     echo -e "${B}Synchronizing scripts with wget...${NC}"
-
+    
     local BASE="https://raw.githubusercontent.com/xXGAN2Xx/Pterodactyl-VPS-Egg-Nour/refs/heads/main/scripts"
-
+    
     declare -A scripts=(
-        ["vnc_install.sh"]="$BASE/vnc/install.sh"
+        ["install.sh"]="$BASE/vnc/install.sh"
+        ["autorun.sh"]="$BASE/autorun.sh"
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
         ["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
-        ["autorun.sh"]="$BASE/autorun.sh"
         ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     )
 
