@@ -64,7 +64,6 @@ sync_scripts() {
     declare -A scripts=(
         ["common.sh"]="$BASE/common.sh"
         ["entrypoint.sh"]="$BASE/entrypoint.sh"
-        ["helper.sh"]="$BASE/helper.sh"
         ["install.sh"]="$BASE/install.sh"
         ["run.sh"]="$BASE/run.sh"
         ["autorun.sh"]="$BASE/autorun.sh"
