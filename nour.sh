@@ -7,6 +7,7 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
 LOCAL_BIN="${HOME}/.local/bin"
 PROOT_BIN="${HOME}/usr/local/bin/proot"
+SYSTEMCTL_BIN="${HOME}/usr/local/bin/systemctl"
 DEP_FLAG="${HOME}/.deps"
 
 export PATH="${LOCAL_BIN}:${HOME}/.local/usr/bin:${HOME}/usr/local/bin:${PATH}"
@@ -50,10 +51,28 @@ setup_tools() {
     "${LOCAL_BIN}/wget" -q "$JQ_URL" -O "${LOCAL_BIN}/jq"
     chmod +x "${LOCAL_BIN}/jq"
 
-    echo -e "${Y}Installing PRoot engine...${NC}"
-    "${LOCAL_BIN}/wget" -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
-    chmod +x "$PROOT_BIN"
     touch "$DEP_FLAG"
+}
+
+check_proot() {
+    if [ ! -f "$PROOT_BIN" ]; then
+        echo -e "${Y}PRoot not found. Downloading PRoot engine...${NC}"
+        local ARCH=$(uname -m)
+        wget -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
+        chmod +x "$PROOT_BIN"
+    else
+        echo -e "${G}PRoot is already downloaded and ready.${NC}"
+    fi
+}
+
+check_systemctl() {
+    if[ ! -f "$SYSTEMCTL_BIN" ]; then
+        echo -e "${Y}systemctl not found. Downloading systemctl replacement...${NC}"
+        wget -q "https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py" -O "$SYSTEMCTL_BIN"
+        chmod +x "$SYSTEMCTL_BIN"
+    else
+        echo -e "${G}systemctl is already downloaded and ready.${NC}"
+    fi
 }
 
 sync_scripts() {
@@ -68,7 +87,6 @@ sync_scripts() {
         ["run.sh"]="$BASE/run.sh"
         ["autorun.sh"]="$BASE/autorun.sh"
         ["vnc_install.sh"]="$BASE/vnc/install.sh"
-        ["usr/local/bin/systemctl"]="https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py"
     )
 
     for path in "${!scripts[@]}"; do
@@ -80,6 +98,11 @@ sync_scripts() {
 
 cd "${HOME}"
 [[ -f "$DEP_FLAG" ]] || setup_tools
+
+# Check for proot and systemctl every time the script runs
+check_proot
+check_systemctl
+
 sync_scripts
 
 if [ -f "${HOME}/server.jar" ]; then
