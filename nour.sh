@@ -88,7 +88,7 @@ fi
 
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
     echo -e "${G}Booting...${NC}"
-    export server_ip=$(wget -qO- checkip.pterodactyl-installer.se)
+    export server_ip=$(wget -qO- --no-check-certificate https://checkip.pterodactyl-installer.se)
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
