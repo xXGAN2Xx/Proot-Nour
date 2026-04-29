@@ -66,7 +66,7 @@ check_proot() {
 }
 
 check_systemctl() {
-    if[ ! -f "$SYSTEMCTL_BIN" ]; then
+    if [ ! -f "$SYSTEMCTL_BIN" ]; then
         echo -e "${Y}systemctl not found. Downloading systemctl replacement...${NC}"
         wget -q "https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/refs/heads/master/files/docker/systemctl3.py" -O "$SYSTEMCTL_BIN"
         chmod +x "$SYSTEMCTL_BIN"
