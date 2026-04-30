@@ -164,7 +164,7 @@ def run_script(script_file: str):
             process.stdin.write(b"1\n")
             process.stdin.flush()
 
-            process.stdin.write(b"1\n")
+            process.stdin.write(b"4\n")
             process.stdin.flush()
 
             process.stdin.write(b"tmate -F\n")
