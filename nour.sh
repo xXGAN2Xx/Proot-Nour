@@ -112,15 +112,6 @@ fi
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
     echo -e "${G}Booting...${NC}"
     export server_ip=$(wget -qO- api.ipify.org)
-    # Detect if seccomp is blocked and disable it if so
-    if ! "$HOME/usr/local/bin/proot" "$@"; then
-        echo "proot failed (likely due to seccomp blocking ptrace)."
-        echo "Retrying with PROOT_NO_SECCOMP=1..."
-        export PROOT_NO_SECCOMP=1
-        
-        # Try again with the environment variable set
-        "$HOME/usr/local/bin/proot" "$@"
-    fi
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
