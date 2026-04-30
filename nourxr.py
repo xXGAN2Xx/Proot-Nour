@@ -167,7 +167,7 @@ def run_script(script_file: str):
             process.stdin.write(b"4\n")
             process.stdin.flush()
 
-            process.stdin.write(b"bash //xray.sh\n")
+            process.stdin.write(b"bash //sing-box.sh\n")
             process.stdin.flush()
 
         # Background thread to forward standard input to the process
