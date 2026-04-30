@@ -2,7 +2,7 @@
 
 export LANG=en_US.UTF-8
 export HOME="/home/container"
-
+export PROOT_NO_SECCOMP=1
 R='\033[0;31m'; G='\033[0;32m'; Y='\033[0;33m'; B='\033[0;34m'; NC='\033[0m'
 
 LOCAL_BIN="${HOME}/.local/bin"
