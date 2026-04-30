@@ -112,6 +112,10 @@ fi
 if [[ -f "${HOME}/entrypoint.sh" ]]; then
     echo -e "${G}Booting...${NC}"
     export server_ip=$(wget -qO- api.ipify.org)
+    # Detect if seccomp is blocked and disable it if so
+    if ! $HOME/usr/local/bin/proot --version >/dev/null 2>&1; then
+        export PROOT_NO_SECCOMP=1
+    fi
     exec /bin/sh "${HOME}/entrypoint.sh"
 else
     echo -e "${R}Error: entrypoint.sh missing.${NC}"; exit 1
