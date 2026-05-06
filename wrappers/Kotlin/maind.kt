@@ -1,8 +1,5 @@
 import java.io.File
 import java.io.IOException
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
-import java.lang.ProcessBuilder
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -34,6 +31,7 @@ fun main() {
         e.printStackTrace()
     }
 }
+
 
 fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     val scriptFile = File(scriptName)
@@ -67,6 +65,7 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
         return false
     }
 
+    
     var canRun = false
 
     if (wasSuccessfullyUpdated) {
@@ -74,7 +73,7 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
             println("Permissions for updated '${fileToExecute.name}' were set during download.")
             canRun = true
         } else {
-            println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update. Cannot run.")
+            println("Error: Updated file '${fileToExecute.name}' is not executable despite successful update and permissioning process. Cannot run.")
         }
     } else if (isUpToDateAndSkippingPermSet) {
         println("Skipping explicit permission setting for up-to-date file '${fileToExecute.name}'.")
@@ -82,17 +81,17 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
             println("'${fileToExecute.name}' is already executable.")
             canRun = true
         } else {
-            println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Script will not be run.")
+            println("Warning: Up-to-date file '${fileToExecute.name}' is NOT executable. Permission setting was skipped as requested. Script will not be run.")
             canRun = false
         }
     } else {
-        println("Attempting to set/verify permissions for '${fileToExecute.name}'...")
+        println("Attempting to set/verify permissions for '${fileToExecute.name}' (e.g., fallback or initial run scenario)...")
         if (setExecutablePermission(fileToExecute)) {
             if (fileToExecute.canExecute()) {
                 println("Permissions set successfully for '${fileToExecute.name}'.")
                 canRun = true
             } else {
-                println("Error: permissions set but file is not executable. Cannot run.")
+                    println("Error: Setting permissions for '${fileToExecute.name}' was reported as successful, but the file is still not executable. Cannot run.")
             }
         } else {
             println("Failed to set executable permission for '${fileToExecute.name}'. Script will not be run.")
@@ -100,10 +99,10 @@ fun handleScript(scriptName: String, scriptUrl: String): Boolean {
     }
 
     if (canRun) {
-        println("Preparing to run '${fileToExecute.name}' with Auto-Input...")
+        println("Preparing to run '${fileToExecute.name}'...")
         runScript(fileToExecute)
     } else {
-        println("Script '${fileToExecute.name}' will not be run due to permission issues.")
+        println("Script '${fileToExecute.name}' will not be run due to permission issues or because it was not made executable.")
     }
     return true
 }
@@ -114,17 +113,25 @@ fun isFileChanged(localFile: File, remoteUrl: String): Boolean {
         val remoteContent = URI(remoteUrl).toURL().readText(Charsets.UTF_8)
         val localContent = localFile.readText(Charsets.UTF_8)
         val changed = remoteContent != localContent
-        if (changed) println("Contents differ for '${localFile.name}'.")
-        else println("Contents are the same for '${localFile.name}'.")
+        if (changed) {
+            println("Contents differ for '${localFile.name}'.")
+        } else {
+            println("Contents are the same for '${localFile.name}'.")
+        }
         return changed
+    } catch (e: IOException) {
+        println("IOException during comparison for '${localFile.name}': ${e.message}. Assuming it has changed to be safe.")
+        return true
     } catch (e: Exception) {
-        println("Error during comparison: ${e.message}. Assuming file changed.")
+        println("Unexpected error comparing file '${localFile.name}' with remote: ${e.message}. Assuming it has changed.")
+        e.printStackTrace()
         return true
     }
 }
 
 fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): File? {
     val url = runCatching { URI(scriptUrlString).toURL() }.getOrNull()
+    
     if (url == null) {
         println("Error: Invalid URL format: $scriptUrlString")
         return null
@@ -143,7 +150,7 @@ fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): 
     }
 
     if (!setExecutablePermission(destinationFile)) {
-        println("Download succeeded but setting permissions failed.")
+        println("Download of '$scriptFileName' succeeded but setting permissions failed.")
         return null
     }
     println("Successfully downloaded and ensured permissions for '$scriptFileName'.")
@@ -151,35 +158,62 @@ fun downloadAndSetPermissions(scriptUrlString: String, scriptFileName: String): 
 }
 
 fun setExecutablePermission(file: File): Boolean {
-    if (!file.exists()) return false
+    if (!file.exists()) {
+        println("Cannot set permissions: File '${file.name}' does not exist at path '${file.absolutePath}'.")
+        return false
+    }
     println("Setting executable permission on '${file.name}'...")
     try {
         val chmod = ProcessBuilder("chmod", "+x", file.absolutePath)
-        val chmodExitCode = chmod.start().waitFor()
-        return chmodExitCode == 0
-    } catch (e: Exception) {
+        val chmodProcess = chmod.start()
+        val chmodExitCode = chmodProcess.waitFor()
+
+        if (chmodExitCode != 0) {
+            val errorOutput = chmodProcess.errorStream.bufferedReader().readText().trim()
+            val stdOutput = chmodProcess.inputStream.bufferedReader().readText().trim()
+            println("Error setting executable permission for '${file.name}' (chmod exit code: $chmodExitCode).")
+            if (errorOutput.isNotEmpty()) println("chmod stderr: $errorOutput")
+            if (stdOutput.isNotEmpty()) println("chmod stdout: $stdOutput")
+            return false
+        } else {
+            println("Executable permission set for '${file.name}'.")
+            return true
+        }
+    } catch (e: IOException) {
+        println("IOException while trying to run chmod for '${file.name}': ${e.message}")
         e.printStackTrace()
+        return false
+    } catch (e: InterruptedException) {
+        println("Process 'chmod' for '${file.name}' was interrupted: ${e.message}")
+        e.printStackTrace()
+        Thread.currentThread().interrupt()
         return false
     }
 }
 
 fun runScript(scriptFile: File) {
+    if (!scriptFile.exists()) {
+        println("Cannot run script: '${scriptFile.name}' does not exist at ${scriptFile.absolutePath}.")
+        return
+    }
     if (!scriptFile.canExecute()) {
-        println("Cannot run script: '${scriptFile.name}' is not executable.")
+        println("Cannot run script: '${scriptFile.name}' is not executable. Path: ${scriptFile.absolutePath}")
         return
     }
 
     println("Running '${scriptFile.name}' and waiting for it to complete...")
     try {
-        val pb = ProcessBuilder("bash", scriptFile.absolutePath)
+        val processBuilder = ProcessBuilder("bash", scriptFile.absolutePath)
         
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT)
-        pb.redirectErrorStream(true)
-
-        val process = pb.start()
-
-        val writer = BufferedWriter(OutputStreamWriter(process.outputStream))
+        // Inherit output and error streams so we can see the script's output in the console
+        processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT)
+        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT)
         
+        val process = processBuilder.start()
+
+        // Create a writer to send commands to the script's standard input
+        val writer = process.outputStream.bufferedWriter()
+
         writer.write("1")
         writer.newLine()
         writer.flush()
@@ -192,32 +226,20 @@ fun runScript(scriptFile: File) {
         writer.newLine()
         writer.flush()
 
-
-        Thread {
-            try {
-                val buffer = ByteArray(1024)
-                var length: Int
-                while (System.`in`.read(buffer).also { length = it } != -1) {
-                    process.outputStream.write(buffer, 0, length)
-                    process.outputStream.flush()
-                }
-            } catch (e: Exception) {
-            }
-        }.start()
-
         val exitCode = process.waitFor()
         println("'${scriptFile.name}' finished with exit code $exitCode.")
-
+        
         if (exitCode == 0) {
             println("Script completed successfully. Exiting program...")
             exitProcess(0)
         }
-
     } catch (e: IOException) {
-        println("IOException running script: ${e.message}")
+        println("IOException while trying to run script '${scriptFile.name}': ${e.message}")
         e.printStackTrace()
     } catch (e: InterruptedException) {
-        println("Script execution interrupted.")
+        println("Script execution for '${scriptFile.name}' was interrupted: ${e.message}")
+        e.printStackTrace()
+        Thread.currentThread().interrupt()
     }
 }
 
@@ -229,9 +251,21 @@ fun downloadFile(url: java.net.URL, destination: File) {
         }
         Files.move(tempFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     } catch (e: Exception) {
-        if (tempFile.exists()) tempFile.delete()
-        throw IOException("Failed to download file", e)
+        if (tempFile.exists() && !tempFile.delete()) {
+            println("Warning: Failed to delete temporary file: ${tempFile.absolutePath}")
+        }
+        throw IOException("Failed to download or replace file '${destination.name}' from $url: ${e.message}", e)
     } finally {
-        if (tempFile.exists()) tempFile.delete()
+        if (tempFile.exists() && tempFile.length() > 0 && !destination.exists()) {
+            if (!tempFile.delete()) {
+                 println("Warning: Temporary file ${tempFile.absolutePath} could not be deleted after failed operation.")
+            }
+        } else if (tempFile.exists() && (!destination.exists() || destination.length() != tempFile.length())) {
+            if (!tempFile.delete()) {
+                 println("Warning: Temporary file ${tempFile.absolutePath} may still exist and could not be cleaned up.")
+            }
+        } else if (tempFile.exists()) {
+            tempFile.delete()
+        }
     }
 }
