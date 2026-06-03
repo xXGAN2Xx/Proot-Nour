@@ -28,7 +28,6 @@ setup_tools() {
             ;;
         *) 
             echo -e "${R}Error: Unsupported architecture: $ARCH${NC}" >&2
-            exit 1 
             ;;
     esac
 
