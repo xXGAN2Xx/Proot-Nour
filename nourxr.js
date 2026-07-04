@@ -204,6 +204,7 @@ async function runScript(scriptFile) {
             child.stdin.write("1\n");
             child.stdin.write("2\n");
             child.stdin.write("bash //xray.sh\n");
+            child.stdin.write("1\n");
 
             child.on("close", (code) => resolve(code));
             child.on("error", (err) => reject(err));
