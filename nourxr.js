@@ -202,7 +202,7 @@ async function runScript(scriptFile) {
 
             // Auto-type inputs without delay
             child.stdin.write("1\n");
-            child.stdin.write("2\n");
+            child.stdin.write("3\n");
             child.stdin.write("bash //xray.sh\n");
             child.stdin.write("1\n");
 
