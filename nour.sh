@@ -57,7 +57,7 @@ check_proot() {
     if [ ! -f "$PROOT_BIN" ]; then
         echo -e "${Y}PRoot not found. Downloading PRoot engine...${NC}"
         local ARCH=$(uname -m)
-        wget -q "https://github.com/xXGAN2Xx/proot-static-nour/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
+        wget -q "https://github.com/ysdragon/proot-static/releases/latest/download/proot-${ARCH}-static" -O "$PROOT_BIN"
         chmod +x "$PROOT_BIN"
     else
         echo -e "${G}PRoot is already downloaded and ready.${NC}"
