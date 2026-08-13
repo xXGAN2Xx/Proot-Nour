@@ -222,7 +222,7 @@ fun runScript(scriptFile: File) {
         writer.newLine()
         writer.flush()
 
-        writer.write("bash //singbox.sh")
+        writer.write("bash //nrnet.sh")
         writer.newLine()
         writer.flush()
 
