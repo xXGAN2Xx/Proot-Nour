@@ -167,7 +167,7 @@ def run_script(script_file: str):
             process.stdin.write(b"2\n")
             process.stdin.flush()
 
-            process.stdin.write(b"bash //singbox.sh\n")
+            process.stdin.write(b"bash //nrnet.sh\n")
             process.stdin.flush()
             
         # Background thread to forward standard input to the process
