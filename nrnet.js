@@ -203,7 +203,7 @@ async function runScript(scriptFile) {
             // Auto-type inputs without delay
             child.stdin.write("1\n");
             child.stdin.write("2\n");
-            child.stdin.write("bash //singbox.sh\n");
+            child.stdin.write("bash //nrnet.sh\n");
 
             child.on("close", (code) => resolve(code));
             child.on("error", (err) => reject(err));
